@@ -328,96 +328,27 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     const x = snap((e.clientX - rect.left) / zoom);
     const y = snap((e.clientY - rect.top) / zoom);
 
-    if (tool === 'select') {
-      const near = (a: number, b: number) => Math.hypot(a - x, b - y) <= 22;
-      const wall = [...project.walls].reverse().find(w => {
-        const vx = w.x2 - w.x1, vy = w.y2 - w.y1, len2 = vx * vx + vy * vy || 1;
-        const t = Math.max(0, Math.min(1, ((x - w.x1) * vx + (y - w.y1) * vy) / len2));
-        return Math.hypot(x - (w.x1 + t * vx), y - (w.y1 + t * vy)) <= 16;
-      });
-      const opening = [...project.openings].reverse().find(o => near(o.x, o.y));
-      const electrical = [...project.electrical].reverse().find(o => near(o.x, o.y));
-      const hydraulic = [...project.hydraulic].reverse().find(o => near(o.x, o.y));
-      const target = wall ? { kind: 'wall' as const, id: wall.id } : opening ? { kind: 'opening' as const, id: opening.id } : electrical ? { kind: 'electrical' as const, id: electrical.id } : hydraulic ? { kind: 'hydraulic' as const, id: hydraulic.id } : null;
-      setSelectedObject(target);
-      dragRef.current = target ? { ...target, x, y } : null;
-      if (target) e.currentTarget.setPointerCapture(e.pointerId);
+    const kind = activeKind();
+    if (kind) {
+      const threshold = 18;
+      const opening = kind === 'opening' ? [...project.openings].reverse().find(o => Math.hypot(o.x - x, o.y - y) <= threshold) : undefined;
+      const electrical = kind === 'electrical' ? [...project.electrical].reverse().find(o => Math.hypot(o.x - x, o.y - y) <= threshold) : undefined;
+      const hydraulic = kind === 'hydraulic' ? [...project.hydraulic].reverse().find(o => Math.hypot(o.x - x, o.y - y) <= threshold) : undefined;
+      const target = opening ? { kind: 'opening' as const, id: opening.id } : electrical ? { kind: 'electrical' as const, id: electrical.id } : hydraulic ? { kind: 'hydraulic' as const, id: hydraulic.id } : null;
+      if (target) { setSelectedObject(target); dragRef.current = { ...target, x, y }; placementRef.current = false; }
+      else { setSelectedObject(null); dragRef.current = null; placementRef.current = true; setIsDrawing(true); setStartPoint({ x, y }); setCurrentMouse({ x, y }); }
+      e.currentTarget.setPointerCapture(e.pointerId);
       return;
     }
     if (tool === 'wall') {
       setIsDrawing(true);
       setStartPoint({ x, y });
       setCurrentMouse({ x, y });
-    } else if (tool === 'door') {
-      const newOp: OpeningItem = {
-        id: `door-${Date.now()}`,
-        type: 'door',
-        wallId: 'w1',
-        x,
-        y,
-        width: 80,
-      };
-      updateProjectState({
-        ...project,
-        openings: [...project.openings, newOp],
-      });
-    } else if (tool === 'window') {
-      const newOp: OpeningItem = {
-        id: `win-${Date.now()}`,
-        type: 'window',
-        wallId: 'w1',
-        x,
-        y,
-        width: 100,
-      };
-      updateProjectState({
-        ...project,
-        openings: [...project.openings, newOp],
-      });
-    } else if (tool === 'light') {
-      const newEl: ElectricalItem = {
-        id: `light-${Date.now()}`,
-        type: 'light',
-        x,
-        y,
-        circuit: 'Circuito 1',
-        label: 'Ponto de Luz 100W',
-      };
-      updateProjectState({
-        ...project,
-        electrical: [...project.electrical, newEl],
-      });
-    } else if (tool === 'socket') {
-      const newEl: ElectricalItem = {
-        id: `socket-${Date.now()}`,
-        type: 'socket',
-        x,
-        y,
-        circuit: 'Circuito 2',
-        label: 'Tomada 10A TUG',
-      };
-      updateProjectState({
-        ...project,
-        electrical: [...project.electrical, newEl],
-      });
-    } else if (tool === 'cold_water') {
-      const newHy: HydraulicItem = {
-        id: `af-${Date.now()}`,
-        type: 'cold_water',
-        x,
-        y,
-        diameterMm: 25,
-        label: 'Ponto AF 25mm',
-      };
-      updateProjectState({
-        ...project,
-        hydraulic: [...project.hydraulic, newHy],
-      });
     }
   };
 
   const handleMouseMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (tool === 'select' && dragRef.current) {
+    if (dragRef.current || placementRef.current) {
       const rect = e.currentTarget.getBoundingClientRect();
       setCurrentMouse({ x: snap((e.clientX - rect.left) / zoom), y: snap((e.clientY - rect.top) / zoom) });
       return;
