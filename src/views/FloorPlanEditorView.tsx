@@ -275,6 +275,20 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       });
     }
 
+    // Highlight selected objects for clear visual feedback.
+    if (selectedObject) {
+      ctx.save(); ctx.strokeStyle = '#5B9BFF'; ctx.lineWidth = 3; ctx.setLineDash([5, 3]);
+      if (selectedObject.kind === 'wall') { const w = project.walls.find(item => item.id === selectedObject.id); if (w) { ctx.beginPath(); ctx.moveTo(w.x1, w.y1); ctx.lineTo(w.x2, w.y2); ctx.stroke(); } }
+      else { const item = selectedObject.kind === 'opening' ? project.openings.find(o => o.id === selectedObject.id) : selectedObject.kind === 'electrical' ? project.electrical.find(o => o.id === selectedObject.id) : project.hydraulic.find(o => o.id === selectedObject.id); if (item) { ctx.beginPath(); ctx.arc(item.x, item.y, 15, 0, Math.PI * 2); ctx.stroke(); } }
+      ctx.restore();
+    }
+    if (placementRef.current && currentMouse && tool !== 'wall') {
+      const p = snapToNearestWall(currentMouse.x, currentMouse.y); ctx.save(); ctx.globalAlpha = 0.65; ctx.setLineDash([4, 3]); ctx.strokeStyle = '#5B9BFF'; ctx.fillStyle = '#5B9BFF';
+      if (tool === 'door' || tool === 'window') { ctx.translate(p.x, p.y); ctx.rotate(p.rotation * Math.PI / 180); ctx.beginPath(); if (tool === 'door') { ctx.arc(0, 0, 25, 0, Math.PI / 2); ctx.moveTo(0, 0); ctx.lineTo(25, 0); } else { ctx.moveTo(-20, 0); ctx.lineTo(20, 0); } ctx.stroke(); }
+      else { ctx.beginPath(); ctx.arc(p.x, p.y, tool === 'cold_water' ? 9 : 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+      ctx.restore();
+    }
+
     // Temporary line while drawing a wall
     if (isDrawing && startPoint && currentMouse && tool === 'wall') {
       ctx.strokeStyle = '#3DD68C';
@@ -299,6 +313,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     currentMouse,
     tool,
     isDark,
+    selectedObject,
   ]);
 
   const snap = (coord: number) => Math.round(coord / 20) * 20;
@@ -694,7 +709,6 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       {/* Bottom Tools Toolbar (Page 6 briefing: "Barra de ferramentas inferior") */}
       <div className="p-2.5 rounded-2xl bg-[#17243A] border border-[#2A3A55] grid grid-cols-2 sm:flex sm:items-center sm:justify-between gap-1">
         {[
-          { id: 'select' as ToolMode, label: 'Mover/Selecionar', icon: Move },
           { id: 'wall' as ToolMode, label: '+ Parede', icon: Square },
           { id: 'door' as ToolMode, label: '+ Porta', icon: DoorOpen },
           { id: 'window' as ToolMode, label: '+ Janela', icon: Maximize2 },
