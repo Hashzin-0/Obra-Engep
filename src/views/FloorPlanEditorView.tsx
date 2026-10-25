@@ -37,7 +37,7 @@ import { exportToLocalCalendar, getGoogleCalendarUrl } from '../utils/calendarSy
 import { FurnitureCatalog } from '../components/FurnitureCatalog';
 import { FURNITURE_CATALOG, type FurnitureCatalogItem } from '../data/furnitureCatalog';
 
-type ToolMode = 'select' | 'wall' | 'door' | 'window' | 'socket' | 'light' | 'cold_water' | 'dimension' | 'wire' | 'water_pipe' | 'sewage_pipe' | 'sink' | 'faucet' | 'shower' | 'toilet';
+type ToolMode = 'select' | 'wall' | 'door' | 'window' | 'socket' | 'light' | 'cold_water' | 'dimension' | 'wire' | 'conduit' | 'switch' | 'panel' | 'data_point' | 'grounding' | 'water_pipe' | 'sewage_pipe' | 'vent_pipe' | 'rain_pipe' | 'sink' | 'faucet' | 'shower' | 'toilet' | 'floor_drain' | 'cleanout' | 'inspection_box' | 'tank' | 'heater' | 'grease_trap';
 
 interface FloorPlanEditorViewProps {
   onOpenCalendarModal?: () => void;
@@ -372,11 +372,11 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       ctx.restore();
     }
     // Temporary line while drawing a wall
-    if (isDrawing && startPoint && currentMouse && ['wire','water_pipe','sewage_pipe'].includes(tool)) {
+    if (isDrawing && startPoint && currentMouse && ['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'].includes(tool)) {
       const routeId=ensureUuid(tool);
       if(Math.hypot(currentMouse.x-startPoint.x,currentMouse.y-startPoint.y)>5){
-        if(tool==='wire'){const route:ElectricalItem={id:routeId,type:'wire',x:startPoint.x,y:startPoint.y,x2:currentMouse.x,y2:currentMouse.y,circuit:'Circuito 1',label:'Fiação elétrica'};updateProjectState({...project,electrical:[...project.electrical,route]});setSelectedObject({kind:'electrical',id:routeId});}
-        else{const route:HydraulicItem={id:routeId,type:tool as HydraulicItem['type'],x:startPoint.x,y:startPoint.y,x2:currentMouse.x,y2:currentMouse.y,diameterMm:tool==='sewage_pipe'?100:25,label:tool==='sewage_pipe'?'Tubulação de esgoto Ø100mm':'Tubulação de água Ø25mm'};updateProjectState({...project,hydraulic:[...project.hydraulic,route]});setSelectedObject({kind:'hydraulic',id:routeId});}
+        if(tool==='wire'||tool==='conduit'){const route:ElectricalItem={id:routeId,type:tool as ElectricalItem['type'],x:startPoint.x,y:startPoint.y,x2:currentMouse.x,y2:currentMouse.y,circuit:'Circuito 1',label:tool==='wire'?'Fiação elétrica':'Eletroduto elétrico'};updateProjectState({...project,electrical:[...project.electrical,route]});setSelectedObject({kind:'electrical',id:routeId});}
+        else{const route:HydraulicItem={id:routeId,type:tool as HydraulicItem['type'],x:startPoint.x,y:startPoint.y,x2:currentMouse.x,y2:currentMouse.y,diameterMm:tool==='sewage_pipe'?100:tool==='rain_pipe'?75:tool==='vent_pipe'?50:25,label:tool==='sewage_pipe'?'Tubulação de esgoto Ø100mm':tool==='rain_pipe'?'Águas pluviais Ø75mm':tool==='vent_pipe'?'Ventilação sanitária Ø50mm':'Tubulação de água Ø25mm'};updateProjectState({...project,hydraulic:[...project.hydraulic,route]});setSelectedObject({kind:'hydraulic',id:routeId});}
       }
     }
     if (isDrawing && startPoint && currentMouse && tool === 'wall' && wallDrawMode === 'segment') {
@@ -427,8 +427,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   };
   const activeKind = (): 'opening' | 'electrical' | 'hydraulic' | null => {
     if (tool === 'door' || tool === 'window') return 'opening';
-    if (tool === 'socket' || tool === 'light') return 'electrical';
-    if (tool === 'cold_water' || ['sink','faucet','shower','toilet'].includes(tool)) return 'hydraulic';
+    if (['socket','light','switch','panel','data_point','grounding'].includes(tool)) return 'electrical';
+    if (['cold_water','hot_water','sink','faucet','shower','toilet','floor_drain','cleanout','inspection_box','tank','heater','grease_trap'].includes(tool)) return 'hydraulic';
     return null;
   };
 
@@ -589,12 +589,12 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       if (tool === 'door' || tool === 'window') {
         const item: OpeningItem = { id: ensureUuid(tool + '-' + Date.now()), type: tool, wallId: p.wallId || project.walls[0]?.id || '', x, y, width: tool === 'door' ? 80 : 100, rotation: p.rotation };
         updateProjectState({ ...project, openings: [...project.openings, item] }); setSelectedObject({ kind: 'opening', id: item.id });
-      } else if (tool === 'light' || tool === 'socket') {
-        const item: ElectricalItem = { id: ensureUuid(tool + '-' + Date.now()), type: tool, x, y, rotation: p.wallId ? p.rotation : 0, circuit: tool === 'light' ? 'Circuito 1' : 'Circuito 2', label: tool === 'light' ? 'Ponto de Luz 100W' : 'Tomada 10A TUG' };
+      } else if (['light','socket','switch','panel','data_point','grounding'].includes(tool)) {
+        const item: ElectricalItem = { id: ensureUuid(tool + '-' + Date.now()), type: tool as ElectricalItem['type'], x, y, rotation: p.wallId ? p.rotation : 0, circuit: tool === 'light' ? 'Circuito de iluminação' : tool === 'socket' ? 'Circuito de tomadas' : 'A definir', label: ({light:'Ponto de luz',socket:'Tomada TUG',switch:'Interruptor',panel:'Quadro de distribuição',data_point:'Ponto de dados',grounding:'Ponto de aterramento'} as Record<string,string>)[tool] || tool };
         updateProjectState({ ...project, electrical: [...project.electrical, item] }); setSelectedObject({ kind: 'electrical', id: item.id });
-      } else if (['cold_water','sink','faucet','shower','toilet'].includes(tool)) {
+      } else if (['cold_water','hot_water','sink','faucet','shower','toilet','floor_drain','cleanout','inspection_box','tank','heater','grease_trap'].includes(tool)) {
         const hydraulicType = tool as HydraulicItem['type'];
-        const item: HydraulicItem = { id: ensureUuid(tool + '-' + Date.now()), type: hydraulicType, x, y, diameterMm: tool === 'toilet' ? 100 : tool === 'shower' || tool === 'sink' ? 40 : 25, label: ({cold_water:'Ponto AF 25mm',sink:'Pia',faucet:'Torneira',shower:'Chuveiro',toilet:'Vaso sanitário'} as Record<string,string>)[tool] || tool };
+        const item: HydraulicItem = { id: ensureUuid(tool + '-' + Date.now()), type: hydraulicType, x, y, diameterMm: ['toilet','inspection_box','grease_trap'].includes(tool) ? 100 : ['shower','sink','floor_drain','cleanout'].includes(tool) ? 40 : 25, label: ({cold_water:'Ponto de água fria',hot_water:'Ponto de água quente',sink:'Pia',faucet:'Torneira',shower:'Chuveiro',toilet:'Bacia sanitária',floor_drain:'Ralo sifonado',cleanout:'Ponto de limpeza',inspection_box:'Caixa de inspeção',tank:'Reservatório de água',heater:'Aquecedor de água',grease_trap:'Caixa de gordura'} as Record<string,string>)[tool] || tool };
         updateProjectState({ ...project, hydraulic: [...project.hydraulic, item] }); setSelectedObject({ kind: 'hydraulic', id: item.id });
       }
       placementRef.current = false; setIsDrawing(false); setStartPoint(null); setCurrentMouse(null); return;
@@ -1004,8 +1004,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         {[
           { id: 'select' as ToolMode, label: 'Mover/Selecionar', icon: Maximize2 },
           ...(showArchLayer ? [{ id: 'wall' as ToolMode, label: '+ Parede', icon: Square }, { id: 'door' as ToolMode, label: '+ Porta', icon: DoorOpen }, { id: 'window' as ToolMode, label: '+ Janela', icon: Maximize2 }] : []),
-          ...(showElecLayer ? [{ id: 'light' as ToolMode, label: '+ Ponto Luz', icon: Zap }, { id: 'socket' as ToolMode, label: '+ Tomada', icon: Zap }, { id: 'wire' as ToolMode, label: '+ Fiação', icon: Zap }] : []),
-          ...(showHydLayer ? [{ id: 'cold_water' as ToolMode, label: '+ Ponto Água', icon: Droplets }, { id: 'water_pipe' as ToolMode, label: '+ Cano água', icon: Droplets }, { id: 'sewage_pipe' as ToolMode, label: '+ Cano esgoto', icon: Droplets }, { id: 'sink' as ToolMode, label: '+ Pia', icon: Droplets }, { id: 'faucet' as ToolMode, label: '+ Torneira', icon: Droplets }, { id: 'shower' as ToolMode, label: '+ Chuveiro', icon: Droplets }, { id: 'toilet' as ToolMode, label: '+ Vaso', icon: Droplets }] : []),
+          ...(showElecLayer ? [{ id: 'light' as ToolMode, label: '+ Luz · NBR 5410', icon: Zap }, { id: 'socket' as ToolMode, label: '+ Tomada · NBR 5410', icon: Zap }, { id: 'switch' as ToolMode, label: '+ Interruptor', icon: Zap }, { id: 'panel' as ToolMode, label: '+ Quadro', icon: Zap }, { id: 'wire' as ToolMode, label: '+ Fiação', icon: Zap }, { id: 'conduit' as ToolMode, label: '+ Eletroduto', icon: Zap }, { id: 'data_point' as ToolMode, label: '+ Dados · NBR 14565', icon: Zap }, { id: 'grounding' as ToolMode, label: '+ Aterramento', icon: Zap }] : []),
+          ...(showHydLayer ? [{ id: 'cold_water' as ToolMode, label: '+ Água fria · NBR 5626', icon: Droplets }, { id: 'hot_water' as ToolMode, label: '+ Água quente', icon: Droplets }, { id: 'water_pipe' as ToolMode, label: '+ Tubo água', icon: Droplets }, { id: 'sewage_pipe' as ToolMode, label: '+ Esgoto · NBR 8160', icon: Droplets }, { id: 'vent_pipe' as ToolMode, label: '+ Ventilação sanitária', icon: Droplets }, { id: 'rain_pipe' as ToolMode, label: '+ Pluvial · NBR 10844', icon: Droplets }, { id: 'sink' as ToolMode, label: '+ Pia', icon: Droplets }, { id: 'faucet' as ToolMode, label: '+ Torneira', icon: Droplets }, { id: 'shower' as ToolMode, label: '+ Chuveiro', icon: Droplets }, { id: 'toilet' as ToolMode, label: '+ Bacia sanitária', icon: Droplets }, { id: 'floor_drain' as ToolMode, label: '+ Ralo', icon: Droplets }, { id: 'cleanout' as ToolMode, label: '+ Limpeza', icon: Droplets }, { id: 'inspection_box' as ToolMode, label: '+ Caixa inspeção', icon: Droplets }, { id: 'tank' as ToolMode, label: '+ Reservatório', icon: Droplets }, { id: 'heater' as ToolMode, label: '+ Aquecedor', icon: Droplets }, { id: 'grease_trap' as ToolMode, label: '+ Caixa gordura', icon: Droplets }] : []),
         ].map(({ id, label, icon: Icon }) => (
           <button
             key={id}
