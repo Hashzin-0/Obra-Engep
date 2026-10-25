@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { TopHeader } from './components/TopHeader';
 import { BottomNav } from './components/BottomNav';
@@ -134,7 +135,7 @@ function AppShell() {
     if (!supabase) return;
 
     let active = true;
-    const syncAuthState = (session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']) => {
+    const syncAuthState = (session: Session | null) => {
       if (!active) return;
       const user = session?.user;
       setAuthenticatedUser(user && !user.is_anonymous ? { id: user.id, email: user.email } : null);
@@ -540,7 +541,7 @@ function AppShell() {
     <div className="min-h-screen flex flex-col transition-colors selection:bg-[#1F66D6] selection:text-white">
       <TopHeader
         onGoogleSignIn={authenticatedUser ? undefined : handleGoogleSignIn}
-        authenticatedEmail={authenticatedUser?.email}
+        authenticatedEmail={authenticatedUser ? (authenticatedUser.email || 'Conta conectada') : undefined}
         onSignOut={authenticatedUser ? handleSignOut : undefined}
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenCalendarModal={() => setIsCalendarModalOpen(true)}
