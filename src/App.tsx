@@ -121,18 +121,6 @@ function AppShell() {
     }))
   );
 
-  useEffect(() => {
-    writeStored(STORAGE_KEYS.deadlines, deadlines);
-    writeStored(STORAGE_KEYS.history, historyItems);
-    writeStored(STORAGE_KEYS.favorites, favorites);
-    writeStored(STORAGE_KEYS.notebook, notes);
-    writeStored(STORAGE_KEYS.products, products);
-    writeStored(STORAGE_KEYS.nrChecks, checklists);
-    writeStored(STORAGE_KEYS.projects, projects);
-    // Migra IDs legados para UUID apenas na primeira montagem.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const [syncState, setSyncState] = useState<SyncState>({
     status: isSupabaseConfigured ? 'connecting' : 'disabled',
     message: isSupabaseConfigured ? undefined : 'Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.',

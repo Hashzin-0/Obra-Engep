@@ -123,6 +123,7 @@ export interface AutomotiveProductItem {
   sourceLabel: string;
   verifiedDate: string;
   labelPhotoReference?: string;
+  labelPhotoStoragePath?: string;
   labelPhotoUrl?: string;
 }
 

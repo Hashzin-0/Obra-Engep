@@ -76,6 +76,17 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   const [zoom, setZoom] = useState(1);
   const [stage, setStage] = useState<'estudo_preliminar' | 'executivo'>(project.stage);
 
+  useEffect(() => {
+    if (projects.length > 0 && !projects.some((item) => item.id === project.id)) {
+      const next = projects[0];
+      setProject(next);
+      setHistory([next]);
+      setHistoryIndex(0);
+      setStage(next.stage);
+      localStorage.setItem('obra_engep_active_project', JSON.stringify(next));
+    }
+  }, [projects, project.id]);
+
   // Drawing state
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);

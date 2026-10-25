@@ -32,6 +32,8 @@ import { SourceSeal } from '../components/SourceSeal';
 import { AlertBanner } from '../components/AlertBanner';
 import { LimitBar } from '../components/LimitBar';
 import { loadMediaUrl, saveMedia } from '../services/mediaStore';
+import { ensureAnonymousSession, isSupabaseConfigured, supabase } from '../lib/supabase';
+import { loadLibraryItems, uploadProductLabel } from '../services/remoteRepository';
 import {
   AutomotiveProductItem,
   FavoriteItem,
@@ -92,11 +94,36 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [targetVolumeMl, setTargetVolumeMl] = useState<number>(1000);
   const [editingProduct, setEditingProduct] = useState<AutomotiveProductItem | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [referenceNrs, setReferenceNrs] = useState(REFERENCE_NRS);
+  const [referenceAbnt, setReferenceAbnt] = useState(REFERENCE_ABNT);
+  const [referenceLegislation, setReferenceLegislation] = useState(REFERENCE_LEGISLATION);
+  const [serviceManuals, setServiceManuals] = useState(SERVICE_MANUALS);
+  const [dirtCatalog, setDirtCatalog] = useState(DIRT_CATALOG);
 
-  const currentNR = REFERENCE_NRS.find((nr) => nr.id === selectedNRId) || REFERENCE_NRS[0];
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let active = true;
+    void loadLibraryItems()
+      .then((remote) => {
+        if (!active) return;
+        if (remote.nrs.length) setReferenceNrs(remote.nrs);
+        if (remote.abnt.length) setReferenceAbnt(remote.abnt);
+        if (remote.legislation.length) setReferenceLegislation(remote.legislation);
+        if (remote.manuals.length) setServiceManuals(remote.manuals);
+        if (remote.dirt.length) setDirtCatalog(remote.dirt);
+      })
+      .catch(() => {
+        // Mantém o conteúdo estático verificado como fallback.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const currentNR = referenceNrs.find((nr) => nr.id === selectedNRId) || referenceNrs[0];
   const currentProduct = products.find((p) => p.id === selectedProductId) || products[0];
   const currentManual =
-    SERVICE_MANUALS.find((manual) => manual.id === selectedManualId) || SERVICE_MANUALS[0];
+    serviceManuals.find((manual) => manual.id === selectedManualId) || serviceManuals[0];
 
   const saveProcedure = (product: AutomotiveProductItem) => {
     onSaveNote({
@@ -153,7 +180,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       {activeSection === 'nrs' && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {REFERENCE_NRS.map((nr) => (
+            {referenceNrs.map((nr) => (
               <button
                 key={nr.id}
                 onClick={() => setSelectedNRId(nr.id)}
@@ -279,7 +306,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             não autorizadas.
           </AlertBanner>
           <div className="space-y-3">
-            {REFERENCE_ABNT.map((norma) => (
+            {referenceAbnt.map((norma) => (
               <div key={norma.id} className="p-4 rounded-2xl bg-[#17243A] border border-[#2A3A55] space-y-2.5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -333,7 +360,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             ))}
           </div>
           <div className="space-y-3">
-            {REFERENCE_LEGISLATION.filter(
+            {referenceLegislation.filter(
               (leg) => selectedLegJurisdiction === 'todos' || leg.jurisdiction === selectedLegJurisdiction
             ).map((leg) => (
               <div key={leg.id} className="p-4 rounded-2xl bg-[#17243A] border border-[#2A3A55] space-y-2.5">
@@ -494,6 +521,13 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                         <span className="text-[11px] font-mono">{currentProduct.verifiedDate}</span>
                       </div>
 
+                      {(currentProduct.labelPhotoReference || currentProduct.labelPhotoStoragePath) && (
+                        <ProductLabelPhoto
+                          reference={currentProduct.labelPhotoReference}
+                          storagePath={currentProduct.labelPhotoStoragePath}
+                        />
+                      )}
+
                       {currentProduct.instructions && (
                         <p className="text-xs text-[#E8EDF5] leading-relaxed bg-black/20 p-3 rounded-xl">
                           {currentProduct.instructions}
@@ -529,7 +563,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
           {selectedEsteticaTab === 'sujeiras' && (
             <div className="space-y-3">
-              {DIRT_CATALOG.map((dirt) => (
+              {dirtCatalog.map((dirt) => (
                 <div key={dirt.id} className="p-4 rounded-2xl bg-[#17243A] border border-[#2A3A55] space-y-2">
                   <div className="flex items-center justify-between">
                     <h4 className="font-bold text-sm text-white">{dirt.name}</h4>
@@ -615,7 +649,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       {activeSection === 'manuais' && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-2">
-            {SERVICE_MANUALS.map((manual) => (
+            {serviceManuals.map((manual) => (
               <button
                 key={manual.id}
                 onClick={() => setSelectedManualId(manual.id)}
@@ -809,6 +843,18 @@ const ProductFormModal: React.FC<{
               await saveMedia(key, file);
               update('labelPhotoReference', key);
               update('labelPhotoUrl', URL.createObjectURL(file));
+
+              if (isSupabaseConfigured) {
+                try {
+                  const session = await ensureAnonymousSession();
+                  if (session) {
+                    const storagePath = await uploadProductLabel(session.userId, form.id, file);
+                    update('labelPhotoStoragePath', storagePath);
+                  }
+                } catch (error) {
+                  console.warn('Falha ao enviar foto do rótulo para o Supabase:', error);
+                }
+              }
             }}
             className="text-[11px] text-[#9FB0C8] file:mr-2 file:rounded-lg file:border-0 file:bg-[#1F66D6] file:px-3 file:py-1.5 file:text-white"
           />
@@ -833,25 +879,49 @@ const ProductFormModal: React.FC<{
   );
 };
 
-const ProductLabelPhoto: React.FC<{ reference: string }> = ({ reference }) => {
+const ProductLabelPhoto: React.FC<{ reference?: string; storagePath?: string }> = ({
+  reference,
+  storagePath,
+}) => {
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     let objectUrl: string | null = null;
-    void loadMediaUrl(reference).then((nextUrl) => {
-      if (!active) {
-        if (nextUrl) URL.revokeObjectURL(nextUrl);
-        return;
+
+    const load = async () => {
+      if (reference) {
+        const localUrl = await loadMediaUrl(reference);
+        if (!active) return;
+        if (localUrl) {
+          objectUrl = localUrl;
+          setUrl(localUrl);
+          return;
+        }
       }
-      objectUrl = nextUrl;
-      setUrl(nextUrl);
-    });
+
+      if (storagePath && isSupabaseConfigured) {
+        const session = await ensureAnonymousSession();
+        if (!active || !session || !supabase) return;
+        const client = supabase;
+        const { data, error } = await client.storage.from('user-media').createSignedUrl(storagePath, 3600);
+        if (!active || error || !data?.signedUrl) return;
+        const response = await fetch(data.signedUrl);
+        if (!response.ok) return;
+        const blob = await response.blob();
+        await saveMedia(storagePath, blob);
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
+      }
+    };
+
+    void load();
     return () => {
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [reference]);
+  }, [reference, storagePath]);
 
   if (!url) return null;
   return <img src={url} alt="Rótulo do produto" className="w-full max-h-56 rounded-xl object-contain bg-black/30 border border-[#2A3A55]" />;

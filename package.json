@@ -11,6 +11,7 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "vapid:generate": "node scripts/generate-vapid-keys.mjs",
+    "vapid:convert": "node scripts/convert-vapid-keys.mjs",
     "test": "tsx --test src/utils/*.test.ts"
   },
   "dependencies": {

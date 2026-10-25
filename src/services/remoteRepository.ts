@@ -5,7 +5,12 @@ import {
   CalculationHistoryItem,
   FavoriteItem,
   FloorPlanProject,
+  ABNTStandardItem,
+  AutomotiveDirtItem,
+  LegislationItem,
+  ManualItem,
   NotebookNote,
+  NRItem,
   ProjectDeadline,
 } from '../types';
 
@@ -112,7 +117,7 @@ export function mapProduct(row: Row): AutomotiveProductItem {
     cautions: row.cautions ?? [],
     sourceLabel: row.source_label ?? '',
     verifiedDate: dateBr(row.verified_date),
-    labelPhotoReference: row.label_photo_path ?? undefined,
+    labelPhotoStoragePath: row.label_photo_path ?? undefined,
   };
 }
 
@@ -143,6 +148,88 @@ function mapChecklist(row: Row): Record<string, boolean> {
     return Object.fromEntries(Object.entries(items).map(([key, value]) => [key, Boolean(value)]));
   }
   return {};
+}
+
+export interface RemoteLibrary {
+  nrs: NRItem[];
+  abnt: ABNTStandardItem[];
+  legislation: LegislationItem[];
+  manuals: ManualItem[];
+  dirt: AutomotiveDirtItem[];
+}
+
+export async function loadLibraryItems(): Promise<RemoteLibrary> {
+  const db = client();
+  const { data, error } = await db.from('library_items').select('*').order('sort_order', { ascending: true });
+  if (error) throw new Error(error.message);
+
+  const rows = data ?? [];
+  return {
+    nrs: rows
+      .filter((row) => row.kind === 'nr')
+      .map((row) => ({
+        id: row.id,
+        code: row.code,
+        title: row.title,
+        summary: row.summary,
+        applicability: row.body?.applicability ?? '',
+        authorizedRoles: row.body?.authorizedRoles ?? '',
+        epiEpc: row.body?.epiEpc ?? '',
+        officialUrl: row.official_url ?? '',
+        lastVerified: dateBr(row.verified_at),
+        isOfficial: true,
+        checklist: Array.isArray(row.body?.checklist) ? row.body.checklist : [],
+      })),
+    abnt: rows
+      .filter((row) => row.kind === 'abnt')
+      .map((row) => ({
+        id: row.id,
+        code: row.code,
+        title: row.title,
+        editionYear: row.body?.editionYear ?? '',
+        status: row.body?.status ?? 'Em vigor',
+        area: row.body?.area ?? '',
+        summary: row.summary,
+        officialUrl: row.official_url ?? '',
+        lastVerified: dateBr(row.verified_at),
+      })),
+    legislation: rows
+      .filter((row) => row.kind === 'legislacao')
+      .map((row) => ({
+        id: row.id,
+        jurisdiction: row.jurisdiction ?? 'Federal',
+        code: row.code,
+        title: row.title,
+        year: row.body?.year ?? '',
+        summary: row.summary,
+        officialUrl: row.official_url ?? '',
+        lastVerified: dateBr(row.verified_at),
+        dependsOnTownHall: Boolean(row.body?.dependsOnTownHall),
+      })),
+    manuals: rows
+      .filter((row) => row.kind === 'manual')
+      .map((row) => ({
+        id: row.id,
+        title: row.title,
+        category: row.body?.category ?? '',
+        summary: row.summary,
+        sourceLabel: row.body?.sourceLabel ?? '',
+        steps: Array.isArray(row.body?.steps) ? row.body.steps : [],
+        cautions: Array.isArray(row.body?.cautions) ? row.body.cautions : [],
+      })),
+    dirt: rows
+      .filter((row) => row.kind === 'sujeira')
+      .map((row) => ({
+        id: row.id,
+        name: row.title,
+        category: row.body?.category ?? 'exterior',
+        surface: row.body?.surface ?? '',
+        probableOrigin: row.body?.probableOrigin ?? '',
+        approach: row.body?.approach ?? row.summary,
+        cautions: Array.isArray(row.body?.cautions) ? row.body.cautions : [],
+        recommendedProduct: row.body?.recommendedProduct ?? '',
+      })),
+  };
 }
 
 export async function loadRemoteData(userId: string) {
@@ -288,6 +375,22 @@ export async function deleteNote(userId: string, id: string) {
   if (error) throw new Error(error.message);
 }
 
+export async function uploadProductLabel(
+  userId: string,
+  productId: string,
+  file: File
+): Promise<string> {
+  const clientInstance = client();
+  const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const path = `${userId}/products/${productId}/${crypto.randomUUID()}.${extension}`;
+  const { error } = await clientInstance.storage.from('user-media').upload(path, file, {
+    contentType: file.type || undefined,
+    upsert: false,
+  });
+  if (error) throw new Error(error.message);
+  return path;
+}
+
 export async function saveProduct(userId: string, product: AutomotiveProductItem) {
   const { error } = await client().from('products').upsert(
     {
@@ -305,7 +408,7 @@ export async function saveProduct(userId: string, product: AutomotiveProductItem
       cautions: product.cautions,
       source_label: product.sourceLabel,
       verified_date: isoDate(product.verifiedDate),
-      label_photo_path: product.labelPhotoReference ?? null,
+      label_photo_path: product.labelPhotoStoragePath ?? null,
     },
     { onConflict: 'id' }
   );
