@@ -99,36 +99,77 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark }) => {
         grid.position.set(centerX, -0.7, centerZ);
         scene.add(grid);
 
-        // Walls are real meshes and therefore correctly occlude objects behind them.
+        // Build walls around door openings instead of drawing an opaque wall through them.
+        const doorAssignments = new Map<string, Array<{x:number;y:number;width:number;rotation:number}>>();
+        project.openings.filter(o => o.type === 'door').forEach(o => {
+          let bestWall: typeof project.walls[number] | undefined;
+          let bestDistance = Infinity;
+          project.walls.forEach(w => {
+            const dx = w.x2-w.x1, dz = w.y2-w.y1, len2 = dx*dx+dz*dz;
+            if (len2 < 1) return;
+            const t = Math.max(0, Math.min(1, ((o.x-w.x1)*dx+(o.y-w.y1)*dz)/len2));
+            const distance = Math.hypot(o.x-(w.x1+t*dx), o.y-(w.y1+t*dz));
+            if ((o.wallId === w.id || distance < bestDistance) && distance < 28) { bestWall=w; bestDistance=distance; }
+          });
+          if (bestWall) doorAssignments.set(bestWall.id, [...(doorAssignments.get(bestWall.id)||[]), o]);
+        });
+
         project.walls.forEach(w => {
           const dx = w.x2 - w.x1;
           const dz = w.y2 - w.y1;
           const length = Math.hypot(dx, dz);
           if (length < 1) return;
           const thickness = Math.max(4, w.thickness || 8);
-          const wall = addBox(length, 100, thickness, (w.x1 + w.x2) / 2, 50, (w.y1 + w.y2) / 2, isDark ? 0x94a3b8 : 0xcbd5e1);
-          wall.rotation.y = -Math.atan2(dz, dx);
-          // Top cap gives the wall a finished architectural look.
+          const angle = -Math.atan2(dz, dx);
+          const doors = (doorAssignments.get(w.id) || []).map(o => {
+            const t = Math.max(0, Math.min(1, ((o.x-w.x1)*dx+(o.y-w.y1)*dz)/(length*length)));
+            const halfWidth = Math.min(length * 0.45, Math.max(12, o.width * 0.25));
+            return { start: Math.max(0, t*length-halfWidth), end: Math.min(length, t*length+halfWidth) };
+          }).sort((a,b)=>a.start-b.start);
+          const addWallPart = (start:number, end:number, bottom:number, height:number) => {
+            if (end-start < 1 || height < 1) return;
+            const mid = (start+end)/2;
+            const x = w.x1 + (dx/length)*mid;
+            const z = w.y1 + (dz/length)*mid;
+            const mesh = addBox(end-start, height, thickness, x, bottom+height/2, z, isDark ? 0x94a3b8 : 0xcbd5e1);
+            mesh.rotation.y = angle;
+          };
+          let cursor = 0;
+          doors.forEach(door => {
+            const start = Math.max(cursor, door.start), end = Math.max(start, door.end);
+            addWallPart(cursor, start, 0, 100);
+            // A 2 m doorway leaves the upper lintel intact; wall height is 2.5 m.
+            addWallPart(start, end, 80, 20);
+            cursor = Math.max(cursor, end);
+          });
+          addWallPart(cursor, length, 0, 100);
           const cap = addBox(length, 2, thickness + 1, (w.x1 + w.x2) / 2, 101, (w.y1 + w.y2) / 2, isDark ? 0xcbd5e1 : 0xf8fafc);
-          cap.rotation.y = wall.rotation.y;
+          cap.rotation.y = angle;
         });
 
-        // Openings are represented as clear, colored markers; wall booleans are intentionally not faked.
+        // Door leaves are placed inside their real wall gaps; windows remain visible markers.
         project.openings.forEach(o => {
           const widthPx = Math.max(16, o.width * 0.5);
-          const marker = addBox(widthPx, o.type === 'window' ? 8 : 3, 5, o.x, o.type === 'window' ? 52 : 3, o.y, o.type === 'window' ? 0x38bdf8 : 0xd97706, 0.45);
-          marker.rotation.y = -((o.rotation ?? 0) * Math.PI / 180);
+          if (o.type === 'door') {
+            const leaf = addBox(widthPx * 0.92, 3, 3, o.x, 4, o.y, 0x9a6b3f, 0.9);
+            leaf.rotation.y = -((o.rotation ?? 0) * Math.PI / 180);
+          } else {
+            const marker = addBox(widthPx, 8, 5, o.x, 52, o.y, 0x38bdf8, 0.65);
+            marker.rotation.y = -((o.rotation ?? 0) * Math.PI / 180);
+          }
         });
 
         project.electrical.forEach(item => {
+          if ((item.type === 'wire' || item.type === 'conduit') && item.x2 !== undefined && item.y2 !== undefined) { const dx=item.x2-item.x,dz=item.y2-item.y,len=Math.hypot(dx,dz); if(len>1){const mesh=addBox(len,item.type==='conduit'?4:2,2,(item.x+item.x2)/2,8,(item.y+item.y2)/2,item.type==='conduit'?0xa78bfa:0xfacc15);mesh.rotation.y=-Math.atan2(dz,dx);} return; }
           const color = item.type === 'light' ? 0xfacc15 : item.type === 'panel' ? 0x2563eb : 0xfb7185;
           const point = new THREE.Mesh(new THREE.SphereGeometry(item.type === 'light' ? 6 : 4, 16, 12), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.12 }));
           point.position.set(item.x, item.type === 'light' ? 102 : 7, item.y);
           scene.add(point);
         });
         project.hydraulic.forEach(item => {
-          const color = item.type === 'sewage' || item.type === 'drain' ? 0x92400e : 0x0ea5e9;
-          const point = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 5, 16), new THREE.MeshStandardMaterial({ color }));
+          if ((item.type === 'water_pipe' || item.type === 'sewage_pipe' || item.type === 'vent_pipe' || item.type === 'rain_pipe') && item.x2 !== undefined && item.y2 !== undefined) { const dx=item.x2-item.x,dz=item.y2-item.y,len=Math.hypot(dx,dz); if(len>1){const mesh=addBox(len,item.type==='sewage_pipe'?4:3,3,(item.x+item.x2)/2,5,(item.y+item.y2)/2,item.type==='sewage_pipe'?0x92400e:item.type==='rain_pipe'?0x2563eb:item.type==='vent_pipe'?0xa78bfa:0x0ea5e9);mesh.rotation.y=-Math.atan2(dz,dx);} return; }
+          const color = item.type === 'sewage' || item.type === 'drain' || item.type === 'sewage_pipe' || item.type === 'grease_trap' || item.type === 'inspection_box' ? 0x92400e : item.type === 'rain_pipe' ? 0x2563eb : item.type === 'vent_pipe' ? 0xa78bfa : 0x0ea5e9;
+          const point = new THREE.Mesh(new THREE.CylinderGeometry(['sink','faucet','shower','toilet','floor_drain','cleanout','inspection_box','tank','heater','grease_trap'].includes(item.type)?8:5, ['sink','faucet','shower','toilet'].includes(item.type)?8:5, 5, 16), new THREE.MeshStandardMaterial({ color }));
           point.position.set(item.x, 5, item.y);
           scene.add(point);
         });
