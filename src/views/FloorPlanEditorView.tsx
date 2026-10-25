@@ -73,6 +73,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   // Tool
   const [tool, setTool] = useState<ToolMode>('select');
   const [zoom, setZoom] = useState(1);
+  const [canvasPan, setCanvasPan] = useState({ x: 0, y: 0 });
+  const activePointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const panGestureRef = useRef<{ x: number; y: number; centerX: number; centerY: number } | null>(null);
   const [stage, setStage] = useState<'estudo_preliminar' | 'executivo'>(project.stage);
 
   useEffect(() => {
@@ -137,6 +140,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     canvas.style.height = `${height}px`;
 
     ctx.scale(dpr * zoom, dpr * zoom);
+    ctx.translate(canvasPan.x / zoom, canvasPan.y / zoom);
 
     // Background
     ctx.fillStyle = isDark ? '#101827' : '#F8FAFC';
@@ -342,11 +346,22 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   };
 
   const handleMouseDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (activePointersRef.current.size >= 2) {
+      const points = [...activePointersRef.current.values()];
+      const centerX = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+      const centerY = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+      panGestureRef.current = { x: canvasPan.x, y: canvasPan.y, centerX, centerY };
+      dragRef.current = null; placementRef.current = false;
+      setIsDrawing(false); setStartPoint(null); setCurrentMouse(null);
+      e.currentTarget.setPointerCapture(e.pointerId);
+      return;
+    }
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const x = snap((e.clientX - rect.left) / zoom);
-    const y = snap((e.clientY - rect.top) / zoom);
+    const x = snap((e.clientX - rect.left - canvasPan.x) / zoom);
+    const y = snap((e.clientY - rect.top - canvasPan.y) / zoom);
 
     const kind = activeKind();
     if (kind) {
@@ -375,25 +390,40 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   };
 
   const handleMouseMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (activePointersRef.current.has(e.pointerId)) activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (panGestureRef.current && activePointersRef.current.size >= 2) {
+      const points = [...activePointersRef.current.values()];
+      const centerX = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+      const centerY = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+      setCanvasPan({ x: panGestureRef.current.x + centerX - panGestureRef.current.centerX, y: panGestureRef.current.y + centerY - panGestureRef.current.centerY });
+      return;
+    }
+    if (activePointersRef.current.size >= 2) return;
     if (dragRef.current || placementRef.current) {
       const rect = e.currentTarget.getBoundingClientRect();
-      setCurrentMouse({ x: snap((e.clientX - rect.left) / zoom), y: snap((e.clientY - rect.top) / zoom) });
+      setCurrentMouse({ x: snap((e.clientX - rect.left - canvasPan.x) / zoom), y: snap((e.clientY - rect.top - canvasPan.y) / zoom) });
       return;
     }
     if (!isDrawing) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const x = snap((e.clientX - rect.left) / zoom);
-    const y = snap((e.clientY - rect.top) / zoom);
+    const x = snap((e.clientX - rect.left - canvasPan.x) / zoom);
+    const y = snap((e.clientY - rect.top - canvasPan.y) / zoom);
     setCurrentMouse({ x, y });
   };
 
   const handleMouseUp = (e?: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e) activePointersRef.current.delete(e.pointerId);
+    if (panGestureRef.current) {
+      if (activePointersRef.current.size < 2) panGestureRef.current = null;
+      if (e && activePointersRef.current.size > 0) return;
+      if (activePointersRef.current.size === 0) { panGestureRef.current = null; setIsDrawing(false); setStartPoint(null); setCurrentMouse(null); return; }
+    }
     if (dragRef.current && e) {
       const drag = dragRef.current;
       const rect = e.currentTarget.getBoundingClientRect();
-      const endX = snap((e.clientX - rect.left) / zoom), endY = snap((e.clientY - rect.top) / zoom);
+      const endX = snap((e.clientX - rect.left - canvasPan.x) / zoom), endY = snap((e.clientY - rect.top - canvasPan.y) / zoom);
       const dx = endX - drag.x, dy = endY - drag.y;
       if (dx || dy) {
         if (drag.kind === 'wall') updateProjectState({ ...project, walls: project.walls.map(w => w.id === drag.id ? { ...w, x1: w.x1 + dx, y1: w.y1 + dy, x2: w.x2 + dx, y2: w.y2 + dy } : w) });
@@ -405,7 +435,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     }
     if (placementRef.current && e) {
       const rect = e.currentTarget.getBoundingClientRect();
-      const px = snap((e.clientX - rect.left) / zoom), py = snap((e.clientY - rect.top) / zoom);
+      const px = snap((e.clientX - rect.left - canvasPan.x) / zoom), py = snap((e.clientY - rect.top - canvasPan.y) / zoom);
       const p = snapToNearestWall(px, py), x = p.x, y = p.y;
       if (tool === 'door' || tool === 'window') {
         const item: OpeningItem = { id: ensureUuid(tool + '-' + Date.now()), type: tool, wallId: p.wallId || project.walls[0]?.id || '', x, y, width: tool === 'door' ? 80 : 100, rotation: p.rotation };
@@ -634,6 +664,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           onPointerMove={handleMouseMove}
           onPointerUp={handleMouseUp}
           onPointerCancel={handleMouseUp}
+          onLostPointerCapture={handleMouseUp}
           className="block w-full cursor-crosshair touch-none select-none"
           style={{ touchAction: 'none' }}
         />
