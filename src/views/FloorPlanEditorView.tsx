@@ -719,7 +719,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         <button onClick={() => { const next = !(showArchLayer && showElecLayer && showHydLayer && showFurnitureLayer); setShowArchLayer(next); setShowElecLayer(next); setShowHydLayer(next); setShowFurnitureLayer(next); }}
           className={`px-3 py-1 rounded-lg border transition ${showArchLayer && showElecLayer && showHydLayer && showFurnitureLayer ? 'bg-[#1F66D6] text-white border-[#1F66D6]' : 'border-[#2A3A55] text-[#9FB0C8]'}`}>Todas</button>
         <button
-          onClick={() => setShowArchLayer(!showArchLayer)}
+          onClick={() => { const next = !showArchLayer; setShowArchLayer(next); if (!next && ['wall','door','window'].includes(tool)) { setTool('select'); setWallSequencePoints([]); } }}
           className={`px-3 py-1 rounded-lg border transition ${
             showArchLayer
               ? 'bg-[#1F66D6] text-white border-[#1F66D6]'
@@ -729,7 +729,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           Arquitetura (Paredes)
         </button>
         <button
-          onClick={() => setShowElecLayer(!showElecLayer)}
+          onClick={() => { const next = !showElecLayer; setShowElecLayer(next); if (!next && ['light','socket'].includes(tool)) setTool('select'); }}
           className={`px-3 py-1 rounded-lg border transition flex items-center gap-1 ${
             showElecLayer
               ? 'bg-[#EAB308] text-black font-semibold border-[#EAB308]'
@@ -740,7 +740,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           Elétrica (Tomadas/Pontos)
         </button>
         <button
-          onClick={() => setShowHydLayer(!showHydLayer)}
+          onClick={() => { const next = !showHydLayer; setShowHydLayer(next); if (!next && tool === 'cold_water') setTool('select'); }}
           className={`px-3 py-1 rounded-lg border transition flex items-center gap-1 ${
             showHydLayer
               ? 'bg-[#06B6D4] text-white border-[#06B6D4]'
@@ -959,7 +959,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         ].map(({ id, label, icon: Icon }) => (
           <button
             key={id}
-            onClick={() => setTool(id)}
+            onClick={() => { setTool(id); if (id !== 'wall') { setWallSequencePoints([]); setCurrentMouse(null); } }}
             className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 min-h-[40px] ${
               tool === id
                 ? 'bg-[#1F66D6] text-white shadow-xs'
