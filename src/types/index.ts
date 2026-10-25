@@ -211,6 +211,22 @@ export interface ProjectDeadline {
   notified?: boolean;
 }
 
+
+export interface PlacedFurnitureItem {
+  id: string;
+  catalogId: string;
+  name: string;
+  category: string;
+  x: number;
+  y: number;
+  rotation: number;
+  widthIn: number;
+  depthIn: number;
+  heightIn: number;
+  symbolUrl: string;
+  modelUrl: string | null;
+}
+
 export interface FloorPlanProject {
   id: string;
   name: string;
@@ -222,6 +238,7 @@ export interface FloorPlanProject {
   openings: OpeningItem[];
   electrical: ElectricalItem[];
   hydraulic: HydraulicItem[];
+  furniture?: PlacedFurnitureItem[];
   deadlines?: ProjectDeadline[];
 }
 
