@@ -767,7 +767,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           Arquitetura (Paredes)
         </button>
         <button
-          onClick={() => { const next = !showElecLayer; setShowElecLayer(next); if (!next && ['light','socket'].includes(tool)) setTool('select'); }}
+          onClick={() => { const next = !showElecLayer; setShowElecLayer(next); if (!next && ['light','socket','switch','panel','wire','conduit','data_point','grounding'].includes(tool)) setTool('select'); }}
           className={`px-3 py-1 rounded-lg border transition flex items-center gap-1 ${
             showElecLayer
               ? 'bg-[#EAB308] text-black font-semibold border-[#EAB308]'
@@ -778,7 +778,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           Elétrica (Tomadas/Pontos)
         </button>
         <button
-          onClick={() => { const next = !showHydLayer; setShowHydLayer(next); if (!next && tool === 'cold_water') setTool('select'); }}
+          onClick={() => { const next = !showHydLayer; setShowHydLayer(next); if (!next && ['cold_water','hot_water','water_pipe','sewage_pipe','vent_pipe','rain_pipe','sink','faucet','shower','toilet','floor_drain','cleanout','inspection_box','tank','heater','grease_trap'].includes(tool)) setTool('select'); }}
           className={`px-3 py-1 rounded-lg border transition flex items-center gap-1 ${
             showHydLayer
               ? 'bg-[#06B6D4] text-white border-[#06B6D4]'
