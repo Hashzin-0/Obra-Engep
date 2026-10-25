@@ -10,6 +10,7 @@ import { PWAInstallButton } from './PWAInstallButton';
 
 interface TopHeaderProps {
   onOpenSearch: () => void;
+  onGoogleSignIn?: () => void;
   onOpenVoiceAssistant?: () => void;
   onOpenCalendarModal?: () => void;
   pendingDeadlinesCount?: number;
@@ -19,6 +20,7 @@ interface TopHeaderProps {
 
 export const TopHeader: React.FC<TopHeaderProps> = ({
   onOpenSearch,
+  onGoogleSignIn,
   onOpenVoiceAssistant,
   onOpenCalendarModal,
   pendingDeadlinesCount = 0,
@@ -105,7 +107,27 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             </button>
           )}
 
-          {/* Search Trigger */}
+          {/* Google OAuth sign-in */}
+        {onGoogleSignIn && (
+          <button
+            type="button"
+            onClick={onGoogleSignIn}
+            aria-label="Entrar com Google"
+            title="Entrar com Google"
+            className="inline-flex items-center justify-center gap-2 px-3 min-h-[44px] rounded-xl border border-[#2A3A55] bg-white text-[#202124] hover:bg-[#F5F5F5] transition text-xs font-semibold shrink-0"
+          >
+            <svg aria-hidden="true" viewBox="0 0 48 48" className="w-4 h-4">
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 3.01 13.22l7.98 6.19C12.69 13.72 17.89 9.5 24 9.5z" transform="translate(0 4)"/>
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.76 7.18l7.73 6C44.42 37.96 46.98 31.86 46.98 24.55z"/>
+              <path fill="#FBBC05" d="M10.99 28.59a14.4 14.4 0 0 1 0-9.18l-7.98-6.19a23.9 23.9 0 0 0 0 21.56l7.98-6.19z" transform="translate(0 0)"/>
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.91-5.8l-7.73-6c-2.14 1.43-4.88 2.27-8.18 2.27-6.11 0-11.31-4.22-13.17-9.91l-7.98 6.19C6.51 43.62 14.62 48 24 48z"/>
+            </svg>
+            <span className="hidden sm:inline">Entrar com Google</span>
+            <span className="sm:hidden">Google</span>
+          </button>
+        )}
+
+        {/* Search Trigger */}
           <button
             onClick={onOpenSearch}
             aria-label="Buscar ferramentas, normas e produtos"
