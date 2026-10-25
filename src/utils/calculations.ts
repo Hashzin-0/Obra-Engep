@@ -20,11 +20,18 @@ export interface ElectricalCalcResult {
   limitWarning: string;
 }
 
+function assertFiniteInputs(values: number[]): void {
+  if (values.some((value) => !Number.isFinite(value))) {
+    throw new Error('Preencha todos os campos com valores numéricos válidos.');
+  }
+}
+
 /**
  * Calculates single-phase electrical current: I = P / (V × FP)
  * Test case from briefing: 3500 W / (220 V × 0.92) = 17.29 A
  */
 export function calculateCurrent(powerW: number, voltageV: number, powerFactor: number = 0.92): ElectricalCalcResult {
+  assertFiniteInputs([powerW, voltageV, powerFactor]);
   if (voltageV <= 0) throw new Error('A tensão deve ser maior que zero.');
   if (powerFactor <= 0 || powerFactor > 1) throw new Error('O fator de potência (FP) deve estar entre 0.01 e 1.00.');
   if (powerW < 0) throw new Error('A potência não pode ser negativa.');
@@ -45,6 +52,7 @@ export function calculateCurrent(powerW: number, voltageV: number, powerFactor: 
  * Calculates power from current, voltage and power factor: P = V × I × FP
  */
 export function calculatePower(voltageV: number, currentA: number, powerFactor: number = 0.92): ElectricalCalcResult {
+  assertFiniteInputs([voltageV, currentA, powerFactor]);
   if (voltageV <= 0 || currentA < 0) throw new Error('Valores inválidos para cálculo de potência.');
   const power = voltageV * currentA * powerFactor;
   return {
@@ -60,6 +68,7 @@ export function calculatePower(voltageV: number, currentA: number, powerFactor: 
  * Ohm's law: V = R * I
  */
 export function calculateOhmsLawVoltage(resistanceOhms: number, currentA: number): ElectricalCalcResult {
+  assertFiniteInputs([resistanceOhms, currentA]);
   const v = resistanceOhms * currentA;
   return {
     value: Math.round(v * 100) / 100,
@@ -80,6 +89,7 @@ export function estimateVoltageDrop(
   sectionMm2: number,
   voltageV: number
 ): ElectricalCalcResult {
+  assertFiniteInputs([lengthMeters, currentA, sectionMm2, voltageV]);
   if (sectionMm2 <= 0 || voltageV <= 0) throw new Error('Seção e tensão devem ser maiores que zero.');
   const dropVolts = (2 * lengthMeters * currentA) / (56 * sectionMm2);
   const dropPercent = (dropVolts / voltageV) * 100;
@@ -101,6 +111,7 @@ export function calculateReservoirCapacity(
   litersPerPersonPerDay: number = 150,
   reserveDays: number = 2
 ): ElectricalCalcResult {
+  assertFiniteInputs([occupants, litersPerPersonPerDay, reserveDays]);
   if (occupants <= 0) throw new Error('Número de ocupantes deve ser maior que zero.');
   const totalLiters = occupants * litersPerPersonPerDay * reserveDays;
   return {
@@ -116,6 +127,7 @@ export function calculateReservoirCapacity(
  * Flow rate calculation: Q = Volume (L) / Time (min) -> L/min or m3/h
  */
 export function calculateFlowRate(liters: number, minutes: number): ElectricalCalcResult {
+  assertFiniteInputs([liters, minutes]);
   if (minutes <= 0) throw new Error('Tempo deve ser maior que zero.');
   const flowRateLmin = liters / minutes;
   return {
@@ -144,6 +156,7 @@ export function calculateMasonryMaterials(
   premises: string;
   limitWarning: string;
 } {
+  assertFiniteInputs([wallLengthMeters, wallHeightMeters, openingsAreaM2, bricksPerM2, wastePercentage]);
   const grossArea = wallLengthMeters * wallHeightMeters;
   const netArea = Math.max(0, grossArea - openingsAreaM2);
   const factor = 1 + wastePercentage / 100;
@@ -173,6 +186,7 @@ export function calculateRoofArea(
   premises: string;
   limitWarning: string;
 } {
+  assertFiniteInputs([lengthM, widthM, slopePercentage, wastePercentage]);
   const projectedArea = lengthM * widthM;
   const radians = Math.atan(slopePercentage / 100);
   const realArea = projectedArea / Math.cos(radians);
@@ -200,6 +214,7 @@ export function calculateDilution(ratioNumber: number, targetTotalMl: number): {
   premises: string;
   caution: string;
 } {
+  assertFiniteInputs([ratioNumber, targetTotalMl]);
   if (ratioNumber < 1) throw new Error('A proporção de diluição deve ser maior ou igual a 1.');
   const totalParts = 1 + ratioNumber;
   const productMl = Math.round((targetTotalMl / totalParts) * 10) / 10;
@@ -225,6 +240,7 @@ export function calculateHazenWilliams(
   diameterMm: number,
   material: 'PVC' | 'Cobre' | 'Aço galvanizado' = 'PVC'
 ): ElectricalCalcResult {
+  assertFiniteInputs([flowLmin, lengthM, diameterMm]);
   if (flowLmin <= 0 || lengthM <= 0 || diameterMm <= 0) {
     throw new Error('Vazão, comprimento e diâmetro devem ser maiores que zero.');
   }
@@ -256,6 +272,7 @@ export function calculateRecommendedDiameter(
   flowLmin: number,
   maxVelocityMs: number = 1.5
 ): ElectricalCalcResult {
+  assertFiniteInputs([flowLmin, maxVelocityMs]);
   if (flowLmin <= 0 || maxVelocityMs <= 0) {
     throw new Error('Vazão e velocidade máxima devem ser maiores que zero.');
   }
@@ -295,6 +312,7 @@ export function calculateCableSizing(
   powerFactor: number,
   lengthM: number
 ): CableSizingResult {
+  assertFiniteInputs([powerW, voltageV, powerFactor, lengthM]);
   if (powerW <= 0 || voltageV <= 0 || powerFactor <= 0 || lengthM <= 0) {
     throw new Error('Potência, tensão, fator de potência e comprimento devem ser maiores que zero.');
   }

@@ -93,3 +93,9 @@ test('Elétrica: cabo e disjuntor para 3500 W / 220 V / FP 0,92 / 25 m', () => {
   assert.equal(result.breakerA, 20);
   assert.ok(result.voltageDropPercent <= 4);
 });
+
+
+test('Calculadoras rejeitam campos numéricos vazios ou não finitos', () => {
+  assert.throws(() => calculateCurrent(Number.NaN, 220, 0.92), /valores numéricos válidos/);
+  assert.throws(() => calculateDilution(10, Number.NaN), /valores numéricos válidos/);
+});
