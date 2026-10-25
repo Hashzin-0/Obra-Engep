@@ -194,38 +194,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </button>
       </section>
 
-      {/* Real-time Gemini Live Card */}
-      <section>
-        <div
-          onClick={() => (onOpenVoiceAssistant ? onOpenVoiceAssistant() : onNavigateModule('ia'))}
-          className="cursor-pointer rounded-2xl border p-4 sm:p-5 transition group relative overflow-hidden bg-gradient-to-r from-[#17243A] via-[#1F3354] to-[#17243A] border-[#2A3A55] hover:border-[#5B9BFF] shadow-xs"
-        >
-          <div className="flex items-center justify-between text-xs mb-2">
-            <div className="flex items-center gap-1.5 text-[#5B9BFF] font-semibold">
-              <Sparkles className="w-4 h-4 text-[#F5B93A] animate-pulse" />
-              <span className="uppercase tracking-wider">Conversação em Tempo Real</span>
-            </div>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#1F66D6] text-white font-bold">
-              Gemini Live
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                Assistente Técnico de Voz & Texto
-              </h3>
-              <p className="text-xs text-[#9FB0C8] mt-1">
-                Fale ou digite para calcular cabos, tirar dúvidas da NBR 5410, NR-35 e diluições com raciocínio analítico ao vivo.
-              </p>
-            </div>
-            <div className="w-11 h-11 rounded-2xl bg-[#1F66D6] text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-md shadow-[#1F66D6]/30">
-              <Sparkles className="w-5 h-5" />
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Card: Continuar de onde parou (Wireframe Page 5: "Última calculadora Corrente: 17,29 A") */}
       <section>
         <div
