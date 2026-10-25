@@ -866,7 +866,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "toolchest",
     "name": "Caixa de ferramentas",
-    "category": "Shop",
+    "category": "Oficina",
     "widthIn": 41,
     "depthIn": 18,
     "heightIn": 40,
@@ -880,7 +880,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "table_saw",
     "name": "Serra de bancada",
-    "category": "Shop",
+    "category": "Oficina",
     "widthIn": 40,
     "depthIn": 27,
     "heightIn": 36,
@@ -894,7 +894,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "lathe",
     "name": "Torno",
-    "category": "Shop",
+    "category": "Oficina",
     "widthIn": 60,
     "depthIn": 18,
     "heightIn": 48,
@@ -908,7 +908,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "jointer",
     "name": "Desempenadeira",
-    "category": "Shop",
+    "category": "Oficina",
     "widthIn": 60,
     "depthIn": 20,
     "heightIn": 36,
@@ -922,7 +922,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "drill_press",
     "name": "Furadeira de bancada",
-    "category": "Shop",
+    "category": "Oficina",
     "widthIn": 20,
     "depthIn": 28,
     "heightIn": 68,
@@ -936,7 +936,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "cutoff_saw",
     "name": "Serra de corte",
-    "category": "Shop",
+    "category": "Oficina",
     "widthIn": 40,
     "depthIn": 24,
     "heightIn": 40,
@@ -950,7 +950,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "bandsaw",
     "name": "Serra de fita",
-    "category": "Shop",
+    "category": "Oficina",
     "widthIn": 24,
     "depthIn": 30,
     "heightIn": 72,
@@ -964,7 +964,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "planer",
     "name": "Plaina",
-    "category": "Shop",
+    "category": "Oficina",
     "widthIn": 24,
     "depthIn": 24,
     "heightIn": 42,
@@ -978,7 +978,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "lounge_chair",
     "name": "Poltrona reclinável",
-    "category": "Sunroom",
+    "category": "Varanda e lazer",
     "widthIn": 27,
     "depthIn": 78,
     "heightIn": 30,
@@ -992,7 +992,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "sauna",
     "name": "Sauna",
-    "category": "Sunroom",
+    "category": "Varanda e lazer",
     "widthIn": 72,
     "depthIn": 72,
     "heightIn": 84,
@@ -1006,7 +1006,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "umbrella_table",
     "name": "Mesa com guarda-sol",
-    "category": "Sunroom",
+    "category": "Varanda e lazer",
     "widthIn": 96,
     "depthIn": 96,
     "heightIn": 30,
@@ -1020,7 +1020,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "swim_spa",
     "name": "Spa de natação",
-    "category": "Sunroom",
+    "category": "Varanda e lazer",
     "widthIn": 90,
     "depthIn": 180,
     "heightIn": 40,
@@ -1034,7 +1034,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "whirlpool",
     "name": "Banheira de hidromassagem",
-    "category": "Sunroom",
+    "category": "Varanda e lazer",
     "widthIn": 84,
     "depthIn": 84,
     "heightIn": 36,
@@ -1048,7 +1048,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "desk",
     "name": "Escrivaninha",
-    "category": "Office / Storage",
+    "category": "Escritório e armazenamento",
     "widthIn": 60,
     "depthIn": 30,
     "heightIn": 30,
@@ -1062,7 +1062,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "office_chair",
     "name": "Cadeira de escritório",
-    "category": "Office / Storage",
+    "category": "Escritório e armazenamento",
     "widthIn": 24,
     "depthIn": 24,
     "heightIn": 40,
@@ -1076,7 +1076,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "office_set",
     "name": "Mesa e cadeira de escritório",
-    "category": "Office / Storage",
+    "category": "Escritório e armazenamento",
     "widthIn": 54,
     "depthIn": 36,
     "heightIn": 30,
@@ -1090,7 +1090,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "corner_desk",
     "name": "Mesa de canto",
-    "category": "Office / Storage",
+    "category": "Escritório e armazenamento",
     "widthIn": 60,
     "depthIn": 60,
     "heightIn": 30,
@@ -1104,7 +1104,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "bookshelf",
     "name": "Estante de livros",
-    "category": "Office / Storage",
+    "category": "Escritório e armazenamento",
     "widthIn": 36,
     "depthIn": 12,
     "heightIn": 72,
@@ -1118,7 +1118,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "wardrobe",
     "name": "Guarda-roupa",
-    "category": "Office / Storage",
+    "category": "Escritório e armazenamento",
     "widthIn": 48,
     "depthIn": 24,
     "heightIn": 72,
