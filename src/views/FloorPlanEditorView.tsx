@@ -23,6 +23,8 @@ import {
   Maximize2,
   FileSpreadsheet,
   CheckCircle,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { FloorPlanProject, WallSegment, OpeningItem, ElectricalItem, HydraulicItem, ProjectDeadline } from '../types';
@@ -35,7 +37,7 @@ import { exportToLocalCalendar, getGoogleCalendarUrl } from '../utils/calendarSy
 import { FurnitureCatalog } from '../components/FurnitureCatalog';
 import { FURNITURE_CATALOG, type FurnitureCatalogItem } from '../data/furnitureCatalog';
 
-type ToolMode = 'select' | 'wall' | 'door' | 'window' | 'socket' | 'light' | 'cold_water' | 'dimension';
+type ToolMode = 'select' | 'wall' | 'door' | 'window' | 'socket' | 'light' | 'cold_water' | 'dimension' | 'wire' | 'water_pipe' | 'sewage_pipe' | 'sink' | 'faucet' | 'shower' | 'toilet';
 
 interface FloorPlanEditorViewProps {
   onOpenCalendarModal?: () => void;
@@ -367,6 +369,13 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       ctx.restore();
     }
     // Temporary line while drawing a wall
+    if (isDrawing && startPoint && currentMouse && ['wire','water_pipe','sewage_pipe'].includes(tool)) {
+      const routeId=ensureUuid(tool);
+      if(Math.hypot(currentMouse.x-startPoint.x,currentMouse.y-startPoint.y)>5){
+        if(tool==='wire'){const route:ElectricalItem={id:routeId,type:'wire',x:startPoint.x,y:startPoint.y,x2:currentMouse.x,y2:currentMouse.y,circuit:'Circuito 1',label:'Fiação elétrica'};updateProjectState({...project,electrical:[...project.electrical,route]});setSelectedObject({kind:'electrical',id:routeId});}
+        else{const route:HydraulicItem={id:routeId,type:tool as HydraulicItem['type'],x:startPoint.x,y:startPoint.y,x2:currentMouse.x,y2:currentMouse.y,diameterMm:tool==='sewage_pipe'?100:25,label:tool==='sewage_pipe'?'Tubulação de esgoto Ø100mm':'Tubulação de água Ø25mm'};updateProjectState({...project,hydraulic:[...project.hydraulic,route]});setSelectedObject({kind:'hydraulic',id:routeId});}
+      }
+    }
     if (isDrawing && startPoint && currentMouse && tool === 'wall' && wallDrawMode === 'segment') {
       ctx.strokeStyle = '#3DD68C';
       ctx.lineWidth = 6;
@@ -416,7 +425,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   const activeKind = (): 'opening' | 'electrical' | 'hydraulic' | null => {
     if (tool === 'door' || tool === 'window') return 'opening';
     if (tool === 'socket' || tool === 'light') return 'electrical';
-    if (tool === 'cold_water') return 'hydraulic';
+    if (tool === 'cold_water' || ['sink','faucet','shower','toilet'].includes(tool)) return 'hydraulic';
     return null;
   };
 
@@ -438,7 +447,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     const x = snap((e.clientX - rect.left - canvasPan.x) / zoom);
     const y = snap((e.clientY - rect.top - canvasPan.y) / zoom);
 
-    if (tool === 'select') { const hit=[...project.openings.map(o=>({kind:'opening' as const,id:o.id,x:o.x,y:o.y})),...project.electrical.map(o=>({kind:'electrical' as const,id:o.id,x:o.x,y:o.y})),...project.hydraulic.map(o=>({kind:'hydraulic' as const,id:o.id,x:o.x,y:o.y})),...project.walls.map(w=>({kind:'wall' as const,id:w.id,x:(w.x1+w.x2)/2,y:(w.y1+w.y2)/2}))].reverse().find(o=>Math.hypot(o.x-x,o.y-y)<20); if(hit){const target={kind:hit.kind,id:hit.id};setSelectedObjects(prev=>e.shiftKey?(prev.some(s=>s.id===hit.id&&s.kind===hit.kind)?prev.filter(s=>s.id!==hit.id):[...prev,target]):(prev.some(s=>s.id===hit.id&&s.kind===hit.kind)?prev:[target]));setSelectedObject(target);dragRef.current={...target,x,y};selectionStartRef.current=null;}else{selectionStartRef.current={x,y};setSelectionRect({x1:x,y1:y,x2:x,y2:y});setIsDrawing(true);if(!e.shiftKey){setSelectedObjects([]);setSelectedObject(null);}} e.currentTarget.setPointerCapture(e.pointerId);return; }
+    if (tool === 'select') { const hit=[...project.openings.map(o=>({kind:'opening' as const,id:o.id,x:o.x,y:o.y})),...project.electrical.map(o=>({kind:'electrical' as const,id:o.id,x:o.x,y:o.y})),...project.hydraulic.map(o=>({kind:'hydraulic' as const,id:o.id,x:o.x,y:o.y})),...project.walls.map(w=>({kind:'wall' as const,id:w.id,x:(w.x1+w.x2)/2,y:(w.y1+w.y2)/2}))].reverse().find(o=>Math.hypot(o.x-x,o.y-y)<20); if(hit){const hitItem=hit.kind==='wall'?project.walls.find(v=>v.id===hit.id):hit.kind==='opening'?project.openings.find(v=>v.id===hit.id):hit.kind==='electrical'?project.electrical.find(v=>v.id===hit.id):project.hydraulic.find(v=>v.id===hit.id);if(hitItem?.locked){const target={kind:hit.kind,id:hit.id};setSelectedObject(target);setSelectedObjects([target]);dragRef.current=null;e.currentTarget.setPointerCapture(e.pointerId);return;}const target={kind:hit.kind,id:hit.id};setSelectedObjects(prev=>e.shiftKey?(prev.some(s=>s.id===hit.id&&s.kind===hit.kind)?prev.filter(s=>s.id!==hit.id):[...prev,target]):(prev.some(s=>s.id===hit.id&&s.kind===hit.kind)?prev:[target]));setSelectedObject(target);dragRef.current={...target,x,y};selectionStartRef.current=null;}else{selectionStartRef.current={x,y};setSelectionRect({x1:x,y1:y,x2:x,y2:y});setIsDrawing(true);if(!e.shiftKey){setSelectedObjects([]);setSelectedObject(null);}} e.currentTarget.setPointerCapture(e.pointerId);return; }
     if (tool === 'wall' && wallDrawMode === 'sequence') {
       const points = wallSequencePoints;
       const existingVertices = project.walls.flatMap(w => [{ x: w.x1, y: w.y1 }, { x: w.x2, y: w.y2 }]);
@@ -470,6 +479,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       }
       e.currentTarget.setPointerCapture(e.pointerId); return;
     }
+    if (['wire','water_pipe','sewage_pipe'].includes(tool)) { placementRef.current=false; setIsDrawing(true); setStartPoint({x,y}); setCurrentMouse({x,y}); e.currentTarget.setPointerCapture(e.pointerId); return; }
     const kind = activeKind();
     if (kind) {
       const threshold = 18;
@@ -477,7 +487,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       const electrical = kind === 'electrical' ? [...project.electrical].reverse().find(o => o.type === tool && Math.hypot(o.x - x, o.y - y) <= threshold) : undefined;
       const hydraulic = kind === 'hydraulic' ? [...project.hydraulic].reverse().find(o => Math.hypot(o.x - x, o.y - y) <= threshold) : undefined;
       const target = opening ? { kind: 'opening' as const, id: opening.id } : electrical ? { kind: 'electrical' as const, id: electrical.id } : hydraulic ? { kind: 'hydraulic' as const, id: hydraulic.id } : null;
-      if (target) { setSelectedObject(target); dragRef.current = { ...target, x, y }; placementRef.current = false; }
+      if (target) { const locked = target.kind === 'opening' ? opening?.locked : target.kind === 'electrical' ? electrical?.locked : hydraulic?.locked; setSelectedObject(target); dragRef.current = locked ? null : { ...target, x, y }; placementRef.current = false; }
       else { setSelectedObject(null); dragRef.current = null; placementRef.current = true; setIsDrawing(true); setStartPoint({ x, y }); setCurrentMouse({ x, y }); }
       e.currentTarget.setPointerCapture(e.pointerId);
       return;
@@ -579,8 +589,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       } else if (tool === 'light' || tool === 'socket') {
         const item: ElectricalItem = { id: ensureUuid(tool + '-' + Date.now()), type: tool, x, y, rotation: p.wallId ? p.rotation : 0, circuit: tool === 'light' ? 'Circuito 1' : 'Circuito 2', label: tool === 'light' ? 'Ponto de Luz 100W' : 'Tomada 10A TUG' };
         updateProjectState({ ...project, electrical: [...project.electrical, item] }); setSelectedObject({ kind: 'electrical', id: item.id });
-      } else if (tool === 'cold_water') {
-        const item: HydraulicItem = { id: ensureUuid('af-' + Date.now()), type: 'cold_water', x, y, diameterMm: 25, label: 'Ponto AF 25mm' };
+      } else if (['cold_water','sink','faucet','shower','toilet'].includes(tool)) {
+        const hydraulicType = tool as HydraulicItem['type'];
+        const item: HydraulicItem = { id: ensureUuid(tool + '-' + Date.now()), type: hydraulicType, x, y, diameterMm: tool === 'toilet' ? 100 : tool === 'shower' || tool === 'sink' ? 40 : 25, label: ({cold_water:'Ponto AF 25mm',sink:'Pia',faucet:'Torneira',shower:'Chuveiro',toilet:'Vaso sanitário'} as Record<string,string>)[tool] || tool };
         updateProjectState({ ...project, hydraulic: [...project.hydraulic, item] }); setSelectedObject({ kind: 'hydraulic', id: item.id });
       }
       placementRef.current = false; setIsDrawing(false); setStartPoint(null); setCurrentMouse(null); return;
@@ -870,6 +881,17 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       {selectedObject && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#2A3A55] bg-[#17243A] p-2">
           <span className="px-2 text-xs text-[#9FB0C8]">Elemento selecionado</span>
+          <button type="button" onClick={() => {
+            const kind=selectedObject.kind,id=selectedObject.id;
+            if(kind==='wall') updateProjectState({...project,walls:project.walls.map(v=>v.id===id?{...v,locked:!v.locked}:v)});
+            else if(kind==='opening') updateProjectState({...project,openings:project.openings.map(v=>v.id===id?{...v,locked:!v.locked}:v)});
+            else if(kind==='electrical') updateProjectState({...project,electrical:project.electrical.map(v=>v.id===id?{...v,locked:!v.locked}:v)});
+            else updateProjectState({...project,hydraulic:project.hydraulic.map(v=>v.id===id?{...v,locked:!v.locked}:v)});
+            dragRef.current=null;
+          }} className="flex items-center gap-2 rounded-xl border border-[#2A3A55] px-3 py-2 text-sm text-white" title="Travar ou destravar elemento">
+            {((selectedObject.kind==='wall'?project.walls.find(v=>v.id===selectedObject.id):selectedObject.kind==='opening'?project.openings.find(v=>v.id===selectedObject.id):selectedObject.kind==='electrical'?project.electrical.find(v=>v.id===selectedObject.id):project.hydraulic.find(v=>v.id===selectedObject.id))?.locked) ? <Unlock className="h-4 w-4"/> : <Lock className="h-4 w-4"/>}
+            {((selectedObject.kind==='wall'?project.walls.find(v=>v.id===selectedObject.id):selectedObject.kind==='opening'?project.openings.find(v=>v.id===selectedObject.id):selectedObject.kind==='electrical'?project.electrical.find(v=>v.id===selectedObject.id):project.hydraulic.find(v=>v.id===selectedObject.id))?.locked) ? 'Destravar' : 'Travar'}
+          </button>
           <button onClick={() => {
             const id = ensureUuid('clone');
             if (selectedObject.kind === 'wall') {
@@ -978,8 +1000,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         {[
           { id: 'select' as ToolMode, label: 'Mover/Selecionar', icon: Maximize2 },
           ...(showArchLayer ? [{ id: 'wall' as ToolMode, label: '+ Parede', icon: Square }, { id: 'door' as ToolMode, label: '+ Porta', icon: DoorOpen }, { id: 'window' as ToolMode, label: '+ Janela', icon: Maximize2 }] : []),
-          ...(showElecLayer ? [{ id: 'light' as ToolMode, label: '+ Ponto Luz', icon: Zap }, { id: 'socket' as ToolMode, label: '+ Tomada', icon: Zap }] : []),
-          ...(showHydLayer ? [{ id: 'cold_water' as ToolMode, label: '+ Ponto Água', icon: Droplets }] : []),
+          ...(showElecLayer ? [{ id: 'light' as ToolMode, label: '+ Ponto Luz', icon: Zap }, { id: 'socket' as ToolMode, label: '+ Tomada', icon: Zap }, { id: 'wire' as ToolMode, label: '+ Fiação', icon: Zap }] : []),
+          ...(showHydLayer ? [{ id: 'cold_water' as ToolMode, label: '+ Ponto Água', icon: Droplets }, { id: 'water_pipe' as ToolMode, label: '+ Cano água', icon: Droplets }, { id: 'sewage_pipe' as ToolMode, label: '+ Cano esgoto', icon: Droplets }, { id: 'sink' as ToolMode, label: '+ Pia', icon: Droplets }, { id: 'faucet' as ToolMode, label: '+ Torneira', icon: Droplets }, { id: 'shower' as ToolMode, label: '+ Chuveiro', icon: Droplets }, { id: 'toilet' as ToolMode, label: '+ Vaso', icon: Droplets }] : []),
         ].map(({ id, label, icon: Icon }) => (
           <button
             key={id}
