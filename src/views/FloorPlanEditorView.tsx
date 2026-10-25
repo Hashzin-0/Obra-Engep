@@ -73,6 +73,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   const [showHydLayer, setShowHydLayer] = useState(true);
   const [showFurnitureLayer, setShowFurnitureLayer] = useState(true);
   const [showDimensions, setShowDimensions] = useState(true);
+  const [showWallVertices, setShowWallVertices] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
   const [gapEnabled, setGapEnabled] = useState(true);
   const [gapDistance, setGapDistance] = useState(20);
@@ -206,6 +207,15 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           ctx.fillText(`${lengthM} m`, midX - 12, midY - 6);
         }
       });
+
+      // Shared vertices are visible snap targets for extending existing rooms.
+      if (showWallVertices) {
+        const vertices = new Map<string, { x: number; y: number }>();
+        project.walls.forEach(w => [{ x: w.x1, y: w.y1 }, { x: w.x2, y: w.y2 }].forEach(p => vertices.set(Math.round(p.x) + ':' + Math.round(p.y), p)));
+        ctx.save();
+        vertices.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2); ctx.fillStyle = '#0F172A'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#60A5FA'; ctx.stroke(); });
+        ctx.restore();
+      }
 
       // Doors and Windows
       project.openings.forEach((op) => {
@@ -387,6 +397,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     showFurnitureLayer,
     wallDrawMode,
     wallSequencePoints,
+    showWallVertices,
   ]);
 
   const snap = (coord: number) => gapEnabled ? Math.round(coord / gapDistance) * gapDistance : coord;
@@ -430,18 +441,31 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     if (tool === 'select') { const hit=[...project.openings.map(o=>({kind:'opening' as const,id:o.id,x:o.x,y:o.y})),...project.electrical.map(o=>({kind:'electrical' as const,id:o.id,x:o.x,y:o.y})),...project.hydraulic.map(o=>({kind:'hydraulic' as const,id:o.id,x:o.x,y:o.y})),...project.walls.map(w=>({kind:'wall' as const,id:w.id,x:(w.x1+w.x2)/2,y:(w.y1+w.y2)/2}))].reverse().find(o=>Math.hypot(o.x-x,o.y-y)<20); if(hit){const target={kind:hit.kind,id:hit.id};setSelectedObjects(prev=>e.shiftKey?(prev.some(s=>s.id===hit.id&&s.kind===hit.kind)?prev.filter(s=>s.id!==hit.id):[...prev,target]):(prev.some(s=>s.id===hit.id&&s.kind===hit.kind)?prev:[target]));setSelectedObject(target);dragRef.current={...target,x,y};selectionStartRef.current=null;}else{selectionStartRef.current={x,y};setSelectionRect({x1:x,y1:y,x2:x,y2:y});setIsDrawing(true);if(!e.shiftKey){setSelectedObjects([]);setSelectedObject(null);}} e.currentTarget.setPointerCapture(e.pointerId);return; }
     if (tool === 'wall' && wallDrawMode === 'sequence') {
       const points = wallSequencePoints;
+      const existingVertices = project.walls.flatMap(w => [{ x: w.x1, y: w.y1 }, { x: w.x2, y: w.y2 }]);
+      const nearestVertex = (p: {x:number;y:number}) => {
+        let best: {x:number;y:number;distance:number} | null = null;
+        existingVertices.forEach(v => { const distance = Math.hypot(v.x-p.x, v.y-p.y); if (distance <= 18 && (!best || distance < best.distance)) best = { ...v, distance }; });
+        return best ? { x: best.x, y: best.y } : p;
+      };
+      const clicked = nearestVertex({ x, y });
       if (!points.length) {
-        setWallSequencePoints([{ x, y }]); setCurrentMouse({ x, y });
+        setWallSequencePoints([clicked]); setCurrentMouse(clicked);
       } else {
         const first = points[0];
-        const closesCycle = points.length >= 3 && Math.hypot(x - first.x, y - first.y) <= 18;
-        const end = closesCycle ? first : { x, y };
+        const returnsToStart = Math.hypot(clicked.x - first.x, clicked.y - first.y) <= 18;
+        const joinsExistingVertex = points.length >= 2 && existingVertices.some(v => Math.hypot(v.x-clicked.x, v.y-clicked.y) <= 8);
+        const closesRoom = points.length >= 2 && (returnsToStart || joinsExistingVertex);
+        const end = returnsToStart ? first : clicked;
         const previous = points[points.length - 1];
-        if (Math.hypot(end.x - previous.x, end.y - previous.y) > 1) {
+        const alreadyExists = project.walls.some(w =>
+          (Math.hypot(w.x1-previous.x,w.y1-previous.y)<2 && Math.hypot(w.x2-end.x,w.y2-end.y)<2) ||
+          (Math.hypot(w.x2-previous.x,w.y2-previous.y)<2 && Math.hypot(w.x1-end.x,w.y1-end.y)<2)
+        );
+        if (Math.hypot(end.x - previous.x, end.y - previous.y) > 1 && !alreadyExists) {
           const newWall: WallSegment = { id: ensureUuid('wall'), x1: previous.x, y1: previous.y, x2: end.x, y2: end.y, thickness: 15 };
           updateProjectState({ ...project, walls: [...project.walls, newWall] });
         }
-        if (closesCycle) { setWallSequencePoints([]); setCurrentMouse(null); }
+        if (closesRoom) { setWallSequencePoints([]); setCurrentMouse(null); }
         else setWallSequencePoints([...points, end]);
       }
       e.currentTarget.setPointerCapture(e.pointerId); return;
@@ -977,7 +1001,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           <span className="font-semibold text-[#9FB0C8]">Desenho de paredes:</span>
           <button type="button" onClick={() => { setWallDrawMode('segment'); setWallSequencePoints([]); setIsDrawing(false); setStartPoint(null); }} className={`rounded-lg border px-3 py-2 ${wallDrawMode === 'segment' ? 'border-blue-500 bg-blue-600 text-white' : 'border-[#2A3A55] text-[#9FB0C8]'}`}>Linha única</button>
           <button type="button" onClick={() => { setWallDrawMode('sequence'); setWallSequencePoints([]); setIsDrawing(false); setStartPoint(null); }} className={`rounded-lg border px-3 py-2 ${wallDrawMode === 'sequence' ? 'border-blue-500 bg-blue-600 text-white' : 'border-[#2A3A55] text-[#9FB0C8]'}`}>Sequência por vértices</button>
-          {wallDrawMode === 'sequence' && <><span>{wallSequencePoints.length} vértice(s) · clique no primeiro ponto para fechar o cômodo</span><button type="button" onClick={() => { setWallSequencePoints([]); setCurrentMouse(null); }} className="rounded-lg border border-red-400/40 px-3 py-2 text-red-300">Cancelar sequência</button></>}
+          <label className="inline-flex items-center gap-2"><input type="checkbox" checked={showWallVertices} onChange={e => setShowWallVertices(e.target.checked)} /> Mostrar vértices</label>{wallDrawMode === 'sequence' && <><span>{wallSequencePoints.length} vértice(s) · finalize no vértice inicial ou em outro vértice existente</span><button type="button" onClick={() => { setWallSequencePoints([]); setCurrentMouse(null); }} className="rounded-lg border border-red-400/40 px-3 py-2 text-red-300">Cancelar sequência</button></>}
         </div>
       )}
 
