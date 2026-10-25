@@ -860,6 +860,15 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
                 <div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold text-white">{item.name}</div><div className="text-[10px] text-[#9FB0C8]">{(item.widthIn * 0.0254).toFixed(2)} × {(item.depthIn * 0.0254).toFixed(2)} m · {item.rotation}°</div></div>
                 <button type="button" onClick={() => updateProjectState({...project, furniture:(project.furniture ?? []).map(value => value.id === item.id ? {...value, rotation:(value.rotation + 90) % 360} : value)})} className="rounded-lg border border-[#2A3A55] px-2 py-2 text-xs text-white" aria-label={`Girar ${item.name} 90 graus`}><RotateCw className="h-4 w-4" /></button>
                 <button type="button" onClick={() => updateProjectState({...project, furniture:(project.furniture ?? []).filter(value => value.id !== item.id)})} className="rounded-lg border border-red-400/30 px-2 py-2 text-xs text-red-300" aria-label={`Remover ${item.name}`}><Trash2 className="h-4 w-4" /></button>
+                <details className="w-full pt-1">
+                  <summary className="cursor-pointer select-none text-[11px] text-blue-300">Editar posição e dimensões</summary>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <label className="text-[10px] text-[#9FB0C8]">X (px)<input type="number" value={Math.round(item.x)} onChange={e => updateProjectState({...project, furniture:(project.furniture ?? []).map(value => value.id === item.id ? {...value, x:Number(e.target.value)} : value)})} className="mt-1 min-h-9 w-full rounded-md border border-[#2A3A55] bg-[#101827] px-2 text-xs text-white" /></label>
+                    <label className="text-[10px] text-[#9FB0C8]">Y (px)<input type="number" value={Math.round(item.y)} onChange={e => updateProjectState({...project, furniture:(project.furniture ?? []).map(value => value.id === item.id ? {...value, y:Number(e.target.value)} : value)})} className="mt-1 min-h-9 w-full rounded-md border border-[#2A3A55] bg-[#101827] px-2 text-xs text-white" /></label>
+                    <label className="text-[10px] text-[#9FB0C8]">Largura (cm)<input type="number" min="1" step="1" value={Number((item.widthIn * 2.54).toFixed(1))} onChange={e => updateProjectState({...project, furniture:(project.furniture ?? []).map(value => value.id === item.id ? {...value, widthIn:Math.max(1,Number(e.target.value))/2.54} : value)})} className="mt-1 min-h-9 w-full rounded-md border border-[#2A3A55] bg-[#101827] px-2 text-xs text-white" /></label>
+                    <label className="text-[10px] text-[#9FB0C8]">Profundidade (cm)<input type="number" min="1" step="1" value={Number((item.depthIn * 2.54).toFixed(1))} onChange={e => updateProjectState({...project, furniture:(project.furniture ?? []).map(value => value.id === item.id ? {...value, depthIn:Math.max(1,Number(e.target.value))/2.54} : value)})} className="mt-1 min-h-9 w-full rounded-md border border-[#2A3A55] bg-[#101827] px-2 text-xs text-white" /></label>
+                  </div>
+                </details>
               </div>
             ))}
           </div>
