@@ -29,7 +29,7 @@ export const FurnitureCatalog: React.FC<Props> = ({ onAdd, onClose }) => {
         <header className="flex items-center justify-between gap-3 border-b border-[#2A3A55] px-4 py-3 sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
             <div className="rounded-xl bg-blue-500/15 p-2 text-blue-300"><Cuboid className="h-5 w-5" /></div>
-            <div className="min-w-0"><h2 className="text-base font-bold sm:text-lg">Biblioteca de objetos</h2><p className="text-xs text-slate-400">96 símbolos arquitetônicos · 40 modelos 3D vinculados a assets reais</p></div>
+            <div className="min-w-0"><h2 className="text-base font-bold sm:text-lg">Biblioteca de objetos</h2><p className="text-xs text-slate-400">96 símbolos arquitetônicos · 32 modelos 3D vinculados a assets reais</p></div>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Fechar catálogo"><X className="h-5 w-5" /></button>
         </header>
