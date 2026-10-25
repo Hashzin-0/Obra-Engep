@@ -124,7 +124,7 @@ function AppShell() {
 
   const [syncState, setSyncState] = useState<SyncState>({
     status: isSupabaseConfigured ? 'connecting' : 'disabled',
-    message: isSupabaseConfigured ? undefined : 'Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.',
+    message: isSupabaseConfigured ? undefined : 'O acesso à conta está temporariamente indisponível. Tente novamente mais tarde.',
   });
   const [remoteReady, setRemoteReady] = useState(false);
   const userIdRef = useRef<string | null>(null);
@@ -249,7 +249,7 @@ function AppShell() {
       } catch (error) {
         setSyncState({
           status: 'error',
-          message: error instanceof Error ? error.message : 'Falha ao conectar ao Supabase.',
+          message: error instanceof Error ? error.message : 'Não foi possível conectar agora. Verifique sua conexão e tente novamente.',
         });
         setRemoteReady(true);
       }

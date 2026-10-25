@@ -411,10 +411,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   <div className="font-semibold text-sm text-white flex items-center gap-2">
                     <span>Cronograma & Prazos da Obra</span>
                     <span className="text-[10px] px-2 py-0.2 rounded-full bg-[#F5B93A]/20 text-[#F5B93A] font-bold">
-                      Push & Calendário
+                      Notificações e prazos
                     </span>
                   </div>
-                  <div className="text-xs text-[#9FB0C8]">Alertas Android de vistorias e sincronização (.ics / Google)</div>
+                  <div className="text-xs text-[#9FB0C8]">Receba lembretes de vistorias e organize os compromissos no calendário</div>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-[#F5B93A]" />

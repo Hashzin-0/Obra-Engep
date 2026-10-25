@@ -442,7 +442,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-bold text-white">Central de Notificações & Prazos</h3>
-              <p className="text-xs text-[#9FB0C8]">Alertas Android Push e sincronização com calendário</p>
+              <p className="text-xs text-[#9FB0C8]">Gerencie seus avisos e organize os prazos da obra</p>
             </div>
             {onOpenCalendarModal && (
               <button
@@ -468,9 +468,9 @@ export const MoreView: React.FC<MoreViewProps> = ({
               <div className="flex items-center gap-2">
                 <Smartphone className="w-5 h-5 text-[#5B9BFF]" />
                 <div>
-                  <h4 className="font-bold text-sm text-white">Web Push (VAPID + Supabase)</h4>
+                  <h4 className="font-bold text-sm text-white">Notificações</h4>
                   <p className="text-[11px] text-[#9FB0C8]">
-                    Lembretes enviados pela Edge Function, mesmo com o app fechado
+                    Receba lembretes importantes mesmo quando não estiver usando o aplicativo.
                   </p>
                 </div>
               </div>
@@ -495,7 +495,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
 
             {!pushSupported() && (
               <p className="text-[11px] text-[#F5B93A]">
-                Configure VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY e use HTTPS (ou localhost) para habilitar Web Push.
+                As notificações não estão disponíveis neste navegador ou dispositivo. Verifique as permissões de notificação.
               </p>
             )}
 
@@ -507,7 +507,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
                   className="px-3.5 py-2 rounded-xl bg-[#1F66D6] hover:bg-[#1A57B8] disabled:opacity-40 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
                 >
                   <BellRing className="w-3.5 h-3.5" />
-                  <span>Ativar Web Push</span>
+                  <span>Ativar notificações</span>
                 </button>
               ) : (
                 <>
@@ -516,7 +516,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
                     className="px-3.5 py-2 rounded-xl bg-[#F5B93A]/20 hover:bg-[#F5B93A]/30 text-[#F5B93A] border border-[#F5B93A]/40 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
                   >
                     <Bell className="w-3.5 h-3.5" />
-                    <span>Enviar Push de Teste</span>
+                    <span>Enviar notificação de teste</span>
                   </button>
                   <button
                     onClick={deactivatePush}
@@ -531,20 +531,19 @@ export const MoreView: React.FC<MoreViewProps> = ({
                 onClick={async () => {
                   const success = await exportToLocalCalendar(deadlines);
                   if (success) {
-                    setPushFeedback('Calendário exportado em formato .ics universal!');
+                    setPushFeedback('Compromissos exportados para o calendário.');
                     setTimeout(() => setPushFeedback(null), 4000);
                   }
                 }}
                 className="px-3.5 py-2 rounded-xl border border-[#2A3A55] hover:border-[#1F66D6] text-[#E8EDF5] text-xs font-medium flex items-center gap-1.5 transition"
               >
                 <CalendarCheck className="w-3.5 h-3.5 text-[#5B9BFF]" />
-                <span>Exportar Todos para Calendário (.ICS)</span>
+                <span>Exportar todos para o calendário</span>
               </button>
             </div>
 
             <p className="text-[11px] text-[#6B7F9E]">
-              O agendamento é feito por pg_cron + pg_net no Supabase. A entrega usa VAPID; o Supabase guarda as
-              inscrições e os prazos.
+              Configure suas notificações e mantenha os prazos importantes organizados em um só lugar.
             </p>
           </div>
 
@@ -580,15 +579,15 @@ export const MoreView: React.FC<MoreViewProps> = ({
                       className="px-2 py-1 rounded-lg bg-[#1F66D6]/20 hover:bg-[#1F66D6]/40 text-[#5B9BFF] font-medium text-[10px] flex items-center gap-1"
                     >
                       <Calendar className="w-3 h-3" />
-                      <span>Google Cal</span>
+                      <span>Google Agenda</span>
                     </a>
                     <button
                       onClick={() => exportToLocalCalendar([item])}
                       className="px-2 py-1 rounded-lg bg-black/30 hover:bg-white/10 text-[#9FB0C8] hover:text-white text-[10px] font-medium flex items-center gap-1"
-                      title="Baixar arquivo .ics"
+                      title="Baixar compromisso"
                     >
                       <Download className="w-3 h-3" />
-                      <span>.ICS</span>
+                      <span>Exportar</span>
                     </button>
                   </div>
                 </div>
@@ -603,11 +602,11 @@ export const MoreView: React.FC<MoreViewProps> = ({
             </h4>
             <div className="p-4 rounded-2xl bg-[#17243A] border border-[#3DD68C]/40 space-y-1">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#3DD68C]">Versão 2.2 com Web Push e Supabase</span>
+                <span className="text-xs font-bold text-[#3DD68C]">Versão 2.2 · Notificações e calendário</span>
                 <span className="text-[10px] text-[#9FB0C8]">25/10/2026</span>
               </div>
               <p className="text-xs text-[#E8EDF5] leading-relaxed">
-                Integração do sistema de gerenciamento de notificações Android Push, sincronização bidirecional de calendário (.ics / Google Calendar) e refinamento de UI/UX das pranchas técnicas.
+                Melhorias nas notificações, organização dos prazos e integração com calendários.
               </p>
             </div>
           </div>
@@ -677,7 +676,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
               Armazenamento e Backup Local
             </h4>
             <p className="text-xs text-[#9FB0C8]">
-              Os dados ficam em cache no dispositivo e são sincronizados com o Supabase quando configurado. Exporte um backup antes de trocar de aparelho.
+              Seus dados são mantidos neste dispositivo e sincronizados quando disponível. Exporte um backup antes de trocar de aparelho.
             </p>
             <div className="flex items-center gap-2 pt-1 flex-wrap">
               <button
@@ -685,7 +684,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
                 className="flex-1 min-w-[140px] py-2.5 px-3 rounded-xl bg-[#1F66D6] hover:bg-[#1A57B8] text-white text-xs font-semibold flex items-center justify-center gap-1.5"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Exportar Backup JSON</span>
+                <span>Exportar backup</span>
               </button>
               <label className="flex-1 min-w-[140px] py-2.5 px-3 rounded-xl border border-[#2A3A55] text-xs font-medium text-[#9FB0C8] hover:text-white text-center cursor-pointer">
                 <Upload className="w-3.5 h-3.5 inline mr-1" />
@@ -704,13 +703,13 @@ export const MoreView: React.FC<MoreViewProps> = ({
                 onClick={onOpenOnboarding}
                 className="py-2.5 px-3 rounded-xl border border-[#2A3A55] text-xs font-medium text-[#9FB0C8] hover:text-white"
               >
-                Refazer Onboarding
+                Refazer configuração inicial
               </button>
             </div>
             {syncState && (
               <p className="text-[11px] text-[#6B7F9E]">
-                Supabase: {syncState.status}
-                {syncState.message ? ` · ${syncState.message}` : ''}
+                Sincronização: {syncState.status}
+                
                 {syncState.lastSyncedAt
                   ? ` · última sincronização ${new Date(syncState.lastSyncedAt).toLocaleString('pt-BR')}`
                   : ''}
@@ -810,7 +809,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
               </>
             ) : (
               <p className="text-[11px] text-[#F5B93A]">
-                Configure o Supabase para registrar feedback no app.
+                O envio de feedback está temporariamente indisponível.
               </p>
             )}
             {supportEmail && (
