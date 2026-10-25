@@ -403,7 +403,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       }
       dragRef.current = null; setCurrentMouse(null); setIsDrawing(false); setStartPoint(null); return;
     }
-    if (placementRef.current && e && currentMouse) {
+    if (placementRef.current && e) {
       const rect = e.currentTarget.getBoundingClientRect();
       const px = snap((e.clientX - rect.left) / zoom), py = snap((e.clientY - rect.top) / zoom);
       const p = snapToNearestWall(px, py), x = p.x, y = p.y;
