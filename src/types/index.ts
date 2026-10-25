@@ -234,6 +234,7 @@ export interface PlacedFurnitureItem {
   symbolUrl: string;
   modelUrl: string | null;
   thumbnailUrl: string | null;
+  locked?: boolean;
 }
 
 export interface FloorPlanProject {
