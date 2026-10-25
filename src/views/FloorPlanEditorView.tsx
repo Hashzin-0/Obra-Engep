@@ -761,7 +761,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
               <span className="w-2 h-2 rounded-full bg-[#854D0E]" /> Esgoto
             </span>
           </div>
-        </div>
+        </div></>}
       </div>
 
       {selectedObject && (
