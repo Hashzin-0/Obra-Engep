@@ -16,7 +16,6 @@ import {
   Save,
   Plus,
   Trash2,
-  Move,
   Square,
   DoorOpen,
   Maximize2,
@@ -275,6 +274,12 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       });
     }
 
+    if (dragRef.current && currentMouse) {
+      const drag = dragRef.current; ctx.save(); ctx.globalAlpha = 0.55; ctx.strokeStyle = '#5B9BFF'; ctx.fillStyle = '#5B9BFF'; ctx.lineWidth = 4; ctx.setLineDash([5, 3]);
+      if (drag.kind === 'wall') { const w = project.walls.find(item => item.id === drag.id); if (w) { const dx = currentMouse.x - drag.x, dy = currentMouse.y - drag.y; ctx.beginPath(); ctx.moveTo(w.x1 + dx, w.y1 + dy); ctx.lineTo(w.x2 + dx, w.y2 + dy); ctx.stroke(); } }
+      else { const item = drag.kind === 'opening' ? project.openings.find(o => o.id === drag.id) : drag.kind === 'electrical' ? project.electrical.find(o => o.id === drag.id) : project.hydraulic.find(o => o.id === drag.id); if (item) { ctx.beginPath(); ctx.arc(item.x + currentMouse.x - drag.x, item.y + currentMouse.y - drag.y, 12, 0, Math.PI * 2); ctx.stroke(); } }
+      ctx.restore();
+    }
     // Highlight selected objects for clear visual feedback.
     if (selectedObject) {
       ctx.save(); ctx.strokeStyle = '#5B9BFF'; ctx.lineWidth = 3; ctx.setLineDash([5, 3]);
@@ -356,6 +361,13 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       return;
     }
     if (tool === 'wall') {
+      const wall = [...project.walls].reverse().find(w => {
+        const vx = w.x2 - w.x1, vy = w.y2 - w.y1, len2 = vx * vx + vy * vy || 1;
+        const t = Math.max(0, Math.min(1, ((x - w.x1) * vx + (y - w.y1) * vy) / len2));
+        return Math.hypot(x - (w.x1 + t * vx), y - (w.y1 + t * vy)) <= 16;
+      });
+      if (wall) { const target = { kind: 'wall' as const, id: wall.id }; setSelectedObject(target); dragRef.current = { ...target, x, y }; e.currentTarget.setPointerCapture(e.pointerId); return; }
+      setSelectedObject(null);
       setIsDrawing(true);
       setStartPoint({ x, y });
       setCurrentMouse({ x, y });
