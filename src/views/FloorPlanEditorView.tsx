@@ -452,7 +452,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           });
         }
         else if (drag.kind === 'opening') { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, openings: project.openings.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y, rotation: p.rotation, wallId: p.wallId || o.wallId } : o) }); }
-        else if (drag.kind === 'electrical') { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, electrical: project.electrical.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y } : o) }); }
+        else if (drag.kind === 'electrical') { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, electrical: project.electrical.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y, rotation: p.wallId ? p.rotation : (o.rotation ?? 0) } : o) }); }
         else { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, hydraulic: project.hydraulic.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y } : o) }); }
       }
       dragRef.current = null; setCurrentMouse(null); setIsDrawing(false); setStartPoint(null); return;
@@ -465,7 +465,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         const item: OpeningItem = { id: ensureUuid(tool + '-' + Date.now()), type: tool, wallId: p.wallId || project.walls[0]?.id || '', x, y, width: tool === 'door' ? 80 : 100, rotation: p.rotation };
         updateProjectState({ ...project, openings: [...project.openings, item] }); setSelectedObject({ kind: 'opening', id: item.id });
       } else if (tool === 'light' || tool === 'socket') {
-        const item: ElectricalItem = { id: ensureUuid(tool + '-' + Date.now()), type: tool, x, y, circuit: tool === 'light' ? 'Circuito 1' : 'Circuito 2', label: tool === 'light' ? 'Ponto de Luz 100W' : 'Tomada 10A TUG' };
+        const item: ElectricalItem = { id: ensureUuid(tool + '-' + Date.now()), type: tool, x, y, rotation: p.wallId ? p.rotation : 0, circuit: tool === 'light' ? 'Circuito 1' : 'Circuito 2', label: tool === 'light' ? 'Ponto de Luz 100W' : 'Tomada 10A TUG' };
         updateProjectState({ ...project, electrical: [...project.electrical, item] }); setSelectedObject({ kind: 'electrical', id: item.id });
       } else if (tool === 'cold_water') {
         const item: HydraulicItem = { id: ensureUuid('af-' + Date.now()), type: 'cold_water', x, y, diameterMm: 25, label: 'Ponto AF 25mm' };
