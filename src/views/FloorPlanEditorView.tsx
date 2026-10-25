@@ -94,6 +94,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   const [currentMouse, setCurrentMouse] = useState<{ x: number; y: number } | null>(null);
   const [selectedObject, setSelectedObject] = useState<{ kind: 'wall' | 'opening' | 'electrical' | 'hydraulic'; id: string } | null>(null);
   const dragRef = useRef<{ kind: 'wall' | 'opening' | 'electrical' | 'hydraulic'; id: string; x: number; y: number } | null>(null);
+  const placementRef = useRef(false);
 
   // Push state to undo history
   const updateProjectState = (newProject: FloorPlanProject) => {
@@ -301,6 +302,24 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   ]);
 
   const snap = (coord: number) => Math.round(coord / 20) * 20;
+  const snapToNearestWall = (x: number, y: number) => {
+    let best = { x, y, rotation: 0, distance: Number.POSITIVE_INFINITY, wallId: '' };
+    for (const wall of project.walls) {
+      const vx = wall.x2 - wall.x1, vy = wall.y2 - wall.y1;
+      const len2 = vx * vx + vy * vy || 1;
+      const t = Math.max(0, Math.min(1, ((x - wall.x1) * vx + (y - wall.y1) * vy) / len2));
+      const px = wall.x1 + t * vx, py = wall.y1 + t * vy;
+      const distance = Math.hypot(x - px, y - py);
+      if (distance < best.distance) best = { x: snap(px), y: snap(py), rotation: Math.round(Math.atan2(vy, vx) * 180 / Math.PI / 90) * 90, distance, wallId: wall.id };
+    }
+    return best.distance <= 64 ? best : { x, y, rotation: 0, distance: best.distance, wallId: '' };
+  };
+  const activeKind = (): 'opening' | 'electrical' | 'hydraulic' | null => {
+    if (tool === 'door' || tool === 'window') return 'opening';
+    if (tool === 'socket' || tool === 'light') return 'electrical';
+    if (tool === 'cold_water') return 'hydraulic';
+    return null;
+  };
 
   const handleMouseDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
