@@ -225,6 +225,7 @@ export interface PlacedFurnitureItem {
   heightIn: number;
   symbolUrl: string;
   modelUrl: string | null;
+  thumbnailUrl: string | null;
 }
 
 export interface FloorPlanProject {
