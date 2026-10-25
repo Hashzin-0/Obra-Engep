@@ -33,7 +33,7 @@ import {
   ProjectDeadline,
   SyncState,
 } from './types';
-import { ensureAnonymousSession, isSupabaseConfigured } from './lib/supabase';
+import { ensureAnonymousSession, isSupabaseConfigured, supabase } from './lib/supabase';
 import {
   clearHistory as clearRemoteHistory,
   deleteDeadline as deleteRemoteDeadline,
@@ -476,11 +476,28 @@ function AppShell() {
     setLibrarySubItemId(undefined);
   };
 
+  const handleGoogleSignIn = async () => {
+    if (!supabase) {
+      window.alert('O login ainda precisa das variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY na implantação.');
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    });
+
+    if (error) {
+      window.alert(`Não foi possível iniciar o login com Google: ${error.message}`);
+    }
+  };
+
   const latest = historyItems[0] ?? null;
 
   return (
     <div className="min-h-screen flex flex-col transition-colors selection:bg-[#1F66D6] selection:text-white">
       <TopHeader
+        onGoogleSignIn={handleGoogleSignIn}
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenCalendarModal={() => setIsCalendarModalOpen(true)}
         pendingDeadlinesCount={deadlines.filter((deadline) => deadline.status !== 'concluido').length}
