@@ -165,6 +165,7 @@ export interface WallSegment {
   x2: number;
   y2: number;
   thickness: number;
+  locked?: boolean;
 }
 
 export interface OpeningItem {
@@ -175,12 +176,16 @@ export interface OpeningItem {
   y: number;
   width: number;
   rotation?: number;
+  locked?: boolean;
 }
 
 export interface ElectricalItem {
   rotation?: number;
   id: string;
-  type: 'socket' | 'switch' | 'light' | 'panel';
+  type: 'socket' | 'switch' | 'light' | 'panel' | 'wire';
+  x2?: number;
+  y2?: number;
+  locked?: boolean;
   x: number;
   y: number;
   circuit: string;
@@ -189,7 +194,10 @@ export interface ElectricalItem {
 
 export interface HydraulicItem {
   id: string;
-  type: 'cold_water' | 'hot_water' | 'sewage' | 'drain';
+  type: 'cold_water' | 'hot_water' | 'sewage' | 'drain' | 'water_pipe' | 'sewage_pipe' | 'sink' | 'faucet' | 'shower' | 'toilet';
+  x2?: number;
+  y2?: number;
+  locked?: boolean;
   x: number;
   y: number;
   diameterMm: number;
