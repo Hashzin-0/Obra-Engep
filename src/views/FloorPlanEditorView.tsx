@@ -190,25 +190,28 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
 
       // Doors and Windows
       project.openings.forEach((op) => {
+        ctx.save();
+        ctx.translate(op.x, op.y);
+        ctx.rotate(((op.rotation ?? 0) * Math.PI) / 180);
         if (op.type === 'door') {
           ctx.strokeStyle = '#F5B93A';
           ctx.lineWidth = 3;
           ctx.beginPath();
-          ctx.arc(op.x, op.y, 25, 0, Math.PI / 2);
+          ctx.arc(0, 0, 25, 0, Math.PI / 2);
           ctx.stroke();
           ctx.beginPath();
-          ctx.moveTo(op.x, op.y);
-          ctx.lineTo(op.x + 25, op.y);
+          ctx.moveTo(0, 0);
+          ctx.lineTo(25, 0);
           ctx.stroke();
         } else {
-          // Window
           ctx.strokeStyle = '#06B6D4';
           ctx.lineWidth = 4;
           ctx.beginPath();
-          ctx.moveTo(op.x - 20, op.y);
-          ctx.lineTo(op.x + 20, op.y);
+          ctx.moveTo(-20, 0);
+          ctx.lineTo(20, 0);
           ctx.stroke();
         }
+        ctx.restore();
       });
     }
 
