@@ -4,6 +4,7 @@
  */
 
 import React, { useRef, useState, useEffect } from 'react';
+import { FloorPlan3DView } from '../components/FloorPlan3DView';
 import {
   Layers,
   Zap,
@@ -76,9 +77,13 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   // Tool
   const [tool, setTool] = useState<ToolMode>('select');
   const [zoom, setZoom] = useState(1);
+  const [show3D, setShow3D] = useState(false);
+  const [selectedObjects, setSelectedObjects] = useState<Array<{ kind: 'wall' | 'opening' | 'electrical' | 'hydraulic'; id: string }>>([]);
+  const [selectionRect, setSelectionRect] = useState<{x1:number;y1:number;x2:number;y2:number}|null>(null);
+  const selectionStartRef = useRef<{x:number;y:number}|null>(null);
   const [canvasPan, setCanvasPan] = useState({ x: 0, y: 0 });
   const activePointersRef = useRef(new Map<number, { x: number; y: number }>());
-  const panGestureRef = useRef<{ x: number; y: number; centerX: number; centerY: number } | null>(null);
+  const panGestureRef = useRef<{ x: number; y: number; centerX: number; centerY: number; distance:number; zoom:number } | null>(null);
   const [stage, setStage] = useState<'estudo_preliminar' | 'executivo'>(project.stage);
 
   useEffect(() => {
@@ -290,6 +295,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       ctx.restore();
     }
     // Highlight selected objects for clear visual feedback.
+    if(selectionRect){ctx.save();ctx.fillStyle='rgba(91,155,255,.15)';ctx.strokeStyle='#5B9BFF';ctx.setLineDash([5,3]);ctx.fillRect(selectionRect.x1,selectionRect.y1,selectionRect.x2-selectionRect.x1,selectionRect.y2-selectionRect.y1);ctx.strokeRect(selectionRect.x1,selectionRect.y1,selectionRect.x2-selectionRect.x1,selectionRect.y2-selectionRect.y1);ctx.restore();}
+    if(selectedObjects.length){ctx.save();ctx.strokeStyle='#5B9BFF';ctx.lineWidth=3;ctx.setLineDash([5,3]);selectedObjects.forEach(s=>{const o=s.kind==='wall'?project.walls.find(v=>v.id===s.id):s.kind==='opening'?project.openings.find(v=>v.id===s.id):s.kind==='electrical'?project.electrical.find(v=>v.id===s.id):project.hydraulic.find(v=>v.id===s.id);if(!o)return;if(s.kind==='wall'){ctx.beginPath();ctx.moveTo(o.x1,o.y1);ctx.lineTo(o.x2,o.y2);ctx.stroke();}else{ctx.beginPath();ctx.arc(o.x,o.y,15,0,Math.PI*2);ctx.stroke();}});ctx.restore();}
     if (selectedObject) {
       ctx.save(); ctx.strokeStyle = '#5B9BFF'; ctx.lineWidth = 3; ctx.setLineDash([5, 3]);
       if (selectedObject.kind === 'wall') { const w = project.walls.find(item => item.id === selectedObject.id); if (w) { ctx.beginPath(); ctx.moveTo(w.x1, w.y1); ctx.lineTo(w.x2, w.y2); ctx.stroke(); } }
@@ -328,6 +335,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     tool,
     isDark,
     selectedObject,
+    selectedObjects,
+    selectionRect,
   ]);
 
   const snap = (coord: number) => gapEnabled ? Math.round(coord / gapDistance) * gapDistance : coord;
@@ -356,7 +365,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       const points = [...activePointersRef.current.values()];
       const centerX = points.reduce((sum, point) => sum + point.x, 0) / points.length;
       const centerY = points.reduce((sum, point) => sum + point.y, 0) / points.length;
-      panGestureRef.current = { x: canvasPan.x, y: canvasPan.y, centerX, centerY };
+      const a=points[0], b=points[1]; panGestureRef.current = { x: canvasPan.x, y: canvasPan.y, centerX, centerY, distance:Math.hypot(a.x-b.x,a.y-b.y), zoom };
       dragRef.current = null; placementRef.current = false;
       setIsDrawing(false); setStartPoint(null); setCurrentMouse(null);
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -368,6 +377,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     const x = snap((e.clientX - rect.left - canvasPan.x) / zoom);
     const y = snap((e.clientY - rect.top - canvasPan.y) / zoom);
 
+    if (tool === 'select') { const hit=[...project.openings.map(o=>({kind:'opening' as const,id:o.id,x:o.x,y:o.y})),...project.electrical.map(o=>({kind:'electrical' as const,id:o.id,x:o.x,y:o.y})),...project.hydraulic.map(o=>({kind:'hydraulic' as const,id:o.id,x:o.x,y:o.y})),...project.walls.map(w=>({kind:'wall' as const,id:w.id,x:(w.x1+w.x2)/2,y:(w.y1+w.y2)/2}))].reverse().find(o=>Math.hypot(o.x-x,o.y-y)<20); if(hit){const target={kind:hit.kind,id:hit.id};setSelectedObjects(prev=>e.shiftKey?(prev.some(s=>s.id===hit.id&&s.kind===hit.kind)?prev.filter(s=>s.id!==hit.id):[...prev,target]):(prev.some(s=>s.id===hit.id&&s.kind===hit.kind)?prev:[target]));setSelectedObject(target);dragRef.current={...target,x,y};selectionStartRef.current=null;}else{selectionStartRef.current={x,y};setSelectionRect({x1:x,y1:y,x2:x,y2:y});setIsDrawing(true);if(!e.shiftKey){setSelectedObjects([]);setSelectedObject(null);}} e.currentTarget.setPointerCapture(e.pointerId);return; }
     const kind = activeKind();
     if (kind) {
       const threshold = 18;
@@ -400,10 +410,11 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       const points = [...activePointersRef.current.values()];
       const centerX = points.reduce((sum, point) => sum + point.x, 0) / points.length;
       const centerY = points.reduce((sum, point) => sum + point.y, 0) / points.length;
-      setCanvasPan({ x: panGestureRef.current.x + centerX - panGestureRef.current.centerX, y: panGestureRef.current.y + centerY - panGestureRef.current.centerY });
+      const a=points[0], b=points[1], distance=Math.hypot(a.x-b.x,a.y-b.y); setCanvasPan({ x: panGestureRef.current.x + centerX - panGestureRef.current.centerX, y: panGestureRef.current.y + centerY - panGestureRef.current.centerY }); setZoom(Math.max(0.35,Math.min(3,panGestureRef.current.zoom*distance/Math.max(1,panGestureRef.current.distance))));
       return;
     }
     if (activePointersRef.current.size >= 2) return;
+    if (tool === 'select' && selectionStartRef.current) { const r=e.currentTarget.getBoundingClientRect(); setSelectionRect({x1:selectionStartRef.current.x,y1:selectionStartRef.current.y,x2:snap((e.clientX-r.left-canvasPan.x)/zoom),y2:snap((e.clientY-r.top-canvasPan.y)/zoom)}); return; }
     if (dragRef.current || placementRef.current) {
       const rect = e.currentTarget.getBoundingClientRect();
       setCurrentMouse({ x: snap((e.clientX - rect.left - canvasPan.x) / zoom), y: snap((e.clientY - rect.top - canvasPan.y) / zoom) });
@@ -420,6 +431,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
 
   const handleMouseUp = (e?: React.PointerEvent<HTMLCanvasElement>) => {
     if (e) activePointersRef.current.delete(e.pointerId);
+    if(tool==='select'&&selectionStartRef.current&&e){const r=e.currentTarget.getBoundingClientRect(),x2=snap((e.clientX-r.left-canvasPan.x)/zoom),y2=snap((e.clientY-r.top-canvasPan.y)/zoom),s=selectionStartRef.current;if(Math.hypot(x2-s.x,y2-s.y)>8){const inside=(x:number,y:number)=>x>=Math.min(s.x,x2)&&x<=Math.max(s.x,x2)&&y>=Math.min(s.y,y2)&&y<=Math.max(s.y,y2);const found=[...project.walls.filter(w=>inside((w.x1+w.x2)/2,(w.y1+w.y2)/2)).map(w=>({kind:'wall' as const,id:w.id})),...project.openings.filter(o=>inside(o.x,o.y)).map(o=>({kind:'opening' as const,id:o.id})),...project.electrical.filter(o=>inside(o.x,o.y)).map(o=>({kind:'electrical' as const,id:o.id})),...project.hydraulic.filter(o=>inside(o.x,o.y)).map(o=>({kind:'hydraulic' as const,id:o.id}))];setSelectedObjects(found);setSelectedObject(found[0]||null);}selectionStartRef.current=null;setSelectionRect(null);setIsDrawing(false);setCurrentMouse(null);return;}
     if (panGestureRef.current) {
       if (activePointersRef.current.size < 2) panGestureRef.current = null;
       if (e && activePointersRef.current.size > 0) return;
@@ -430,7 +442,10 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       const rect = e.currentTarget.getBoundingClientRect();
       const endX = snap((e.clientX - rect.left - canvasPan.x) / zoom), endY = snap((e.clientY - rect.top - canvasPan.y) / zoom);
       const dx = endX - drag.x, dy = endY - drag.y;
-      if (dx || dy) {
+      if ((dx || dy) && tool === 'select' && selectedObjects.length > 1 && selectedObjects.some(s=>s.id===drag.id&&s.kind===drag.kind)) {
+        const ids=(kind:string)=>new Set(selectedObjects.filter(s=>s.kind===kind).map(s=>s.id)); const walls=ids('wall'), openings=ids('opening'), electrical=ids('electrical'), hydraulic=ids('hydraulic');
+        updateProjectState({...project,walls:project.walls.map(w=>walls.has(w.id)?{...w,x1:w.x1+dx,y1:w.y1+dy,x2:w.x2+dx,y2:w.y2+dy}:w),openings:project.openings.map(o=>openings.has(o.id)?{...o,x:o.x+dx,y:o.y+dy}:o),electrical:project.electrical.map(o=>electrical.has(o.id)?{...o,x:o.x+dx,y:o.y+dy}:o),hydraulic:project.hydraulic.map(o=>hydraulic.has(o.id)?{...o,x:o.x+dx,y:o.y+dy}:o)});
+      } else if (dx || dy) {
         if (drag.kind === 'wall') {
           const movedWall = project.walls.find(w => w.id === drag.id);
           const distanceToWall = (x: number, y: number, w: WallSegment) => {
@@ -682,7 +697,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
 
       {/* Real Interactive Canvas (Page 6: "Canvas com grade, escala, paredes, portas, janelas, cotas...") */}
       <div className="relative w-full min-w-0 rounded-2xl border border-[#2A3A55] overflow-hidden shadow-inner bg-[#101827]">
-        <canvas
+        <div className="absolute z-10 left-3 top-3 flex gap-2"><button type="button" onClick={()=>setShow3D(false)} className={'rounded-lg px-3 py-2 text-xs font-semibold '+(!show3D?'bg-blue-600 text-white':'bg-slate-900/80 text-slate-200')}>Planta 2D</button><button type="button" onClick={()=>setShow3D(true)} className={'rounded-lg px-3 py-2 text-xs font-semibold '+(show3D?'bg-blue-600 text-white':'bg-slate-900/80 text-slate-200')}>Vista 3D</button></div>
+        {show3D ? <div className="h-[min(68vh,680px)] min-h-[320px]"><FloorPlan3DView project={project} isDark={isDark} /></div> : <canvas
           ref={canvasRef}
           onPointerDown={handleMouseDown}
           onPointerMove={handleMouseMove}
@@ -691,9 +707,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           onLostPointerCapture={handleMouseUp}
           className="block w-full cursor-crosshair touch-none select-none"
           style={{ touchAction: 'none' }}
-        />
+        />}
 
-        {/* Floating Zoom & Undo Controls */}
+        {!show3D && <>{/* Floating Zoom & Undo Controls */}
         <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-[#17243A]/90 backdrop-blur-sm p-1.5 rounded-xl border border-[#2A3A55]">
           <button
             onClick={handleUndo}
@@ -748,7 +764,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
               <span className="w-2 h-2 rounded-full bg-[#854D0E]" /> Esgoto
             </span>
           </div>
-        </div>
+        </div></>}
       </div>
 
       {selectedObject && (
@@ -793,6 +809,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       {/* Bottom Tools Toolbar (Page 6 briefing: "Barra de ferramentas inferior") */}
       <div className="p-2.5 rounded-2xl bg-[#17243A] border border-[#2A3A55] grid grid-cols-2 sm:flex sm:items-center sm:justify-between gap-1">
         {[
+          { id: 'select' as ToolMode, label: 'Mover/Selecionar', icon: Maximize2 },
           { id: 'wall' as ToolMode, label: '+ Parede', icon: Square },
           { id: 'door' as ToolMode, label: '+ Porta', icon: DoorOpen },
           { id: 'window' as ToolMode, label: '+ Janela', icon: Maximize2 },
