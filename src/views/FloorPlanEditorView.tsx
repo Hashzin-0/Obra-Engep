@@ -501,7 +501,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         const t = Math.max(0, Math.min(1, ((x - w.x1) * vx + (y - w.y1) * vy) / len2));
         return Math.hypot(x - (w.x1 + t * vx), y - (w.y1 + t * vy)) <= 16;
       });
-      if (wall) { const target = { kind: 'wall' as const, id: wall.id }; setSelectedObject(target); dragRef.current = { ...target, x, y }; e.currentTarget.setPointerCapture(e.pointerId); return; }
+      if (wall) { const target = { kind: 'wall' as const, id: wall.id }; setSelectedObject(target); dragRef.current = wall.locked ? null : { ...target, x, y }; e.currentTarget.setPointerCapture(e.pointerId); return; }
       setSelectedObject(null);
       setIsDrawing(true);
       setStartPoint({ x, y });
@@ -577,8 +577,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           });
         }
         else if (drag.kind === 'opening') { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, openings: project.openings.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y, rotation: p.rotation, wallId: p.wallId || o.wallId } : o) }); }
-        else if (drag.kind === 'electrical') { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, electrical: project.electrical.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y, rotation: p.wallId ? p.rotation : (o.rotation ?? 0) } : o) }); }
-        else { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, hydraulic: project.hydraulic.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y } : o) }); }
+        else if (drag.kind === 'electrical') { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, electrical: project.electrical.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y, ...(o.x2 !== undefined ? {x2:o.x2+dx,y2:(o.y2 ?? o.y)+dy} : {}), rotation: p.wallId ? p.rotation : (o.rotation ?? 0) } : o) }); }
+        else { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, hydraulic: project.hydraulic.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y, ...(o.x2 !== undefined ? {x2:o.x2+dx,y2:(o.y2 ?? o.y)+dy} : {}) } : o) }); }
       }
       dragRef.current = null; setCurrentMouse(null); setIsDrawing(false); setStartPoint(null); return;
     }
@@ -987,10 +987,10 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
                 <details className="w-full pt-1">
                   <summary className="cursor-pointer select-none text-[11px] text-blue-300">Editar posição e dimensões</summary>
                   <div className="mt-2 grid grid-cols-2 gap-2">
-                    <label className="text-[10px] text-[#9FB0C8]">X (px)<input type="number" value={Math.round(item.x)} onChange={e => updateProjectState({...project, furniture:(project.furniture ?? []).map(value => value.id === item.id ? {...value, x:Number(e.target.value)} : value)})} className="mt-1 min-h-9 w-full rounded-md border border-[#2A3A55] bg-[#101827] px-2 text-xs text-white" /></label>
-                    <label className="text-[10px] text-[#9FB0C8]">Y (px)<input type="number" value={Math.round(item.y)} onChange={e => updateProjectState({...project, furniture:(project.furniture ?? []).map(value => value.id === item.id ? {...value, y:Number(e.target.value)} : value)})} className="mt-1 min-h-9 w-full rounded-md border border-[#2A3A55] bg-[#101827] px-2 text-xs text-white" /></label>
-                    <label className="text-[10px] text-[#9FB0C8]">Largura (cm)<input type="number" min="1" step="1" value={Number((item.widthIn * 2.54).toFixed(1))} onChange={e => updateProjectState({...project, furniture:(project.furniture ?? []).map(value => value.id === item.id ? {...value, widthIn:Math.max(1,Number(e.target.value))/2.54} : value)})} className="mt-1 min-h-9 w-full rounded-md border border-[#2A3A55] bg-[#101827] px-2 text-xs text-white" /></label>
-                    <label className="text-[10px] text-[#9FB0C8]">Profundidade (cm)<input type="number" min="1" step="1" value={Number((item.depthIn * 2.54).toFixed(1))} onChange={e => updateProjectState({...project, furniture:(project.furniture ?? []).map(value => value.id === item.id ? {...value, depthIn:Math.max(1,Number(e.target.value))/2.54} : value)})} className="mt-1 min-h-9 w-full rounded-md border border-[#2A3A55] bg-[#101827] px-2 text-xs text-white" /></label>
+                    <label className="text-[10px] text-[#9FB0C8]">X (px)<input type="number" disabled={item.locked} value={Math.round(item.x)} onChange={e => updateProjectState({...project, furniture:(project.furniture ?? []).map(value => value.id === item.id ? {...value, x:Number(e.target.value)} : value)})} className="mt-1 min-h-9 w-full rounded-md border border-[#2A3A55] bg-[#101827] px-2 text-xs text-white" /></label>
+                    <label className="text-[10px] text-[#9FB0C8]">Y (px)<input type="number" disabled={item.locked} value={Math.round(item.y)} onChange={e => updateProjectState({...project, furniture:(project.furniture ?? []).map(value => value.id === item.id ? {...value, y:Number(e.target.value)} : value)})} className="mt-1 min-h-9 w-full rounded-md border border-[#2A3A55] bg-[#101827] px-2 text-xs text-white" /></label>
+                    <label className="text-[10px] text-[#9FB0C8]">Largura (cm)<input type="number" disabled={item.locked} min="1" step="1" value={Number((item.widthIn * 2.54).toFixed(1))} onChange={e => updateProjectState({...project, furniture:(project.furniture ?? []).map(value => value.id === item.id ? {...value, widthIn:Math.max(1,Number(e.target.value))/2.54} : value)})} className="mt-1 min-h-9 w-full rounded-md border border-[#2A3A55] bg-[#101827] px-2 text-xs text-white" /></label>
+                    <label className="text-[10px] text-[#9FB0C8]">Profundidade (cm)<input type="number" disabled={item.locked} min="1" step="1" value={Number((item.depthIn * 2.54).toFixed(1))} onChange={e => updateProjectState({...project, furniture:(project.furniture ?? []).map(value => value.id === item.id ? {...value, depthIn:Math.max(1,Number(e.target.value))/2.54} : value)})} className="mt-1 min-h-9 w-full rounded-md border border-[#2A3A55] bg-[#101827] px-2 text-xs text-white" /></label>
                   </div>
                 </details>
               </div>
