@@ -249,7 +249,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     // ELECTRICAL LAYER
     if (showElecLayer) {
       project.electrical.forEach((el) => {
-        if (el.type === 'light') {
+        if (el.type === 'wire' && el.x2 !== undefined && el.y2 !== undefined) { ctx.save(); ctx.strokeStyle='#FACC15'; ctx.lineWidth=3; ctx.setLineDash([7,4]); ctx.beginPath(); ctx.moveTo(el.x,el.y); ctx.lineTo(el.x2,el.y2); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle='#FACC15'; ctx.beginPath(); ctx.arc(el.x,el.y,3,0,Math.PI*2); ctx.arc(el.x2,el.y2,3,0,Math.PI*2); ctx.fill(); ctx.restore();
+        } else if (el.type === 'light') {
           ctx.save(); ctx.translate(el.x, el.y); ctx.rotate(((el.rotation ?? 0) * Math.PI) / 180);
           ctx.fillStyle = '#EAB308';
           ctx.strokeStyle = '#CA8A04';
@@ -287,7 +288,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     // HYDRAULIC LAYER
     if (showHydLayer) {
       project.hydraulic.forEach((hy) => {
-        if (hy.type === 'cold_water') {
+        if ((hy.type === 'water_pipe' || hy.type === 'sewage_pipe') && hy.x2 !== undefined && hy.y2 !== undefined) { ctx.save(); ctx.strokeStyle=hy.type==='sewage_pipe'?'#A16207':'#06B6D4'; ctx.lineWidth=hy.type==='sewage_pipe'?4:3; ctx.setLineDash(hy.type==='sewage_pipe'?[6,3]:[]); ctx.beginPath(); ctx.moveTo(hy.x,hy.y); ctx.lineTo(hy.x2,hy.y2); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+        } else if (['sink','faucet','shower','toilet'].includes(hy.type)) { ctx.save(); ctx.fillStyle='#06B6D4'; ctx.strokeStyle='#E0F2FE'; ctx.lineWidth=2; ctx.beginPath(); if(hy.type==='sink'){ctx.roundRect(hy.x-11,hy.y-7,22,14,3);} else if(hy.type==='toilet'){ctx.ellipse(hy.x,hy.y+2,7,9,0,0,Math.PI*2);ctx.rect(hy.x-5,hy.y-10,10,5);} else if(hy.type==='shower'){ctx.arc(hy.x,hy.y,8,0,Math.PI*2);ctx.moveTo(hy.x-5,hy.y+5);ctx.lineTo(hy.x+5,hy.y+5);} else {ctx.moveTo(hy.x-8,hy.y);ctx.lineTo(hy.x+6,hy.y);ctx.lineTo(hy.x+6,hy.y-5);} ctx.fill();ctx.stroke();ctx.restore();
+        } else if (hy.type === 'cold_water' || hy.type === 'hot_water') {
           ctx.fillStyle = '#06B6D4';
           ctx.beginPath();
           ctx.arc(hy.x, hy.y, 7, 0, Math.PI * 2);
@@ -295,7 +298,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           ctx.fillStyle = '#FFFFFF';
           ctx.font = '7px sans-serif';
           ctx.fillText('AF', hy.x - 4, hy.y + 3);
-        } else if (hy.type === 'sewage') {
+        } else if (hy.type === 'sewage' || hy.type === 'drain') {
           ctx.fillStyle = '#854D0E';
           ctx.beginPath();
           ctx.arc(hy.x, hy.y, 9, 0, Math.PI * 2);
@@ -978,8 +981,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
                 <img src={item.symbolUrl} alt="" className="h-10 w-10 rounded bg-white object-contain p-1" />
                 <div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold text-white">{item.name}</div><div className="text-[10px] text-[#9FB0C8]">{(item.widthIn * 0.0254).toFixed(2)} × {(item.depthIn * 0.0254).toFixed(2)} m · {item.rotation}°</div></div>
                 <button type="button" onClick={() => { const clone = { ...item, id: ensureUuid('furniture-copy'), x: item.x + 20, y: item.y + 20 }; updateProjectState({ ...project, furniture:[...(project.furniture ?? []), clone] }); }} className="rounded-lg border border-[#2A3A55] px-2 py-2 text-xs text-white" aria-label={`Copiar ${item.name}`} title="Copiar"><Copy className="h-4 w-4" /></button>
-                <button type="button" onClick={() => updateProjectState({...project, furniture:(project.furniture ?? []).map(value => value.id === item.id ? {...value, rotation:(value.rotation + 90) % 360} : value)})} className="rounded-lg border border-[#2A3A55] px-2 py-2 text-xs text-white" aria-label={`Girar ${item.name} 90 graus`}><RotateCw className="h-4 w-4" /></button>
-                <button type="button" onClick={() => updateProjectState({...project, furniture:(project.furniture ?? []).filter(value => value.id !== item.id)})} className="rounded-lg border border-red-400/30 px-2 py-2 text-xs text-red-300" aria-label={`Remover ${item.name}`}><Trash2 className="h-4 w-4" /></button>
+                <button type="button" onClick={() => updateProjectState({...project,furniture:(project.furniture ?? []).map(value=>value.id===item.id?{...value,locked:!value.locked}:value)})} className="rounded-lg border border-[#2A3A55] px-2 py-2 text-xs text-white" aria-label={item.locked?'Destravar item':'Travar item'} title={item.locked?'Destravar':'Travar'}>{item.locked?<Unlock className="h-4 w-4"/>:<Lock className="h-4 w-4"/>}</button>
+                <button type="button" disabled={item.locked} onClick={() => updateProjectState({...project, furniture:(project.furniture ?? []).map(value => value.id === item.id ? {...value, rotation:(value.rotation + 90) % 360} : value)})} className="rounded-lg border border-[#2A3A55] px-2 py-2 text-xs text-white" aria-label={`Girar ${item.name} 90 graus`}><RotateCw className="h-4 w-4" /></button>
+                <button type="button" disabled={item.locked} onClick={() => updateProjectState({...project, furniture:(project.furniture ?? []).filter(value => value.id !== item.id)})} className="rounded-lg border border-red-400/30 px-2 py-2 text-xs text-red-300" aria-label={`Remover ${item.name}`}><Trash2 className="h-4 w-4" /></button>
                 <details className="w-full pt-1">
                   <summary className="cursor-pointer select-none text-[11px] text-blue-300">Editar posição e dimensões</summary>
                   <div className="mt-2 grid grid-cols-2 gap-2">
