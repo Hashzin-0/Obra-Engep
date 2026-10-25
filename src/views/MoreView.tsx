@@ -579,7 +579,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
                       className="px-2 py-1 rounded-lg bg-[#1F66D6]/20 hover:bg-[#1F66D6]/40 text-[#5B9BFF] font-medium text-[10px] flex items-center gap-1"
                     >
                       <Calendar className="w-3 h-3" />
-                      <span>Google Cal</span>
+                      <span>Google Agenda</span>
                     </a>
                     <button
                       onClick={() => exportToLocalCalendar([item])}
@@ -703,13 +703,13 @@ export const MoreView: React.FC<MoreViewProps> = ({
                 onClick={onOpenOnboarding}
                 className="py-2.5 px-3 rounded-xl border border-[#2A3A55] text-xs font-medium text-[#9FB0C8] hover:text-white"
               >
-                Refazer Onboarding
+                Refazer configuração inicial
               </button>
             </div>
             {syncState && (
               <p className="text-[11px] text-[#6B7F9E]">
                 Sincronização: {syncState.status}
-                {syncState.message ? ` · ${syncState.message}` : ''}
+                
                 {syncState.lastSyncedAt
                   ? ` · última sincronização ${new Date(syncState.lastSyncedAt).toLocaleString('pt-BR')}`
                   : ''}
