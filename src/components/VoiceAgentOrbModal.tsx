@@ -431,8 +431,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[350px]">
           {messages.length === 0 && (
             <div className="rounded-2xl border border-[#2A3A55] bg-[#17243A] p-4 text-xs text-[#9FB0C8]">
-              Faça uma pergunta técnica por texto ou voz. O assistente usa o modelo Gemini configurado no
-              servidor e responde apenas quando a API está disponível.
+              Faça uma pergunta técnica por texto ou voz para receber orientações e esclarecer dúvidas.
             </div>
           )}
           {messages.map((msg) => (
@@ -442,7 +441,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             >
               <div className="flex items-center gap-2 mb-1 px-1">
                 <span className="text-[10px] font-bold text-[#9FB0C8] uppercase">
-                  {msg.sender === 'user' ? 'Você (Voz/Texto)' : 'Gemini'}
+                  {msg.sender === 'user' ? 'Você' : 'Assistente'}
                 </span>
                 <span className="text-[10px] text-[#9FB0C8]/70">{msg.timestamp}</span>
               </div>
