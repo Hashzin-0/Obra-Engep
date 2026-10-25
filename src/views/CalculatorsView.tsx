@@ -518,17 +518,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     key={st.id}
                     onClick={() => {
                       setElecSubTab(st.id as any);
-                      if (st.id === 'corrente') {
-                        setElecResult(safeCalculation(() => calculateCurrent(elecPower, elecVoltage, elecFP)));
-                      } else if (st.id === 'potencia') {
-                        setElecResult(safeCalculation(() => calculatePower(elecVoltage, elecCurrentInput, elecFP)));
-                      } else if (st.id === 'tensao') {
-                        setElecResult(safeCalculation(() => calculateOhmsLawVoltage(elecResistance, elecCurrentInput)));
-                      } else if (st.id === 'cabo') {
-                        setElecResult(
-                          estimateVoltageDrop(elecLengthMeters, elecCurrentInput, elecSectionMm2, elecVoltage)
-                        );
-                      }
+                      // Changing subtabs must only switch the form; calculate only after explicit submit.
+                      setElecResult(null);
                     }}
                     className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold text-center transition ${
                       elecSubTab === st.id
