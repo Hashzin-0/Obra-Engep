@@ -71,6 +71,7 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark }) => {
       const point = projectPoint(item.x, item.y, 2);
       const width = Math.max(28, item.widthIn * (40 / 39.37) * scale * 0.72);
       const height = Math.max(28, item.depthIn * (40 / 39.37) * scale * 0.72);
+      if (!item.thumbnailUrl) return;
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
@@ -79,9 +80,7 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark }) => {
         ctx.drawImage(img, point.x - width / 2, point.y - height / 2, width, height);
         ctx.restore();
       };
-      img.src = item.modelUrl.replace(/\\.glb$/i, '/thumbs/').replace('packs/furniture-kit/', 'packs/furniture-kit/thumbs/').replace(/\\/thumbs\\/$/, '.webp');
-      // The catalog provides a deterministic thumbnail URL; use it when available on the placed item.
-      // If no thumbnail is attached to the saved project, the object remains represented by its 2D footprint.
+      img.src = item.thumbnailUrl;
     });
     ctx.fillStyle=isDark?'#cbd5e1':'#475569';ctx.font='12px sans-serif';ctx.textAlign='left';
     ctx.fillText('Arraste para orbitar · Pinça para zoom · Dois dedos para mover', 14, rect.height-18);
