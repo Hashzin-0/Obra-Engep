@@ -202,6 +202,19 @@ const TOOLS_DIRECTORY: ToolDef[] = [
   },
 ];
 
+function parseNumberInput(value: string): number {
+  return value.trim() === '' ? Number.NaN : Number(value);
+}
+
+function safeCalculation<T>(callback: () => T): T | null {
+  try {
+    return callback();
+  } catch (error) {
+    alert(error instanceof Error ? error.message : 'Valores inválidos.');
+    return null;
+  }
+}
+
 export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
   initialCategory = 'eletrica',
   onSaveToHistory,
@@ -225,46 +238,46 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
 
   // Electrical Tab State (Potência, Corrente, Tensão, Cabo)
   const [elecSubTab, setElecSubTab] = useState<'potencia' | 'corrente' | 'tensao' | 'cabo'>('corrente');
-  const [elecPower, setElecPower] = useState<number>(3500); // 3500 W from wireframe
-  const [elecVoltage, setElecVoltage] = useState<number>(220); // 220 V from wireframe
-  const [elecFP, setElecFP] = useState<number>(0.92); // 0.92 from wireframe
-  const [elecCurrentInput, setElecCurrentInput] = useState<number>(17.29);
-  const [elecResistance, setElecResistance] = useState<number>(12.72);
-  const [elecLengthMeters, setElecLengthMeters] = useState<number>(25);
-  const [elecSectionMm2, setElecSectionMm2] = useState<number>(4);
+  const [elecPower, setElecPower] = useState<number>(Number.NaN); // 3500 W from wireframe
+  const [elecVoltage, setElecVoltage] = useState<number>(Number.NaN); // 220 V from wireframe
+  const [elecFP, setElecFP] = useState<number>(Number.NaN); // 0.92 from wireframe
+  const [elecCurrentInput, setElecCurrentInput] = useState<number>(Number.NaN);
+  const [elecResistance, setElecResistance] = useState<number>(Number.NaN);
+  const [elecLengthMeters, setElecLengthMeters] = useState<number>(Number.NaN);
+  const [elecSectionMm2, setElecSectionMm2] = useState<number>(Number.NaN);
   const [elecResult, setElecResult] = useState<any>(null);
   const [cableResult, setCableResult] = useState<CableSizingResult | null>(null);
-  const [elecConvValue, setElecConvValue] = useState<number>(1);
+  const [elecConvValue, setElecConvValue] = useState<number>(Number.NaN);
   const [elecConvUnit, setElecConvUnit] = useState<'W' | 'kW' | 'CV' | 'HP'>('kW');
 
   // Hydraulic State
-  const [hydOccupants, setHydOccupants] = useState<number>(4);
-  const [hydConsumptionPerDay, setHydConsumptionPerDay] = useState<number>(150);
-  const [hydReserveDays, setHydReserveDays] = useState<number>(2);
-  const [hydVolumeLiters, setHydVolumeLiters] = useState<number>(50);
-  const [hydTimeMinutes, setHydTimeMinutes] = useState<number>(2.5);
-  const [hydPipeLength, setHydPipeLength] = useState<number>(15);
-  const [hydPipeDiameterMm, setHydPipeDiameterMm] = useState<number>(25);
+  const [hydOccupants, setHydOccupants] = useState<number>(Number.NaN);
+  const [hydConsumptionPerDay, setHydConsumptionPerDay] = useState<number>(Number.NaN);
+  const [hydReserveDays, setHydReserveDays] = useState<number>(Number.NaN);
+  const [hydVolumeLiters, setHydVolumeLiters] = useState<number>(Number.NaN);
+  const [hydTimeMinutes, setHydTimeMinutes] = useState<number>(Number.NaN);
+  const [hydPipeLength, setHydPipeLength] = useState<number>(Number.NaN);
+  const [hydPipeDiameterMm, setHydPipeDiameterMm] = useState<number>(Number.NaN);
   const [hydResult, setHydResult] = useState<any>(null);
-  const [hydFlowLmin, setHydFlowLmin] = useState<number>(20);
-  const [hydMaxVelocity, setHydMaxVelocity] = useState<number>(1.5);
+  const [hydFlowLmin, setHydFlowLmin] = useState<number>(Number.NaN);
+  const [hydMaxVelocity, setHydMaxVelocity] = useState<number>(Number.NaN);
   const [hydMaterial, setHydMaterial] = useState<'PVC' | 'Cobre' | 'Aço galvanizado'>('PVC');
   const [hydHeadLossResult, setHydHeadLossResult] = useState<any>(null);
   const [hydDiameterResult, setHydDiameterResult] = useState<any>(null);
 
   // Structural & Materials State
-  const [matWallLength, setMatWallLength] = useState<number>(6);
-  const [matWallHeight, setMatWallHeight] = useState<number>(2.8);
-  const [matOpeningsArea, setMatOpeningsArea] = useState<number>(2.4);
-  const [matWasteMargin, setMatWasteMargin] = useState<number>(10);
-  const [matRoofLength, setMatRoofLength] = useState<number>(10);
-  const [matRoofWidth, setMatRoofWidth] = useState<number>(6);
-  const [matRoofSlope, setMatRoofSlope] = useState<number>(30);
-  const [matConcreteVolumeM3, setMatConcreteVolumeM3] = useState<number>(2.5);
+  const [matWallLength, setMatWallLength] = useState<number>(Number.NaN);
+  const [matWallHeight, setMatWallHeight] = useState<number>(Number.NaN);
+  const [matOpeningsArea, setMatOpeningsArea] = useState<number>(Number.NaN);
+  const [matWasteMargin, setMatWasteMargin] = useState<number>(Number.NaN);
+  const [matRoofLength, setMatRoofLength] = useState<number>(Number.NaN);
+  const [matRoofWidth, setMatRoofWidth] = useState<number>(Number.NaN);
+  const [matRoofSlope, setMatRoofSlope] = useState<number>(Number.NaN);
+  const [matConcreteVolumeM3, setMatConcreteVolumeM3] = useState<number>(Number.NaN);
   const [matResult, setMatResult] = useState<any>(null);
 
   // Conversions State
-  const [convInputValue, setConvInputValue] = useState<number>(1);
+  const [convInputValue, setConvInputValue] = useState<number>(Number.NaN);
 
   // Toggle bookmark helper
   const toggleBookmark = (id: string) => {
@@ -274,6 +287,18 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
   // Electrical Handler
   const handleCalcElectric = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    const requiredInputs = elecSubTab === 'corrente'
+      ? [elecPower, elecVoltage, elecFP]
+      : elecSubTab === 'potencia'
+        ? [elecVoltage, elecCurrentInput, elecFP]
+        : elecSubTab === 'tensao'
+          ? [elecResistance, elecCurrentInput]
+          : [elecLengthMeters, elecCurrentInput, elecSectionMm2, elecVoltage];
+    if (!requiredInputs.every(Number.isFinite)) {
+      alert('Preencha todos os campos numéricos antes de calcular.');
+      return;
+    }
+    try {
     if (elecSubTab === 'corrente') {
       const res = calculateCurrent(elecPower, elecVoltage, elecFP);
       setElecResult(res);
@@ -299,6 +324,9 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
     } else if (elecSubTab === 'cabo') {
       const res = estimateVoltageDrop(elecLengthMeters, elecCurrentInput, elecSectionMm2, elecVoltage);
       setElecResult(res);
+    }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Valores inválidos para o cálculo.');
     }
   };
 
@@ -491,11 +519,11 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     onClick={() => {
                       setElecSubTab(st.id as any);
                       if (st.id === 'corrente') {
-                        setElecResult(calculateCurrent(elecPower, elecVoltage, elecFP));
+                        setElecResult(safeCalculation(() => calculateCurrent(elecPower, elecVoltage, elecFP)));
                       } else if (st.id === 'potencia') {
-                        setElecResult(calculatePower(elecVoltage, elecCurrentInput, elecFP));
+                        setElecResult(safeCalculation(() => calculatePower(elecVoltage, elecCurrentInput, elecFP)));
                       } else if (st.id === 'tensao') {
-                        setElecResult(calculateOhmsLawVoltage(elecResistance, elecCurrentInput));
+                        setElecResult(safeCalculation(() => calculateOhmsLawVoltage(elecResistance, elecCurrentInput)));
                       } else if (st.id === 'cabo') {
                         setElecResult(
                           estimateVoltageDrop(elecLengthMeters, elecCurrentInput, elecSectionMm2, elecVoltage)
@@ -526,8 +554,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                         type="number"
                         min="1"
                         step="10"
-                        value={elecPower}
-                        onChange={(e) => setElecPower(Number(e.target.value))}
+                        value={Number.isFinite(elecPower) ? elecPower : ''}
+                        onChange={(e) => setElecPower(parseNumberInput(e.target.value))}
                         className="w-full h-14 px-3.5 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono text-lg focus:border-[#1F66D6] outline-none"
                         placeholder="Ex: 3500"
                       />
@@ -541,8 +569,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                         type="number"
                         min="1"
                         step="1"
-                        value={elecVoltage}
-                        onChange={(e) => setElecVoltage(Number(e.target.value))}
+                        value={Number.isFinite(elecVoltage) ? elecVoltage : ''}
+                        onChange={(e) => setElecVoltage(parseNumberInput(e.target.value))}
                         className="w-full h-14 px-3.5 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono text-lg focus:border-[#1F66D6] outline-none"
                         placeholder="Ex: 220"
                       />
@@ -557,8 +585,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                         min="0.1"
                         max="1"
                         step="0.01"
-                        value={elecFP}
-                        onChange={(e) => setElecFP(Number(e.target.value))}
+                        value={Number.isFinite(elecFP) ? elecFP : ''}
+                        onChange={(e) => setElecFP(parseNumberInput(e.target.value))}
                         className="w-full h-14 px-3.5 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono text-lg focus:border-[#1F66D6] outline-none"
                         placeholder="Ex: 0.92"
                       />
@@ -572,8 +600,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                       <label className="text-xs text-[#9FB0C8] font-medium">Tensão (V)</label>
                       <input
                         type="number"
-                        value={elecVoltage}
-                        onChange={(e) => setElecVoltage(Number(e.target.value))}
+                        value={Number.isFinite(elecVoltage) ? elecVoltage : ''}
+                        onChange={(e) => setElecVoltage(parseNumberInput(e.target.value))}
                         className="w-full h-14 px-3.5 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono text-lg outline-none"
                       />
                     </div>
@@ -582,8 +610,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                       <input
                         type="number"
                         step="0.1"
-                        value={elecCurrentInput}
-                        onChange={(e) => setElecCurrentInput(Number(e.target.value))}
+                        value={Number.isFinite(elecCurrentInput) ? elecCurrentInput : ''}
+                        onChange={(e) => setElecCurrentInput(parseNumberInput(e.target.value))}
                         className="w-full h-14 px-3.5 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono text-lg outline-none"
                       />
                     </div>
@@ -592,8 +620,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                       <input
                         type="number"
                         step="0.01"
-                        value={elecFP}
-                        onChange={(e) => setElecFP(Number(e.target.value))}
+                        value={Number.isFinite(elecFP) ? elecFP : ''}
+                        onChange={(e) => setElecFP(parseNumberInput(e.target.value))}
                         className="w-full h-14 px-3.5 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono text-lg outline-none"
                       />
                     </div>
@@ -607,8 +635,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                       <input
                         type="number"
                         step="0.1"
-                        value={elecResistance}
-                        onChange={(e) => setElecResistance(Number(e.target.value))}
+                        value={Number.isFinite(elecResistance) ? elecResistance : ''}
+                        onChange={(e) => setElecResistance(parseNumberInput(e.target.value))}
                         className="w-full h-14 px-3.5 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono text-lg outline-none"
                       />
                     </div>
@@ -617,8 +645,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                       <input
                         type="number"
                         step="0.1"
-                        value={elecCurrentInput}
-                        onChange={(e) => setElecCurrentInput(Number(e.target.value))}
+                        value={Number.isFinite(elecCurrentInput) ? elecCurrentInput : ''}
+                        onChange={(e) => setElecCurrentInput(parseNumberInput(e.target.value))}
                         className="w-full h-14 px-3.5 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono text-lg outline-none"
                       />
                     </div>
@@ -631,8 +659,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                       <label className="text-xs text-[#9FB0C8] font-medium">Comprimento do cabo (m)</label>
                       <input
                         type="number"
-                        value={elecLengthMeters}
-                        onChange={(e) => setElecLengthMeters(Number(e.target.value))}
+                        value={Number.isFinite(elecLengthMeters) ? elecLengthMeters : ''}
+                        onChange={(e) => setElecLengthMeters(parseNumberInput(e.target.value))}
                         className="w-full h-14 px-3.5 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono text-lg outline-none"
                       />
                     </div>
@@ -641,8 +669,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                       <input
                         type="number"
                         step="0.5"
-                        value={elecSectionMm2}
-                        onChange={(e) => setElecSectionMm2(Number(e.target.value))}
+                        value={Number.isFinite(elecSectionMm2) ? elecSectionMm2 : ''}
+                        onChange={(e) => setElecSectionMm2(parseNumberInput(e.target.value))}
                         className="w-full h-14 px-3.5 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono text-lg outline-none"
                       />
                     </div>
@@ -651,8 +679,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                       <input
                         type="number"
                         step="0.1"
-                        value={elecCurrentInput}
-                        onChange={(e) => setElecCurrentInput(Number(e.target.value))}
+                        value={Number.isFinite(elecCurrentInput) ? elecCurrentInput : ''}
+                        onChange={(e) => setElecCurrentInput(parseNumberInput(e.target.value))}
                         className="w-full h-14 px-3.5 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono text-lg outline-none"
                       />
                     </div>
@@ -753,8 +781,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <input
                       type="number"
                       step="0.1"
-                      value={elecResistance}
-                      onChange={(e) => setElecResistance(Number(e.target.value))}
+                      value={Number.isFinite(elecResistance) ? elecResistance : ''}
+                      onChange={(e) => setElecResistance(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -763,14 +791,14 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <input
                       type="number"
                       step="0.1"
-                      value={elecCurrentInput}
-                      onChange={(e) => setElecCurrentInput(Number(e.target.value))}
+                      value={Number.isFinite(elecCurrentInput) ? elecCurrentInput : ''}
+                      onChange={(e) => setElecCurrentInput(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
                 </div>
                 <button
-                  onClick={() => setElecResult(calculateOhmsLawVoltage(elecResistance, elecCurrentInput))}
+                  onClick={() => setElecResult(safeCalculation(() => calculateOhmsLawVoltage(elecResistance, elecCurrentInput)))}
                   className="w-full h-11 rounded-xl bg-[#1F66D6] hover:bg-[#1A57B8] text-white font-semibold text-xs"
                 >
                   Calcular Tensão (V = R × I)
@@ -807,8 +835,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <input
                       type="number"
                       step="0.01"
-                      value={elecConvValue}
-                      onChange={(e) => setElecConvValue(Number(e.target.value))}
+                      value={Number.isFinite(elecConvValue) ? elecConvValue : ''}
+                      onChange={(e) => setElecConvValue(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -869,8 +897,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <input
                       type="number"
                       min="1"
-                      value={elecPower}
-                      onChange={(e) => setElecPower(Number(e.target.value))}
+                      value={Number.isFinite(elecPower) ? elecPower : ''}
+                      onChange={(e) => setElecPower(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -879,8 +907,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <input
                       type="number"
                       min="1"
-                      value={elecVoltage}
-                      onChange={(e) => setElecVoltage(Number(e.target.value))}
+                      value={Number.isFinite(elecVoltage) ? elecVoltage : ''}
+                      onChange={(e) => setElecVoltage(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -891,8 +919,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                       min="0.01"
                       max="1"
                       step="0.01"
-                      value={elecFP}
-                      onChange={(e) => setElecFP(Number(e.target.value))}
+                      value={Number.isFinite(elecFP) ? elecFP : ''}
+                      onChange={(e) => setElecFP(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -901,8 +929,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <input
                       type="number"
                       min="1"
-                      value={elecLengthMeters}
-                      onChange={(e) => setElecLengthMeters(Number(e.target.value))}
+                      value={Number.isFinite(elecLengthMeters) ? elecLengthMeters : ''}
+                      onChange={(e) => setElecLengthMeters(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -911,7 +939,7 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                 <button
                   onClick={() => {
                     try {
-                      setCableResult(calculateCableSizing(elecPower, elecVoltage, elecFP, elecLengthMeters));
+                      setCableResult(safeCalculation(() => calculateCableSizing(elecPower, elecVoltage, elecFP, elecLengthMeters)));
                     } catch (error) {
                       alert(error instanceof Error ? error.message : 'Valores inválidos.');
                     }
@@ -960,8 +988,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <input
                       type="number"
                       min="1"
-                      value={hydOccupants}
-                      onChange={(e) => setHydOccupants(Number(e.target.value))}
+                      value={Number.isFinite(hydOccupants) ? hydOccupants : ''}
+                      onChange={(e) => setHydOccupants(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -971,8 +999,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                       type="number"
                       min="50"
                       step="10"
-                      value={hydConsumptionPerDay}
-                      onChange={(e) => setHydConsumptionPerDay(Number(e.target.value))}
+                      value={Number.isFinite(hydConsumptionPerDay) ? hydConsumptionPerDay : ''}
+                      onChange={(e) => setHydConsumptionPerDay(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                     <span className="text-[10px] text-[#9FB0C8]">Padrão residencial: 150 L</span>
@@ -983,8 +1011,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                       type="number"
                       min="1"
                       max="5"
-                      value={hydReserveDays}
-                      onChange={(e) => setHydReserveDays(Number(e.target.value))}
+                      value={Number.isFinite(hydReserveDays) ? hydReserveDays : ''}
+                      onChange={(e) => setHydReserveDays(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                     <span className="text-[10px] text-[#9FB0C8]">Mínimo NBR: 2 dias</span>
@@ -993,7 +1021,7 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
 
                 <button
                   onClick={() =>
-                    setHydResult(calculateReservoirCapacity(hydOccupants, hydConsumptionPerDay, hydReserveDays))
+                    setHydResult(safeCalculation(() => calculateReservoirCapacity(hydOccupants, hydConsumptionPerDay, hydReserveDays)))
                   }
                   className="w-full h-12 rounded-xl bg-[#1F66D6] hover:bg-[#1A57B8] text-white font-semibold text-sm transition"
                 >
@@ -1042,8 +1070,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <label className="text-xs text-[#9FB0C8]">Volume Coletado (Litros)</label>
                     <input
                       type="number"
-                      value={hydVolumeLiters}
-                      onChange={(e) => setHydVolumeLiters(Number(e.target.value))}
+                      value={Number.isFinite(hydVolumeLiters) ? hydVolumeLiters : ''}
+                      onChange={(e) => setHydVolumeLiters(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -1052,15 +1080,15 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <input
                       type="number"
                       step="0.1"
-                      value={hydTimeMinutes}
-                      onChange={(e) => setHydTimeMinutes(Number(e.target.value))}
+                      value={Number.isFinite(hydTimeMinutes) ? hydTimeMinutes : ''}
+                      onChange={(e) => setHydTimeMinutes(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
                 </div>
 
                 <button
-                  onClick={() => setHydResult(calculateFlowRate(hydVolumeLiters, hydTimeMinutes))}
+                  onClick={() => setHydResult(safeCalculation(() => calculateFlowRate(hydVolumeLiters, hydTimeMinutes)))}
                   className="w-full h-11 rounded-xl bg-[#1F66D6] hover:bg-[#1A57B8] text-white font-semibold text-xs"
                 >
                   Calcular Vazão Q (L/min)
@@ -1098,8 +1126,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <input
                       type="number"
                       min="0.1"
-                      value={hydFlowLmin}
-                      onChange={(e) => setHydFlowLmin(Number(e.target.value))}
+                      value={Number.isFinite(hydFlowLmin) ? hydFlowLmin : ''}
+                      onChange={(e) => setHydFlowLmin(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -1108,8 +1136,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <input
                       type="number"
                       min="0.1"
-                      value={hydPipeLength}
-                      onChange={(e) => setHydPipeLength(Number(e.target.value))}
+                      value={Number.isFinite(hydPipeLength) ? hydPipeLength : ''}
+                      onChange={(e) => setHydPipeLength(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -1118,8 +1146,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <input
                       type="number"
                       min="1"
-                      value={hydPipeDiameterMm}
-                      onChange={(e) => setHydPipeDiameterMm(Number(e.target.value))}
+                      value={Number.isFinite(hydPipeDiameterMm) ? hydPipeDiameterMm : ''}
+                      onChange={(e) => setHydPipeDiameterMm(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -1186,8 +1214,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <input
                       type="number"
                       min="0.1"
-                      value={hydFlowLmin}
-                      onChange={(e) => setHydFlowLmin(Number(e.target.value))}
+                      value={Number.isFinite(hydFlowLmin) ? hydFlowLmin : ''}
+                      onChange={(e) => setHydFlowLmin(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -1197,8 +1225,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                       type="number"
                       min="0.1"
                       step="0.1"
-                      value={hydMaxVelocity}
-                      onChange={(e) => setHydMaxVelocity(Number(e.target.value))}
+                      value={Number.isFinite(hydMaxVelocity) ? hydMaxVelocity : ''}
+                      onChange={(e) => setHydMaxVelocity(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -1207,7 +1235,7 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                 <button
                   onClick={() => {
                     try {
-                      setHydDiameterResult(calculateRecommendedDiameter(hydFlowLmin, hydMaxVelocity));
+                      setHydDiameterResult(safeCalculation(() => calculateRecommendedDiameter(hydFlowLmin, hydMaxVelocity)));
                     } catch (error) {
                       alert(error instanceof Error ? error.message : 'Valores inválidos.');
                     }
@@ -1250,8 +1278,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                 <input
                   type="number"
                   step="0.1"
-                  value={matConcreteVolumeM3}
-                  onChange={(e) => setMatConcreteVolumeM3(Number(e.target.value))}
+                  value={Number.isFinite(matConcreteVolumeM3) ? matConcreteVolumeM3 : ''}
+                  onChange={(e) => setMatConcreteVolumeM3(parseNumberInput(e.target.value))}
                   className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono"
                 />
 
@@ -1350,8 +1378,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <label className="text-xs text-[#9FB0C8]">Comprimento (m)</label>
                     <input
                       type="number"
-                      value={matRoofLength}
-                      onChange={(e) => setMatRoofLength(Number(e.target.value))}
+                      value={Number.isFinite(matRoofLength) ? matRoofLength : ''}
+                      onChange={(e) => setMatRoofLength(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -1359,8 +1387,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <label className="text-xs text-[#9FB0C8]">Largura (m)</label>
                     <input
                       type="number"
-                      value={matRoofWidth}
-                      onChange={(e) => setMatRoofWidth(Number(e.target.value))}
+                      value={Number.isFinite(matRoofWidth) ? matRoofWidth : ''}
+                      onChange={(e) => setMatRoofWidth(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -1368,8 +1396,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <label className="text-xs text-[#9FB0C8]">Inclinação (%)</label>
                     <input
                       type="number"
-                      value={matRoofSlope}
-                      onChange={(e) => setMatRoofSlope(Number(e.target.value))}
+                      value={Number.isFinite(matRoofSlope) ? matRoofSlope : ''}
+                      onChange={(e) => setMatRoofSlope(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -1377,8 +1405,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <label className="text-xs text-[#F5B93A] font-bold">Perda (%)</label>
                     <input
                       type="number"
-                      value={matWasteMargin}
-                      onChange={(e) => setMatWasteMargin(Number(e.target.value))}
+                      value={Number.isFinite(matWasteMargin) ? matWasteMargin : ''}
+                      onChange={(e) => setMatWasteMargin(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border-2 border-[#F5B93A] text-white font-mono mt-1"
                     />
                   </div>
@@ -1386,7 +1414,7 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
 
                 <button
                   onClick={() =>
-                    setMatResult(calculateRoofArea(matRoofLength, matRoofWidth, matRoofSlope, matWasteMargin))
+                    setMatResult(safeCalculation(() => calculateRoofArea(matRoofLength, matRoofWidth, matRoofSlope, matWasteMargin)))
                   }
                   className="w-full h-12 rounded-xl bg-[#1F66D6] hover:bg-[#1A57B8] text-white font-semibold text-sm transition"
                 >
@@ -1445,8 +1473,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                 <label className="text-xs text-[#9FB0C8]">Valor em bar:</label>
                 <input
                   type="number"
-                  value={convInputValue}
-                  onChange={(e) => setConvInputValue(Number(e.target.value))}
+                  value={Number.isFinite(convInputValue) ? convInputValue : ''}
+                  onChange={(e) => setConvInputValue(parseNumberInput(e.target.value))}
                   className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono text-base"
                 />
 
@@ -1454,25 +1482,25 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                   <div className="p-3 rounded-xl bg-black/25 border border-white/5">
                     <span className="text-[#9FB0C8]">mca (Col. d’Água)</span>
                     <div className="text-base font-bold font-mono text-white mt-1">
-                      {(convInputValue * 10.197).toFixed(2)} mca
+                      {Number.isFinite(convInputValue) ? `${(convInputValue * 10.197).toFixed(2)} mca` : '—'}
                     </div>
                   </div>
                   <div className="p-3 rounded-xl bg-black/25 border border-white/5">
                     <span className="text-[#9FB0C8]">psi (lbf/in²)</span>
                     <div className="text-base font-bold font-mono text-white mt-1">
-                      {(convInputValue * 14.5038).toFixed(2)} psi
+                      {Number.isFinite(convInputValue) ? `${(convInputValue * 14.5038).toFixed(2)} psi` : '—'}
                     </div>
                   </div>
                   <div className="p-3 rounded-xl bg-black/25 border border-white/5">
                     <span className="text-[#9FB0C8]">kPa</span>
                     <div className="text-base font-bold font-mono text-white mt-1">
-                      {(convInputValue * 100).toFixed(1)} kPa
+                      {Number.isFinite(convInputValue) ? `${(convInputValue * 100).toFixed(1)} kPa` : '—'}
                     </div>
                   </div>
                   <div className="p-3 rounded-xl bg-black/25 border border-white/5">
                     <span className="text-[#9FB0C8]">kgf/cm²</span>
                     <div className="text-base font-bold font-mono text-white mt-1">
-                      {(convInputValue * 1.0197).toFixed(2)} kgf/cm²
+                      {Number.isFinite(convInputValue) ? `${(convInputValue * 1.0197).toFixed(2)} kgf/cm²` : '—'}
                     </div>
                   </div>
                 </div>
@@ -1487,8 +1515,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                 <label className="text-xs text-[#9FB0C8]">Valor em Watts (W):</label>
                 <input
                   type="number"
-                  value={convInputValue}
-                  onChange={(e) => setConvInputValue(Number(e.target.value))}
+                  value={Number.isFinite(convInputValue) ? convInputValue : ''}
+                  onChange={(e) => setConvInputValue(parseNumberInput(e.target.value))}
                   className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono text-base"
                 />
 
@@ -1496,25 +1524,25 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                   <div className="p-3 rounded-xl bg-black/25 border border-white/5">
                     <span className="text-[#9FB0C8]">Quilowatts (kW)</span>
                     <div className="text-base font-bold font-mono text-white mt-1">
-                      {(convInputValue / 1000).toFixed(3)} kW
+                      {Number.isFinite(convInputValue) ? `${(convInputValue / 1000).toFixed(3)} kW` : '—'}
                     </div>
                   </div>
                   <div className="p-3 rounded-xl bg-black/25 border border-white/5">
                     <span className="text-[#9FB0C8]">Cavalo-Vapor (CV)</span>
                     <div className="text-base font-bold font-mono text-white mt-1">
-                      {(convInputValue / 735.5).toFixed(3)} CV
+                      {Number.isFinite(convInputValue) ? `${(convInputValue / 735.5).toFixed(3)} CV` : '—'}
                     </div>
                   </div>
                   <div className="p-3 rounded-xl bg-black/25 border border-white/5">
                     <span className="text-[#9FB0C8]">Horse Power (HP)</span>
                     <div className="text-base font-bold font-mono text-white mt-1">
-                      {(convInputValue / 745.7).toFixed(3)} HP
+                      {Number.isFinite(convInputValue) ? `${(convInputValue / 745.7).toFixed(3)} HP` : '—'}
                     </div>
                   </div>
                   <div className="p-3 rounded-xl bg-black/25 border border-white/5">
                     <span className="text-[#9FB0C8]">BTU/h térmico</span>
                     <div className="text-base font-bold font-mono text-white mt-1">
-                      {(convInputValue * 3.412142).toFixed(1)} BTU/h
+                      {Number.isFinite(convInputValue) ? `${(convInputValue * 3.412142).toFixed(1)} BTU/h` : '—'}
                     </div>
                   </div>
                 </div>
@@ -1533,8 +1561,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <input
                       type="number"
                       step="0.1"
-                      value={matWallLength}
-                      onChange={(e) => setMatWallLength(Number(e.target.value))}
+                      value={Number.isFinite(matWallLength) ? matWallLength : ''}
+                      onChange={(e) => setMatWallLength(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -1543,8 +1571,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <input
                       type="number"
                       step="0.1"
-                      value={matWallHeight}
-                      onChange={(e) => setMatWallHeight(Number(e.target.value))}
+                      value={Number.isFinite(matWallHeight) ? matWallHeight : ''}
+                      onChange={(e) => setMatWallHeight(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -1553,8 +1581,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <input
                       type="number"
                       step="0.1"
-                      value={matOpeningsArea}
-                      onChange={(e) => setMatOpeningsArea(Number(e.target.value))}
+                      value={Number.isFinite(matOpeningsArea) ? matOpeningsArea : ''}
+                      onChange={(e) => setMatOpeningsArea(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
                     />
                   </div>
@@ -1562,8 +1590,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <label className="text-xs text-[#F5B93A] font-bold">Margem Perda (%)</label>
                     <input
                       type="number"
-                      value={matWasteMargin}
-                      onChange={(e) => setMatWasteMargin(Number(e.target.value))}
+                      value={Number.isFinite(matWasteMargin) ? matWasteMargin : ''}
+                      onChange={(e) => setMatWasteMargin(parseNumberInput(e.target.value))}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border-2 border-[#F5B93A] text-white font-mono mt-1 ring-2 ring-[#F5B93A]/20"
                     />
                   </div>
@@ -1572,7 +1600,7 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                 <button
                   onClick={() =>
                     setMatResult(
-                      calculateMasonryMaterials(matWallLength, matWallHeight, matOpeningsArea, 25, matWasteMargin)
+                      safeCalculation(() => calculateMasonryMaterials(matWallLength, matWallHeight, matOpeningsArea, 25, matWasteMargin))
                     )
                   }
                   className="w-full h-12 rounded-xl bg-[#1F66D6] hover:bg-[#1A57B8] text-white font-semibold text-sm transition"
@@ -1612,8 +1640,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                 <label className="text-xs text-[#9FB0C8]">Área de entrada em Metros Quadrados (m²):</label>
                 <input
                   type="number"
-                  value={convInputValue}
-                  onChange={(e) => setConvInputValue(Number(e.target.value))}
+                  value={Number.isFinite(convInputValue) ? convInputValue : ''}
+                  onChange={(e) => setConvInputValue(parseNumberInput(e.target.value))}
                   className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono text-base"
                 />
 
@@ -1621,25 +1649,25 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                   <div className="p-3 rounded-xl bg-black/25 border border-white/5">
                     <span className="text-[#9FB0C8]">Hectares (ha)</span>
                     <div className="text-base font-bold font-mono text-white mt-1">
-                      {(convInputValue / 10000).toFixed(4)} ha
+                      {Number.isFinite(convInputValue) ? `${(convInputValue / 10000).toFixed(4)} ha` : '—'}
                     </div>
                   </div>
                   <div className="p-3 rounded-xl bg-black/25 border border-white/5">
                     <span className="text-[#9FB0C8]">Alqueire Paulista</span>
                     <div className="text-base font-bold font-mono text-white mt-1">
-                      {(convInputValue / 24200).toFixed(4)} alq
+                      {Number.isFinite(convInputValue) ? `${(convInputValue / 24200).toFixed(4)} alq` : '—'}
                     </div>
                   </div>
                   <div className="p-3 rounded-xl bg-black/25 border border-white/5">
                     <span className="text-[#9FB0C8]">Pés Quadrados (ft²)</span>
                     <div className="text-base font-bold font-mono text-white mt-1">
-                      {(convInputValue * 10.7639).toFixed(1)} ft²
+                      {Number.isFinite(convInputValue) ? `${(convInputValue * 10.7639).toFixed(1)} ft²` : '—'}
                     </div>
                   </div>
                   <div className="p-3 rounded-xl bg-black/25 border border-white/5">
                     <span className="text-[#9FB0C8]">Alqueire Mineiro</span>
                     <div className="text-base font-bold font-mono text-white mt-1">
-                      {(convInputValue / 48400).toFixed(4)} alq
+                      {Number.isFinite(convInputValue) ? `${(convInputValue / 48400).toFixed(4)} alq` : '—'}
                     </div>
                   </div>
                 </div>

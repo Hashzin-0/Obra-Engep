@@ -90,8 +90,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [selectedEsteticaTab, setSelectedEsteticaTab] = useState<'sujeiras' | 'produtos' | 'diluidor'>('produtos');
   const [selectedProductId, setSelectedProductId] = useState<string>(initialItemId || products[0]?.id || '');
   const [selectedManualId, setSelectedManualId] = useState<string>(initialItemId || SERVICE_MANUALS[0].id);
-  const [dilutionRatio, setDilutionRatio] = useState<number>(10);
-  const [targetVolumeMl, setTargetVolumeMl] = useState<number>(1000);
+  const [dilutionRatio, setDilutionRatio] = useState<number>(Number.NaN);
+  const [targetVolumeMl, setTargetVolumeMl] = useState<number>(Number.NaN);
   const [editingProduct, setEditingProduct] = useState<AutomotiveProductItem | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [referenceNrs, setReferenceNrs] = useState(REFERENCE_NRS);
@@ -603,8 +603,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                       type="number"
                       min="1"
                       max="100"
-                      value={dilutionRatio}
-                      onChange={(event) => setDilutionRatio(Number(event.target.value))}
+                      value={Number.isFinite(dilutionRatio) ? dilutionRatio : ''}
+                      onChange={(event) => setDilutionRatio(event.target.value.trim() ? Number(event.target.value) : Number.NaN)}
                       className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono text-base outline-none"
                     />
                   </div>
@@ -615,8 +615,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                     type="number"
                     min="100"
                     step="50"
-                    value={targetVolumeMl}
-                    onChange={(event) => setTargetVolumeMl(Number(event.target.value))}
+                    value={Number.isFinite(targetVolumeMl) ? targetVolumeMl : ''}
+                    onChange={(event) => setTargetVolumeMl(event.target.value.trim() ? Number(event.target.value) : Number.NaN)}
                     className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono text-base outline-none"
                   />
                 </div>
@@ -625,13 +625,13 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 <div className="p-4 rounded-xl bg-black/30 border border-white/5">
                   <span className="text-xs text-[#9FB0C8] block mb-1">Volume de Produto</span>
                   <span className="text-3xl font-bold font-mono text-[#06B6D4]">
-                    {(targetVolumeMl / (1 + Math.max(1, dilutionRatio))).toFixed(1)} mL
+                    {Number.isFinite(targetVolumeMl) && targetVolumeMl > 0 && Number.isFinite(dilutionRatio) && dilutionRatio >= 1 ? `${(targetVolumeMl / (1 + dilutionRatio)).toFixed(1)} mL` : '—'}
                   </span>
                 </div>
                 <div className="p-4 rounded-xl bg-black/30 border border-white/5">
                   <span className="text-xs text-[#9FB0C8] block mb-1">Volume de Água</span>
                   <span className="text-3xl font-bold font-mono text-white">
-                    {(targetVolumeMl - targetVolumeMl / (1 + Math.max(1, dilutionRatio))).toFixed(1)} mL
+                    {Number.isFinite(targetVolumeMl) && targetVolumeMl > 0 && Number.isFinite(dilutionRatio) && dilutionRatio >= 1 ? `${(targetVolumeMl - targetVolumeMl / (1 + dilutionRatio)).toFixed(1)} mL` : '—'}
                   </span>
                 </div>
               </div>

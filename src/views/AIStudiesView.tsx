@@ -40,13 +40,22 @@ function ventilationStudy(
   volumeM3: number,
   openingAreaM2: number,
   windSpeedMs: number,
-  layout: 'opostas' | 'adjacentes' | 'mesma_parede'
+  layout: 'opostas' | 'adjacentes' | 'mesma_parede',
+  windDirection: 'SE' | 'NE' | 'S' | 'NW',
+  openingOrientation: 'N' | 'L' | 'S' | 'O'
 ) {
-  const factor = layout === 'opostas' ? 0.8 : layout === 'adjacentes' ? 0.55 : 0.25;
+  const layoutFactor = layout === 'opostas' ? 0.8 : layout === 'adjacentes' ? 0.55 : 0.25;
+  // Approximation: wind arriving from the opening's facing direction contributes more pressure.
+  // This is not a substitute for pressure-coefficient data or CFD simulation.
+  const windAzimuth: Record<typeof windDirection, number> = { NE: 45, SE: 135, S: 180, NW: 315 };
+  const openingAzimuth: Record<typeof openingOrientation, number> = { N: 0, L: 90, S: 180, O: 270 };
+  const delta = Math.abs(((windAzimuth[windDirection] - openingAzimuth[openingOrientation] + 540) % 360) - 180);
+  const alignmentFactor = 0.15 + 0.85 * Math.max(0, Math.cos(delta * RAD));
+  const factor = layoutFactor * alignmentFactor;
   const airflowM3s = 0.6 * openingAreaM2 * windSpeedMs * factor;
   const ach = volumeM3 > 0 ? (airflowM3s * 3600) / volumeM3 : 0;
   const quality = ach >= 6 ? 'Excelente' : ach >= 3 ? 'Boa' : ach >= 1 ? 'Baixa' : 'Insuficiente';
-  return { airflowM3s, airflowM3h: airflowM3s * 3600, ach, quality, factor };
+  return { airflowM3s, airflowM3h: airflowM3s * 3600, ach, quality, factor, layoutFactor, alignmentFactor };
 }
 
 function pathologyStudy(
@@ -102,15 +111,16 @@ function pathologyStudy(
 export const AIStudiesView: React.FC<AIStudiesViewProps> = ({ initialTab = 'solar' }) => {
   const [activeTab, setActiveTab] = useState<AIModuleTab>(initialTab);
 
-  const [latitude, setLatitude] = useState<number>(-23.55);
+  const [latitude, setLatitude] = useState<number>(Number.NaN);
   const [buildingOrientation, setBuildingOrientation] = useState<number>(0);
   const [solarPeriod, setSolarPeriod] = useState<'verao' | 'inverno' | 'equinocio'>('verao');
 
   const [windDirection, setWindDirection] = useState<'SE' | 'NE' | 'S' | 'NW'>('SE');
+  const [openingOrientation, setOpeningOrientation] = useState<'N' | 'L' | 'S' | 'O'>('N');
   const [openingLayout, setOpeningLayout] = useState<'opostas' | 'adjacentes' | 'mesma_parede'>('opostas');
-  const [roomVolume, setRoomVolume] = useState<number>(60);
-  const [openingArea, setOpeningArea] = useState<number>(2);
-  const [windSpeed, setWindSpeed] = useState<number>(2.5);
+  const [roomVolume, setRoomVolume] = useState<number>(Number.NaN);
+  const [openingArea, setOpeningArea] = useState<number>(Number.NaN);
+  const [windSpeed, setWindSpeed] = useState<number>(Number.NaN);
 
   const [pathologyType, setPathologyType] = useState<
     'fissura_diagonal' | 'fissura_vertical' | 'infiltracao' | 'mofo' | 'corrosao'
@@ -118,18 +128,32 @@ export const AIStudiesView: React.FC<AIStudiesViewProps> = ({ initialTab = 'sola
   const [pathologyLocation, setPathologyLocation] = useState<
     'viga_pilar' | 'alvenaria_vedacao' | 'laje' | 'rodape'
   >('viga_pilar');
-  const [crackWidthMm, setCrackWidthMm] = useState<number>(0.5);
+  const [crackWidthMm, setCrackWidthMm] = useState<number>(Number.NaN);
 
   const solar = useMemo(
-    () => solarStudy(latitude, buildingOrientation, solarPeriod),
+    () =>
+      Number.isFinite(latitude) && latitude >= -90 && latitude <= 90
+        ? solarStudy(latitude, buildingOrientation, solarPeriod)
+        : null,
     [latitude, buildingOrientation, solarPeriod]
   );
   const ventilation = useMemo(
-    () => ventilationStudy(roomVolume, openingArea, windSpeed, openingLayout),
-    [roomVolume, openingArea, windSpeed, openingLayout]
+    () =>
+      Number.isFinite(roomVolume) &&
+      roomVolume > 0 &&
+      Number.isFinite(openingArea) &&
+      openingArea > 0 &&
+      Number.isFinite(windSpeed) &&
+      windSpeed >= 0
+        ? ventilationStudy(roomVolume, openingArea, windSpeed, openingLayout, windDirection, openingOrientation)
+        : null,
+    [roomVolume, openingArea, windSpeed, openingLayout, windDirection, openingOrientation]
   );
   const pathology = useMemo(
-    () => pathologyStudy(pathologyType, pathologyLocation, crackWidthMm),
+    () =>
+      Number.isFinite(crackWidthMm) && crackWidthMm >= 0
+        ? pathologyStudy(pathologyType, pathologyLocation, crackWidthMm)
+        : null,
     [pathologyType, pathologyLocation, crackWidthMm]
   );
 
@@ -171,8 +195,8 @@ export const AIStudiesView: React.FC<AIStudiesViewProps> = ({ initialTab = 'sola
                   step="0.01"
                   min="-90"
                   max="90"
-                  value={latitude}
-                  onChange={(event) => setLatitude(Number(event.target.value))}
+                  value={Number.isFinite(latitude) ? latitude : ''}
+                  onChange={(event) => setLatitude(event.target.value.trim() ? Number(event.target.value) : Number.NaN)}
                   className={inputClass}
                 />
               </Field>
@@ -208,19 +232,25 @@ export const AIStudiesView: React.FC<AIStudiesViewProps> = ({ initialTab = 'sola
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-              <Metric label="Declinação" value={`${solar.declination.toFixed(1)}°`} />
-              <Metric label="Altura solar" value={`${solar.altitude.toFixed(1)}°`} />
-              <Metric label="Incidência" value={`${solar.incidence.toFixed(1)}°`} />
-              <Metric label="Irradiância" value={`${Math.round(solar.irradiance)} W/m²`} accent />
+              <Metric label="Declinação" value={solar ? `${solar.declination.toFixed(1)}°` : '—'} />
+              <Metric label="Altura solar" value={solar ? `${solar.altitude.toFixed(1)}°` : '—'} />
+              <Metric label="Incidência" value={solar ? `${solar.incidence.toFixed(1)}°` : '—'} />
+              <Metric label="Irradiância" value={solar ? `${Math.round(solar.irradiance)} W/m²` : '—'} accent />
             </div>
 
             <div className="p-4 rounded-xl bg-black/30 border border-white/5 flex flex-col items-center text-center gap-2">
               <Compass className="w-10 h-10 text-[#5B9BFF]" />
-              <p className="text-sm font-semibold text-white">{solar.label}</p>
+              <p className="text-sm font-semibold text-white">{solar ? solar.label : 'Informe a latitude para calcular a incidência solar.'}</p>
               <p className="text-xs text-[#9FB0C8] max-w-lg">
-                No meio-dia solar, o Sol está a {solar.altitude.toFixed(1)}° acima do horizonte, no azimute{' '}
-                {solar.sunAzimuth}°. A fachada selecionada recebe incidência de {solar.incidence.toFixed(1)}° em relação
-                à sua normal.
+                {solar ? (
+                  <>
+                    No meio-dia solar, o Sol está a {solar.altitude.toFixed(1)}° acima do horizonte, no azimute{' '}
+                    {solar.sunAzimuth}°. A fachada selecionada recebe incidência de {solar.incidence.toFixed(1)}° em
+                    relação à sua normal.
+                  </>
+                ) : (
+                  'Nenhum resultado é exibido até que uma latitude válida seja informada.'
+                )}
               </p>
             </div>
 
@@ -267,7 +297,7 @@ export const AIStudiesView: React.FC<AIStudiesViewProps> = ({ initialTab = 'sola
                   <option value="mesma_parede">Mesma parede — ventilação unilateral</option>
                 </select>
               </Field>
-              <Field label="Vento dominante local">
+              <Field label="Direção de onde vem o vento">
                 <select
                   value={windDirection}
                   onChange={(event) => setWindDirection(event.target.value as typeof windDirection)}
@@ -279,12 +309,24 @@ export const AIStudiesView: React.FC<AIStudiesViewProps> = ({ initialTab = 'sola
                   <option value="NW">Noroeste (NO)</option>
                 </select>
               </Field>
+              <Field label="Orientação da abertura principal">
+                <select
+                  value={openingOrientation}
+                  onChange={(event) => setOpeningOrientation(event.target.value as typeof openingOrientation)}
+                  className={inputClass}
+                >
+                  <option value="N">Norte</option>
+                  <option value="L">Leste</option>
+                  <option value="S">Sul</option>
+                  <option value="O">Oeste</option>
+                </select>
+              </Field>
               <Field label="Volume do ambiente (m³)">
                 <input
                   type="number"
                   min="1"
-                  value={roomVolume}
-                  onChange={(event) => setRoomVolume(Number(event.target.value))}
+                  value={Number.isFinite(roomVolume) ? roomVolume : ''}
+                  onChange={(event) => setRoomVolume(event.target.value.trim() ? Number(event.target.value) : Number.NaN)}
                   className={inputClass}
                 />
               </Field>
@@ -293,8 +335,8 @@ export const AIStudiesView: React.FC<AIStudiesViewProps> = ({ initialTab = 'sola
                   type="number"
                   min="0.1"
                   step="0.1"
-                  value={openingArea}
-                  onChange={(event) => setOpeningArea(Number(event.target.value))}
+                  value={Number.isFinite(openingArea) ? openingArea : ''}
+                  onChange={(event) => setOpeningArea(event.target.value.trim() ? Number(event.target.value) : Number.NaN)}
                   className={inputClass}
                 />
               </Field>
@@ -303,17 +345,17 @@ export const AIStudiesView: React.FC<AIStudiesViewProps> = ({ initialTab = 'sola
                   type="number"
                   min="0"
                   step="0.1"
-                  value={windSpeed}
-                  onChange={(event) => setWindSpeed(Number(event.target.value))}
+                  value={Number.isFinite(windSpeed) ? windSpeed : ''}
+                  onChange={(event) => setWindSpeed(event.target.value.trim() ? Number(event.target.value) : Number.NaN)}
                   className={inputClass}
                 />
               </Field>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center">
-              <Metric label="Vazão estimada" value={`${ventilation.airflowM3h.toFixed(0)} m³/h`} />
-              <Metric label="Renovações (ACH)" value={`${ventilation.ach.toFixed(1)} /h`} accent />
-              <Metric label="Classificação" value={ventilation.quality} />
+              <Metric label="Vazão estimada" value={ventilation ? `${ventilation.airflowM3h.toFixed(0)} m³/h` : '—'} />
+              <Metric label="Renovações (ACH)" value={ventilation ? `${ventilation.ach.toFixed(1)} /h` : '—'} accent />
+              <Metric label="Classificação" value={ventilation?.quality ?? 'Aguardando dados'} />
             </div>
 
             <div className="p-4 rounded-xl bg-black/30 border border-white/5 space-y-2 text-xs">
@@ -322,10 +364,16 @@ export const AIStudiesView: React.FC<AIStudiesViewProps> = ({ initialTab = 'sola
                 <span>Leitura do resultado</span>
               </div>
               <p className="text-[#E8EDF5] leading-relaxed">
-                Considerando vento de {windDirection} a {windSpeed.toFixed(1)} m/s e fator de layout{' '}
-                {ventilation.factor.toFixed(2)}, a vazão estimada é {ventilation.airflowM3s.toFixed(2)} m³/s. A
-                classificação usa referência prática de 1 a 3 renovações/hora para ventilação mínima e acima de 6
-                renovações/hora para ventilação eficiente.
+                {ventilation ? (
+                  <>
+                    Considerando vento de {windDirection} a {windSpeed.toFixed(1)} m/s, abertura voltada para{' '}
+                    {openingOrientation} e fator combinado de layout/orientação {ventilation.factor.toFixed(2)}, a vazão
+                    estimada é {ventilation.airflowM3s.toFixed(2)} m³/s. A orientação altera a estimativa por um fator
+                    empírico; a classificação por renovações/hora é apenas indicativa.
+                  </>
+                ) : (
+                  'Informe volume do ambiente, área efetiva de abertura e velocidade do vento para obter uma estimativa.'
+                )}
               </p>
             </div>
 
@@ -380,14 +428,15 @@ export const AIStudiesView: React.FC<AIStudiesViewProps> = ({ initialTab = 'sola
                   type="number"
                   min="0.1"
                   step="0.1"
-                  value={crackWidthMm}
-                  onChange={(event) => setCrackWidthMm(Number(event.target.value))}
+                  value={Number.isFinite(crackWidthMm) ? crackWidthMm : ''}
+                  onChange={(event) => setCrackWidthMm(event.target.value.trim() ? Number(event.target.value) : Number.NaN)}
                   className={inputClass}
                 />
               </Field>
             </div>
 
-            <div className="p-4 rounded-xl bg-black/30 border border-white/5 space-y-2 text-xs">
+            {pathology ? (
+              <div className="p-4 rounded-xl bg-black/30 border border-white/5 space-y-2 text-xs">
               <span className="font-bold text-[#F5B93A] uppercase tracking-wider text-[11px] block">
                 Hipótese técnica preliminar
               </span>
@@ -413,6 +462,12 @@ export const AIStudiesView: React.FC<AIStudiesViewProps> = ({ initialTab = 'sola
                 {pathology.structural ? 'estrutural' : 'não estrutural'} · abertura {crackWidthMm.toFixed(1)} mm
               </div>
             </div>
+            ) : (
+              <p className="text-xs text-[#9FB0C8]">
+                Informe a abertura estimada em milímetros para exibir a hipótese preliminar. Se houver sinais de risco
+                estrutural, isole a área e procure avaliação profissional imediatamente.
+              </p>
+            )}
           </div>
 
           <LimitBar message="A triagem fornece apenas hipóteses educativas preliminares. Não substitui Laudo Pericial de Engenharia Diagnóstica." />
