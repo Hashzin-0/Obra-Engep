@@ -7,7 +7,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { TopHeader } from './components/TopHeader';
-import { BottomNav } from './components/BottomNav';
+import { Home, BookOpen, Star, MoreHorizontal, Search, CalendarDays, Moon, Sun, Laptop, UserRound, LogIn } from 'lucide-react';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { OnboardingModal } from './components/OnboardingModal';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
@@ -129,7 +129,7 @@ function AppShell() {
   const [remoteReady, setRemoteReady] = useState(false);
   const userIdRef = useRef<string | null>(null);
 
-  const [authenticatedUser, setAuthenticatedUser] = useState<{ id: string; email?: string } | null>(null);
+  const [authenticatedUser, setAuthenticatedUser] = useState<{ id: string; email?: string; name?: string; avatarUrl?: string } | null>(null);
 
   useEffect(() => {
     if (!supabase) return;
@@ -138,7 +138,13 @@ function AppShell() {
     const syncAuthState = (session: Session | null) => {
       if (!active) return;
       const user = session?.user;
-      setAuthenticatedUser(user && !user.is_anonymous ? { id: user.id, email: user.email } : null);
+      const metadata = user?.user_metadata ?? {};
+      setAuthenticatedUser(user && !user.is_anonymous ? {
+        id: user.id,
+        email: user.email,
+        name: metadata.full_name || metadata.name || metadata.given_name || undefined,
+        avatarUrl: metadata.avatar_url || metadata.picture || undefined,
+      } : null);
       userIdRef.current = user?.id ?? null;
     };
 
@@ -539,35 +545,62 @@ function AppShell() {
 
   return (
     <div className="min-h-screen flex flex-col transition-colors selection:bg-[#1F66D6] selection:text-white">
-      <TopHeader
-        onGoogleSignIn={authenticatedUser ? undefined : handleGoogleSignIn}
-        authenticatedEmail={authenticatedUser ? (authenticatedUser.email || 'Conta conectada') : undefined}
-        onSignOut={authenticatedUser ? handleSignOut : undefined}
-        onOpenSearch={() => setIsSearchOpen(true)}
-        onOpenCalendarModal={() => setIsCalendarModalOpen(true)}
-        pendingDeadlinesCount={deadlines.filter((deadline) => deadline.status !== 'concluido').length}
-        onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)}
-        title={
-          activeModuleView === 'calculadoras'
-            ? 'Calculadoras'
-            : activeModuleView === 'projetos'
-              ? 'Projetos e Plantas'
-              : activeModuleView === 'ia'
-                ? 'IA e Estudos'
-                : currentTab === 'biblioteca'
-                  ? 'Biblioteca Técnica'
-                  : currentTab === 'favoritos'
-                    ? 'Favoritos'
-                    : currentTab === 'mais'
-                      ? 'Mais'
-                      : 'OBra ENGEP'
-        }
-        subtitle={
-          activeModuleView ? 'Toque na barra inferior para voltar' : 'Seu manual técnico inteligente'
-        }
-      />
+      <TopHeader onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)} />
 
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 pt-3">
+      <section
+        aria-label="Navegação e ações rápidas"
+        className={`max-w-4xl w-full mx-auto px-4 pt-3 pb-1`}
+      >
+        <div className={`rounded-2xl border p-2 shadow-sm ${theme === 'dark' ? 'bg-[#17243A] border-[#2A3A55]' : 'bg-white border-[#D9E0EC]'}`}>
+          <nav aria-label="Abas principais" className="grid grid-cols-4 gap-1">
+            {([
+              { id: 'inicio' as MainTab, label: 'Início', Icon: Home },
+              { id: 'biblioteca' as MainTab, label: 'Biblioteca', Icon: BookOpen },
+              { id: 'favoritos' as MainTab, label: 'Favoritos', Icon: Star },
+              { id: 'mais' as MainTab, label: 'Mais', Icon: MoreHorizontal },
+            ]).map(({ id, label, Icon }) => {
+              const active = currentTab === id && !activeModuleView;
+              return (
+                <button key={id} type="button" onClick={() => handleTabChange(id)}
+                  aria-current={active ? 'page' : undefined}
+                  className={`min-h-10 rounded-xl px-2 py-2 flex items-center justify-center gap-1.5 text-xs font-semibold transition ${active ? 'bg-[#1F66D6] text-white shadow-sm' : theme === 'dark' ? 'text-[#9FB0C8] hover:bg-white/5 hover:text-white' : 'text-[#5B6B82] hover:bg-[#EEF3FA]'}`}>
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span>{label}</span>
+                  {id === 'favoritos' && favorites.length > 0 && <span className="text-[10px] rounded-full px-1.5 bg-[#F5B93A] text-[#101827]">{favorites.length > 9 ? '9+' : favorites.length}</span>}
+                </button>
+              );
+            })}
+          </nav>
+          <div className="mt-2 pt-2 border-t border-[#6B7F9E]/20 flex flex-wrap items-center justify-between gap-1">
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={() => setIsSearchOpen(true)} aria-label="Buscar" title="Buscar"
+                className="h-9 w-9 rounded-xl flex items-center justify-center text-[#5B9BFF] hover:bg-[#1F66D6]/10"><Search className="w-4 h-4" /></button>
+              <button type="button" onClick={() => setIsCalendarModalOpen(true)} aria-label="Cronograma e prazos" title="Cronograma e prazos"
+                className="relative h-9 w-9 rounded-xl flex items-center justify-center text-[#F5B93A] hover:bg-[#F5B93A]/10"><CalendarDays className="w-4 h-4" />
+                {deadlines.some((deadline) => deadline.status !== 'concluido') && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#FF6B6B]" />}
+              </button>
+              <button type="button" onClick={() => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark')}
+                aria-label={`Alternar tema: ${theme}`} title={`Tema: ${theme}`}
+                className="h-9 w-9 rounded-xl flex items-center justify-center text-[#9FB0C8] hover:bg-[#6B7F9E]/10">
+                {theme === 'dark' ? <Moon className="w-4 h-4" /> : theme === 'light' ? <Sun className="w-4 h-4" /> : <Laptop className="w-4 h-4" />}
+              </button>
+            </div>
+            {authenticatedUser ? (
+              <button type="button" onClick={handleSignOut} title={authenticatedUser.name || authenticatedUser.email || 'Conta Google'} aria-label="Conta Google — sair"
+                className={`min-h-9 rounded-xl px-2 flex items-center gap-2 border ${theme === 'dark' ? 'border-[#2A3A55] text-[#E8EDF5] hover:bg-white/5' : 'border-[#D9E0EC] text-[#101827] hover:bg-[#F5F7FA]'}`}>
+                {authenticatedUser.avatarUrl ? <img src={authenticatedUser.avatarUrl} alt="" referrerPolicy="no-referrer" className="w-6 h-6 rounded-full object-cover" /> : <UserRound className="w-4 h-4" />}
+                <span className="text-xs font-semibold">Conta</span>
+              </button>
+            ) : (
+              <button type="button" onClick={handleGoogleSignIn}
+                className="min-h-9 rounded-xl px-3 flex items-center gap-2 border border-[#2A3A55] bg-white text-[#202124] hover:bg-[#F5F5F5] text-xs font-semibold">
+                <LogIn className="w-4 h-4" /><span>Entrar com Google</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 pt-2">
         {activeModuleView === 'calculadoras' ? (
           <div>
             <BackButton onClick={() => setActiveModuleView(null)} />
@@ -591,6 +624,7 @@ function AppShell() {
           </div>
         ) : currentTab === 'inicio' ? (
           <HomeView
+            authenticatedName={authenticatedUser?.name}
             onNavigateModule={handleNavigateModule}
             onOpenSearch={() => setIsSearchOpen(true)}
             onOpenCalendarModal={() => setIsCalendarModalOpen(true)}
@@ -641,11 +675,7 @@ function AppShell() {
 
       <OfflineIndicator />
 
-      <BottomNav
-        currentTab={currentTab}
-        onChangeTab={handleTabChange}
-        favoritesCount={favorites.length}
-      />
+
 
       <GlobalSearchModal
         isOpen={isSearchOpen}
