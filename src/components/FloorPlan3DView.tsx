@@ -63,6 +63,26 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark }) => {
       const p=projectPoint(item.x,item.y,item.group==='electric'&&item.type==='light'?height:45);
       ctx.beginPath();ctx.arc(p.x,p.y,4.5,0,Math.PI*2);ctx.fillStyle=item.group==='hydraulic'?'#38bdf8':item.type==='light'?'#facc15':'#fb7185';ctx.fill();
     });
+    // Use previews rendered from the original Kenney GLB assets as 3D-view sprites.
+    // Full interactive GLB previews are available in the catalog; these thumbnails keep the
+    // floor-plan overview responsive without loading dozens of meshes into the canvas.
+    (project.furniture ?? []).forEach(item => {
+      if (!item.modelUrl) return;
+      const point = projectPoint(item.x, item.y, 2);
+      const width = Math.max(28, item.widthIn * (40 / 39.37) * scale * 0.72);
+      const height = Math.max(28, item.depthIn * (40 / 39.37) * scale * 0.72);
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        ctx.save();
+        ctx.globalAlpha = 0.96;
+        ctx.drawImage(img, point.x - width / 2, point.y - height / 2, width, height);
+        ctx.restore();
+      };
+      img.src = item.modelUrl.replace(/\\.glb$/i, '/thumbs/').replace('packs/furniture-kit/', 'packs/furniture-kit/thumbs/').replace(/\\/thumbs\\/$/, '.webp');
+      // The catalog provides a deterministic thumbnail URL; use it when available on the placed item.
+      // If no thumbnail is attached to the saved project, the object remains represented by its 2D footprint.
+    });
     ctx.fillStyle=isDark?'#cbd5e1':'#475569';ctx.font='12px sans-serif';ctx.textAlign='left';
     ctx.fillText('Arraste para orbitar · Pinça para zoom · Dois dedos para mover', 14, rect.height-18);
   }, [project, isDark, camera]);
