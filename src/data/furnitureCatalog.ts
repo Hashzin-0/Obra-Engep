@@ -11,7 +11,7 @@ export interface FurnitureCatalogItem {
 export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   {
     "id": "sofa",
-    "name": "Sofa",
+    "name": "Sofá",
     "category": "Sala",
     "widthIn": 84,
     "depthIn": 36,
@@ -25,7 +25,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "loveseat",
-    "name": "Loveseat",
+    "name": "Sofá de 2 lugares",
     "category": "Sala",
     "widthIn": 58,
     "depthIn": 36,
@@ -39,7 +39,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "armchair",
-    "name": "Armchair",
+    "name": "Poltrona",
     "category": "Sala",
     "widthIn": 33,
     "depthIn": 33,
@@ -53,7 +53,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "coffee_table",
-    "name": "Coffee Table",
+    "name": "Mesa de centro",
     "category": "Sala",
     "widthIn": 48,
     "depthIn": 24,
@@ -67,7 +67,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "side_table",
-    "name": "Side Table",
+    "name": "Mesa lateral",
     "category": "Sala",
     "widthIn": 20,
     "depthIn": 20,
@@ -81,7 +81,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "tv_stand",
-    "name": "TV Stand",
+    "name": "Rack para TV",
     "category": "Sala",
     "widthIn": 60,
     "depthIn": 16,
@@ -95,7 +95,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "large_tv",
-    "name": "Large Screen TV 75\"",
+    "name": "TV de 75 polegadas",
     "category": "Sala",
     "widthIn": 66,
     "depthIn": 4,
@@ -109,21 +109,21 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "gas_fireplace",
-    "name": "Gas Fireplace 4'",
+    "name": "Lareira a gás",
     "category": "Sala",
     "widthIn": 48,
     "depthIn": 20,
     "heightIn": 40,
     "symbolUrl": "https://raw.githubusercontent.com/pjm4github/FloorPlanner/main/assets/furnishings/gas_fireplace.svg",
-    "modelId": "paneling",
-    "modelUrl": "https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs/furniture-kit/paneling.glb",
-    "thumbnailUrl": "https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs/furniture-kit/thumbs/paneling.webp",
+    "modelId": null,
+    "modelUrl": null,
+    "thumbnailUrl": null,
     "source2d": "pjm4github/FloorPlanner — CC0 1.0",
-    "source3d": "Kenney Furniture Kit — CC0 1.0"
+    "source3d": null
   },
   {
     "id": "dining_table",
-    "name": "Dining Table 6'",
+    "name": "Mesa de jantar",
     "category": "Jantar",
     "widthIn": 72,
     "depthIn": 36,
@@ -137,7 +137,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "dining_table_round",
-    "name": "Round Table 4'",
+    "name": "Mesa redonda",
     "category": "Jantar",
     "widthIn": 48,
     "depthIn": 48,
@@ -151,7 +151,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "dining_chair",
-    "name": "Dining Chair",
+    "name": "Cadeira de jantar",
     "category": "Jantar",
     "widthIn": 18,
     "depthIn": 18,
@@ -165,35 +165,35 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "buffet",
-    "name": "Buffet 5'",
+    "name": "Buffet",
     "category": "Jantar",
     "widthIn": 60,
     "depthIn": 18,
     "heightIn": 36,
     "symbolUrl": "https://raw.githubusercontent.com/pjm4github/FloorPlanner/main/assets/furnishings/buffet.svg",
-    "modelId": "bookcaseclosed",
-    "modelUrl": "https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs/furniture-kit/bookcaseclosed.glb",
-    "thumbnailUrl": "https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs/furniture-kit/thumbs/bookcaseclosed.webp",
+    "modelId": null,
+    "modelUrl": null,
+    "thumbnailUrl": null,
     "source2d": "pjm4github/FloorPlanner — CC0 1.0",
-    "source3d": "Kenney Furniture Kit — CC0 1.0"
+    "source3d": null
   },
   {
     "id": "hutch",
-    "name": "China Hutch 5'",
+    "name": "Cristaleira",
     "category": "Jantar",
     "widthIn": 60,
     "depthIn": 20,
     "heightIn": 78,
     "symbolUrl": "https://raw.githubusercontent.com/pjm4github/FloorPlanner/main/assets/furnishings/hutch.svg",
-    "modelId": "bookcasecloseddoors",
-    "modelUrl": "https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs/furniture-kit/bookcasecloseddoors.glb",
-    "thumbnailUrl": "https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs/furniture-kit/thumbs/bookcasecloseddoors.webp",
+    "modelId": null,
+    "modelUrl": null,
+    "thumbnailUrl": null,
     "source2d": "pjm4github/FloorPlanner — CC0 1.0",
-    "source3d": "Kenney Furniture Kit — CC0 1.0"
+    "source3d": null
   },
   {
     "id": "refrigerator",
-    "name": "Refrigerator",
+    "name": "Geladeira",
     "category": "Cozinha",
     "widthIn": 36,
     "depthIn": 30,
@@ -207,7 +207,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "range",
-    "name": "Range / Stove",
+    "name": "Fogão",
     "category": "Cozinha",
     "widthIn": 30,
     "depthIn": 26,
@@ -221,21 +221,21 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "dishwasher",
-    "name": "Dishwasher",
+    "name": "Lava-louças",
     "category": "Cozinha",
     "widthIn": 24,
     "depthIn": 24,
     "heightIn": 34,
     "symbolUrl": "https://raw.githubusercontent.com/pjm4github/FloorPlanner/main/assets/furnishings/dishwasher.svg",
-    "modelId": "washer",
-    "modelUrl": "https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs/furniture-kit/washer.glb",
-    "thumbnailUrl": "https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs/furniture-kit/thumbs/washer.webp",
+    "modelId": null,
+    "modelUrl": null,
+    "thumbnailUrl": null,
     "source2d": "pjm4github/FloorPlanner — CC0 1.0",
-    "source3d": "Kenney Furniture Kit — CC0 1.0"
+    "source3d": null
   },
   {
     "id": "kitchen_sink",
-    "name": "Kitchen Sink",
+    "name": "Pia de cozinha",
     "category": "Cozinha",
     "widthIn": 33,
     "depthIn": 22,
@@ -249,7 +249,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "base_cab_24",
-    "name": "Base Cabinet 24\"",
+    "name": "Armário inferior 61 cm",
     "category": "Cozinha",
     "widthIn": 24,
     "depthIn": 24,
@@ -263,7 +263,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "base_cab_36",
-    "name": "Base Cabinet 36\"",
+    "name": "Armário inferior 91 cm",
     "category": "Cozinha",
     "widthIn": 36,
     "depthIn": 24,
@@ -277,7 +277,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "drawer_base_18",
-    "name": "Drawer Base 18\"",
+    "name": "Gaveteiro inferior 46 cm",
     "category": "Cozinha",
     "widthIn": 18,
     "depthIn": 24,
@@ -291,7 +291,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "sink_base_36",
-    "name": "Sink Base 36\"",
+    "name": "Gabinete para pia 91 cm",
     "category": "Cozinha",
     "widthIn": 36,
     "depthIn": 24,
@@ -305,7 +305,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "corner_base_36",
-    "name": "Corner Base 36\"",
+    "name": "Armário de canto",
     "category": "Cozinha",
     "widthIn": 36,
     "depthIn": 36,
@@ -319,49 +319,49 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "pantry_18",
-    "name": "Pantry 18\"",
+    "name": "Despenseiro 46 cm",
     "category": "Cozinha",
     "widthIn": 18,
     "depthIn": 24,
     "heightIn": 84,
     "symbolUrl": "https://raw.githubusercontent.com/pjm4github/FloorPlanner/main/assets/furnishings/pantry_18.svg",
-    "modelId": "kitchencabinet",
-    "modelUrl": "https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs/furniture-kit/kitchencabinet.glb",
-    "thumbnailUrl": "https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs/furniture-kit/thumbs/kitchencabinet.webp",
+    "modelId": null,
+    "modelUrl": null,
+    "thumbnailUrl": null,
     "source2d": "pjm4github/FloorPlanner — CC0 1.0",
-    "source3d": "Kenney Furniture Kit — CC0 1.0"
+    "source3d": null
   },
   {
     "id": "pantry_24",
-    "name": "Pantry 24\"",
+    "name": "Despenseiro 61 cm",
     "category": "Cozinha",
     "widthIn": 24,
     "depthIn": 24,
     "heightIn": 84,
     "symbolUrl": "https://raw.githubusercontent.com/pjm4github/FloorPlanner/main/assets/furnishings/pantry_24.svg",
-    "modelId": "kitchencabinet",
-    "modelUrl": "https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs/furniture-kit/kitchencabinet.glb",
-    "thumbnailUrl": "https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs/furniture-kit/thumbs/kitchencabinet.webp",
+    "modelId": null,
+    "modelUrl": null,
+    "thumbnailUrl": null,
     "source2d": "pjm4github/FloorPlanner — CC0 1.0",
-    "source3d": "Kenney Furniture Kit — CC0 1.0"
+    "source3d": null
   },
   {
     "id": "pantry_36",
-    "name": "Pantry 36\"",
+    "name": "Despenseiro 91 cm",
     "category": "Cozinha",
     "widthIn": 36,
     "depthIn": 24,
     "heightIn": 84,
     "symbolUrl": "https://raw.githubusercontent.com/pjm4github/FloorPlanner/main/assets/furnishings/pantry_36.svg",
-    "modelId": "kitchencabinet",
-    "modelUrl": "https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs/furniture-kit/kitchencabinet.glb",
-    "thumbnailUrl": "https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs/furniture-kit/thumbs/kitchencabinet.webp",
+    "modelId": null,
+    "modelUrl": null,
+    "thumbnailUrl": null,
     "source2d": "pjm4github/FloorPlanner — CC0 1.0",
-    "source3d": "Kenney Furniture Kit — CC0 1.0"
+    "source3d": null
   },
   {
     "id": "wall_cab_24",
-    "name": "Wall Cabinet 24\"",
+    "name": "Armário aéreo 61 cm",
     "category": "Cozinha",
     "widthIn": 24,
     "depthIn": 12,
@@ -375,7 +375,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "wall_cab_30",
-    "name": "Wall Cabinet 30\"",
+    "name": "Armário aéreo 76 cm",
     "category": "Cozinha",
     "widthIn": 30,
     "depthIn": 12,
@@ -389,7 +389,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "wall_cab_36",
-    "name": "Wall Cabinet 36\"",
+    "name": "Armário aéreo 91 cm",
     "category": "Cozinha",
     "widthIn": 36,
     "depthIn": 12,
@@ -403,7 +403,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "kitchen_island",
-    "name": "Kitchen Island 6'",
+    "name": "Ilha de cozinha",
     "category": "Cozinha",
     "widthIn": 72,
     "depthIn": 39,
@@ -417,7 +417,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "island_sink",
-    "name": "Island w/ Sink 7'",
+    "name": "Ilha com pia",
     "category": "Cozinha",
     "widthIn": 84,
     "depthIn": 42,
@@ -431,7 +431,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "bed_king",
-    "name": "King Bed",
+    "name": "Cama king",
     "category": "Quarto",
     "widthIn": 76,
     "depthIn": 80,
@@ -445,7 +445,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "bed_queen",
-    "name": "Queen Bed",
+    "name": "Cama queen",
     "category": "Quarto",
     "widthIn": 60,
     "depthIn": 80,
@@ -459,7 +459,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "bed_full",
-    "name": "Full Bed",
+    "name": "Cama de casal",
     "category": "Quarto",
     "widthIn": 54,
     "depthIn": 75,
@@ -473,7 +473,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "bed_twin",
-    "name": "Twin Bed",
+    "name": "Cama de solteiro",
     "category": "Quarto",
     "widthIn": 39,
     "depthIn": 75,
@@ -487,7 +487,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "nightstand",
-    "name": "Nightstand",
+    "name": "Mesa de cabeceira",
     "category": "Quarto",
     "widthIn": 20,
     "depthIn": 16,
@@ -501,7 +501,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "dresser",
-    "name": "Dresser",
+    "name": "Cômoda",
     "category": "Quarto",
     "widthIn": 60,
     "depthIn": 18,
@@ -515,7 +515,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "bathtub",
-    "name": "Bathtub 5'",
+    "name": "Banheira",
     "category": "Banheiro",
     "widthIn": 30,
     "depthIn": 60,
@@ -529,7 +529,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "shower",
-    "name": "Shower 36\"",
+    "name": "Chuveiro",
     "category": "Banheiro",
     "widthIn": 36,
     "depthIn": 36,
@@ -543,7 +543,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "walk_in_shower",
-    "name": "Luxury Walk-in Shower",
+    "name": "Box de banho amplo",
     "category": "Banheiro",
     "widthIn": 60,
     "depthIn": 42,
@@ -557,7 +557,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "glass_shower",
-    "name": "Luxury Glass Shower 5' x 4'",
+    "name": "Box de vidro",
     "category": "Banheiro",
     "widthIn": 60,
     "depthIn": 48,
@@ -571,7 +571,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "toilet",
-    "name": "Toilet",
+    "name": "Vaso sanitário",
     "category": "Banheiro",
     "widthIn": 20,
     "depthIn": 28,
@@ -585,7 +585,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "vanity",
-    "name": "Bath Vanity 30\"",
+    "name": "Gabinete de banheiro",
     "category": "Banheiro",
     "widthIn": 30,
     "depthIn": 21,
@@ -599,7 +599,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "vanity_24",
-    "name": "Vanity Base 24\"",
+    "name": "Gabinete de banheiro 61 cm",
     "category": "Banheiro",
     "widthIn": 24,
     "depthIn": 21,
@@ -613,7 +613,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "vanity_36",
-    "name": "Vanity Base 36\"",
+    "name": "Gabinete de banheiro 91 cm",
     "category": "Banheiro",
     "widthIn": 36,
     "depthIn": 21,
@@ -627,7 +627,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "vanity_48",
-    "name": "Double Vanity 48\"",
+    "name": "Gabinete duplo 122 cm",
     "category": "Banheiro",
     "widthIn": 48,
     "depthIn": 21,
@@ -641,7 +641,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "washer",
-    "name": "Washer",
+    "name": "Máquina de lavar",
     "category": "Lavanderia",
     "widthIn": 27,
     "depthIn": 30,
@@ -655,7 +655,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "dryer",
-    "name": "Dryer",
+    "name": "Secadora",
     "category": "Lavanderia",
     "widthIn": 27,
     "depthIn": 30,
@@ -683,7 +683,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "car",
-    "name": "Car",
+    "name": "Carro",
     "category": "Garagem",
     "widthIn": 72,
     "depthIn": 180,
@@ -697,7 +697,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "motorcycle",
-    "name": "Motorcycle",
+    "name": "Motocicleta",
     "category": "Garagem",
     "widthIn": 32,
     "depthIn": 84,
@@ -711,7 +711,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "bicycle",
-    "name": "Bicycle",
+    "name": "Bicicleta",
     "category": "Garagem",
     "widthIn": 24,
     "depthIn": 68,
@@ -725,7 +725,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "boat",
-    "name": "Boat 14'",
+    "name": "Barco",
     "category": "Garagem",
     "widthIn": 68,
     "depthIn": 168,
@@ -739,7 +739,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "workbench",
-    "name": "Workbench 6'",
+    "name": "Bancada de trabalho",
     "category": "Garagem",
     "widthIn": 72,
     "depthIn": 24,
@@ -753,7 +753,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "storage_shelves",
-    "name": "Storage Shelves",
+    "name": "Estantes de armazenamento",
     "category": "Garagem",
     "widthIn": 48,
     "depthIn": 18,
@@ -767,7 +767,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "lawnmower",
-    "name": "Lawn Mower",
+    "name": "Cortador de grama",
     "category": "Garagem",
     "widthIn": 22,
     "depthIn": 62,
@@ -781,7 +781,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "garden_tractor",
-    "name": "Garden Tractor + Loader",
+    "name": "Trator de jardim com carregador",
     "category": "Garagem",
     "widthIn": 54,
     "depthIn": 120,
@@ -795,7 +795,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "riding_mower_snow",
-    "name": "Riding Mower + Snowblower",
+    "name": "Trator cortador com removedor de neve",
     "category": "Garagem",
     "widthIn": 46,
     "depthIn": 96,
@@ -809,7 +809,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "boat_trailer",
-    "name": "Boat Trailer",
+    "name": "Reboque para barco",
     "category": "Garagem",
     "widthIn": 78,
     "depthIn": 216,
@@ -823,7 +823,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "snowblower",
-    "name": "Snow Blower",
+    "name": "Soprador de neve",
     "category": "Garagem",
     "widthIn": 28,
     "depthIn": 58,
@@ -837,7 +837,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "wheelbarrow",
-    "name": "Wheelbarrow",
+    "name": "Carrinho de mão",
     "category": "Garagem",
     "widthIn": 27,
     "depthIn": 58,
@@ -851,7 +851,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "trashcan",
-    "name": "Trash Can",
+    "name": "Lixeira",
     "category": "Garagem",
     "widthIn": 24,
     "depthIn": 24,
@@ -865,7 +865,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "toolchest",
-    "name": "Tool Chest",
+    "name": "Caixa de ferramentas",
     "category": "Shop",
     "widthIn": 41,
     "depthIn": 18,
@@ -879,7 +879,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "table_saw",
-    "name": "Table Saw",
+    "name": "Serra de bancada",
     "category": "Shop",
     "widthIn": 40,
     "depthIn": 27,
@@ -893,7 +893,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "lathe",
-    "name": "Lathe 5'",
+    "name": "Torno",
     "category": "Shop",
     "widthIn": 60,
     "depthIn": 18,
@@ -907,7 +907,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "jointer",
-    "name": "Jointer 5'",
+    "name": "Desempenadeira",
     "category": "Shop",
     "widthIn": 60,
     "depthIn": 20,
@@ -921,7 +921,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "drill_press",
-    "name": "Drill Press",
+    "name": "Furadeira de bancada",
     "category": "Shop",
     "widthIn": 20,
     "depthIn": 28,
@@ -935,7 +935,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "cutoff_saw",
-    "name": "Cutoff Saw",
+    "name": "Serra de corte",
     "category": "Shop",
     "widthIn": 40,
     "depthIn": 24,
@@ -949,7 +949,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "bandsaw",
-    "name": "Bandsaw",
+    "name": "Serra de fita",
     "category": "Shop",
     "widthIn": 24,
     "depthIn": 30,
@@ -963,7 +963,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "planer",
-    "name": "Planer",
+    "name": "Plaina",
     "category": "Shop",
     "widthIn": 24,
     "depthIn": 24,
@@ -977,7 +977,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "lounge_chair",
-    "name": "Lounge Chair",
+    "name": "Poltrona reclinável",
     "category": "Sunroom",
     "widthIn": 27,
     "depthIn": 78,
@@ -991,7 +991,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "sauna",
-    "name": "Sauna 6'",
+    "name": "Sauna",
     "category": "Sunroom",
     "widthIn": 72,
     "depthIn": 72,
@@ -1005,7 +1005,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "umbrella_table",
-    "name": "Umbrella Table",
+    "name": "Mesa com guarda-sol",
     "category": "Sunroom",
     "widthIn": 96,
     "depthIn": 96,
@@ -1019,7 +1019,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "swim_spa",
-    "name": "Swim Spa",
+    "name": "Spa de natação",
     "category": "Sunroom",
     "widthIn": 90,
     "depthIn": 180,
@@ -1033,7 +1033,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "whirlpool",
-    "name": "Whirlpool",
+    "name": "Banheira de hidromassagem",
     "category": "Sunroom",
     "widthIn": 84,
     "depthIn": 84,
@@ -1047,7 +1047,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "desk",
-    "name": "Desk 5'",
+    "name": "Escrivaninha",
     "category": "Office / Storage",
     "widthIn": 60,
     "depthIn": 30,
@@ -1061,7 +1061,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "office_chair",
-    "name": "Office Chair",
+    "name": "Cadeira de escritório",
     "category": "Office / Storage",
     "widthIn": 24,
     "depthIn": 24,
@@ -1075,7 +1075,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "office_set",
-    "name": "Office Desk & Chair",
+    "name": "Mesa e cadeira de escritório",
     "category": "Office / Storage",
     "widthIn": 54,
     "depthIn": 36,
@@ -1089,7 +1089,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "corner_desk",
-    "name": "Corner Desk 5'",
+    "name": "Mesa de canto",
     "category": "Office / Storage",
     "widthIn": 60,
     "depthIn": 60,
@@ -1103,7 +1103,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "bookshelf",
-    "name": "Bookshelf 3'",
+    "name": "Estante de livros",
     "category": "Office / Storage",
     "widthIn": 36,
     "depthIn": 12,
@@ -1117,21 +1117,21 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "wardrobe",
-    "name": "Wardrobe 4'",
+    "name": "Guarda-roupa",
     "category": "Office / Storage",
     "widthIn": 48,
     "depthIn": 24,
     "heightIn": 72,
     "symbolUrl": "https://raw.githubusercontent.com/pjm4github/FloorPlanner/main/assets/furnishings/wardrobe.svg",
-    "modelId": "bookcasecloseddoors",
-    "modelUrl": "https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs/furniture-kit/bookcasecloseddoors.glb",
-    "thumbnailUrl": "https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs/furniture-kit/thumbs/bookcasecloseddoors.webp",
+    "modelId": null,
+    "modelUrl": null,
+    "thumbnailUrl": null,
     "source2d": "pjm4github/FloorPlanner — CC0 1.0",
-    "source3d": "Kenney Furniture Kit — CC0 1.0"
+    "source3d": null
   },
   {
     "id": "gas_furnace",
-    "name": "Gas Furnace",
+    "name": "Aquecedor a gás",
     "category": "Climatização",
     "widthIn": 24,
     "depthIn": 30,
@@ -1145,7 +1145,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "electric_furnace",
-    "name": "Electric Furnace",
+    "name": "Aquecedor elétrico",
     "category": "Climatização",
     "widthIn": 21,
     "depthIn": 30,
@@ -1159,7 +1159,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "oil_furnace",
-    "name": "Oil Furnace",
+    "name": "Aquecedor a óleo",
     "category": "Climatização",
     "widthIn": 26,
     "depthIn": 34,
@@ -1173,7 +1173,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "gas_water_heater",
-    "name": "Gas Water Heater",
+    "name": "Aquecedor de água a gás",
     "category": "Climatização",
     "widthIn": 22,
     "depthIn": 22,
@@ -1187,7 +1187,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "electric_water_heater",
-    "name": "Electric Water Heater",
+    "name": "Aquecedor de água elétrico",
     "category": "Climatização",
     "widthIn": 22,
     "depthIn": 22,
@@ -1201,7 +1201,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "water_softener",
-    "name": "Water Softener",
+    "name": "Amaciador de água",
     "category": "Climatização",
     "widthIn": 24,
     "depthIn": 15,
@@ -1215,7 +1215,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "gas_tank",
-    "name": "Gas Tank",
+    "name": "Tanque de gás",
     "category": "Climatização",
     "widthIn": 120,
     "depthIn": 36,
@@ -1229,7 +1229,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "oil_tank",
-    "name": "Oil Tank",
+    "name": "Tanque de óleo",
     "category": "Climatização",
     "widthIn": 60,
     "depthIn": 27,
@@ -1243,7 +1243,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "electric_panel",
-    "name": "Electric Panel",
+    "name": "Quadro elétrico",
     "category": "Climatização",
     "widthIn": 16,
     "depthIn": 4,
@@ -1257,7 +1257,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "car_charger",
-    "name": "Car Charger",
+    "name": "Carregador de veículo elétrico",
     "category": "Climatização",
     "widthIn": 8,
     "depthIn": 6,
@@ -1271,7 +1271,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "battery_wall",
-    "name": "Battery Wall",
+    "name": "Bateria de parede",
     "category": "Climatização",
     "widthIn": 45,
     "depthIn": 6,
@@ -1285,7 +1285,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "well_pump",
-    "name": "Well Pump",
+    "name": "Bomba de poço",
     "category": "Climatização",
     "widthIn": 24,
     "depthIn": 24,
@@ -1299,7 +1299,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "heat_exchanger",
-    "name": "Heat Exchanger",
+    "name": "Trocador de calor",
     "category": "Climatização",
     "widthIn": 30,
     "depthIn": 30,
@@ -1313,7 +1313,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "stairs",
-    "name": "Stairs (flight)",
+    "name": "Escada",
     "category": "Estrutura",
     "widthIn": 36,
     "depthIn": 120,
@@ -1327,7 +1327,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "elevator",
-    "name": "Residential Elevator",
+    "name": "Elevador residencial",
     "category": "Estrutura",
     "widthIn": 48,
     "depthIn": 60,
@@ -1341,7 +1341,7 @@ export const FURNITURE_CATALOG: FurnitureCatalogItem[] = [
   },
   {
     "id": "post",
-    "name": "Post 6x6",
+    "name": "Pilar 15 × 15 cm",
     "category": "Estrutura",
     "widthIn": 6,
     "depthIn": 6,
