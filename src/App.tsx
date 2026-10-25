@@ -128,6 +128,30 @@ function AppShell() {
   const [remoteReady, setRemoteReady] = useState(false);
   const userIdRef = useRef<string | null>(null);
 
+  const [authenticatedUser, setAuthenticatedUser] = useState<{ id: string; email?: string } | null>(null);
+
+  useEffect(() => {
+    if (!supabase) return;
+
+    let active = true;
+    const syncAuthState = (session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']) => {
+      if (!active) return;
+      const user = session?.user;
+      setAuthenticatedUser(user && !user.is_anonymous ? { id: user.id, email: user.email } : null);
+      userIdRef.current = user?.id ?? null;
+    };
+
+    void supabase.auth.getSession().then(({ data }) => syncAuthState(data.session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      syncAuthState(session);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let cancelled = false;
@@ -484,11 +508,29 @@ function AppShell() {
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: {
+        redirectTo: window.location.origin,
+        queryParams: { prompt: 'select_account' },
+      },
     });
 
     if (error) {
       window.alert(`Não foi possível iniciar o login com Google: ${error.message}`);
+    }
+  };
+
+  const handleSignOut = async () => {
+    if (!supabase) return;
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      window.alert(`Não foi possível sair da conta: ${error.message}`);
+      return;
+    }
+    try {
+      const anonymousSession = await ensureAnonymousSession();
+      userIdRef.current = anonymousSession?.userId ?? null;
+    } catch (error) {
+      reportSyncError(error);
     }
   };
 
@@ -497,7 +539,9 @@ function AppShell() {
   return (
     <div className="min-h-screen flex flex-col transition-colors selection:bg-[#1F66D6] selection:text-white">
       <TopHeader
-        onGoogleSignIn={handleGoogleSignIn}
+        onGoogleSignIn={authenticatedUser ? undefined : handleGoogleSignIn}
+        authenticatedEmail={authenticatedUser?.email}
+        onSignOut={authenticatedUser ? handleSignOut : undefined}
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenCalendarModal={() => setIsCalendarModalOpen(true)}
         pendingDeadlinesCount={deadlines.filter((deadline) => deadline.status !== 'concluido').length}
