@@ -971,7 +971,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
               x: bounds.x + ((project.furniture ?? []).length % 4) * 24,
               y: bounds.y + ((project.furniture ?? []).length % 4) * 24,
               rotation: 0, widthIn: item.widthIn, depthIn: item.depthIn, heightIn: item.heightIn,
-              symbolUrl: item.symbolUrl, modelUrl: item.modelUrl,
+              symbolUrl: item.symbolUrl, modelUrl: item.modelUrl, thumbnailUrl: item.thumbnailUrl,
             };
             updateProjectState({...project, furniture:[...(project.furniture ?? []), placed]});
             setShowFurnitureCatalog(false);
