@@ -370,6 +370,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     selectedObject,
     selectedObjects,
     selectionRect,
+    canvasPan,
   ]);
 
   const snap = (coord: number) => gapEnabled ? Math.round(coord / gapDistance) * gapDistance : coord;
