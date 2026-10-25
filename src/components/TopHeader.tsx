@@ -13,7 +13,7 @@ interface TopHeaderProps {
 
 export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenVoiceAssistant }) => (
   <header className="sticky top-0 z-30 px-4 py-2.5 border-b border-[#2A3A55] bg-[#101827]/95 text-[#E8EDF5] backdrop-blur-md">
-    <div className="max-w-4xl mx-auto grid grid-cols-3 items-center gap-2">
+    <div className="max-w-4xl mx-auto grid grid-cols-3 items-center gap-3">
       <div className="flex items-center justify-start gap-2 min-w-0">
         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#101827] to-[#17243A] flex items-center justify-center border border-[#2A3A55] shrink-0 shadow-sm p-1">
           <svg viewBox="0 0 40 40" className="w-full h-full" fill="none" aria-hidden="true">
@@ -34,7 +34,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenVoiceAssistant }) =>
             </div>
           </button>
         )}
-        <div className="flex justify-end min-w-0 [&_button]:max-w-full [&_button]:justify-center [&_button]:px-2 [&_button]:text-[11px] sm:[&_button]:px-3 sm:[&_button]:text-xs"><PWAInstallButton compact /></div>
+      </div>
+      <div className="flex items-center justify-end min-w-0">
+        <div className="min-w-0 [&_button]:max-w-full [&_button]:justify-center [&_button]:gap-1 [&_button]:px-2 [&_button]:text-[11px] sm:[&_button]:px-3 sm:[&_button]:text-xs">
+          <PWAInstallButton compact />
+        </div>
       </div>
     </div>
   </header>
