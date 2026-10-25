@@ -182,7 +182,7 @@ export interface OpeningItem {
 export interface ElectricalItem {
   rotation?: number;
   id: string;
-  type: 'socket' | 'switch' | 'light' | 'panel' | 'wire';
+  type: 'socket' | 'switch' | 'light' | 'panel' | 'wire' | 'conduit' | 'data_point' | 'grounding';
   x2?: number;
   y2?: number;
   locked?: boolean;
@@ -194,7 +194,7 @@ export interface ElectricalItem {
 
 export interface HydraulicItem {
   id: string;
-  type: 'cold_water' | 'hot_water' | 'sewage' | 'drain' | 'water_pipe' | 'sewage_pipe' | 'sink' | 'faucet' | 'shower' | 'toilet';
+  type: 'cold_water' | 'hot_water' | 'sewage' | 'drain' | 'water_pipe' | 'sewage_pipe' | 'vent_pipe' | 'rain_pipe' | 'sink' | 'faucet' | 'shower' | 'toilet' | 'floor_drain' | 'cleanout' | 'inspection_box' | 'tank' | 'heater' | 'grease_trap';
   x2?: number;
   y2?: number;
   locked?: boolean;
