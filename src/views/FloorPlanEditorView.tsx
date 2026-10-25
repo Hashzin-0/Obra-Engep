@@ -92,6 +92,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
   const [currentMouse, setCurrentMouse] = useState<{ x: number; y: number } | null>(null);
+  const [selectedObject, setSelectedObject] = useState<{ kind: 'wall' | 'opening' | 'electrical' | 'hydraulic'; id: string } | null>(null);
+  const dragRef = useRef<{ kind: 'wall' | 'opening' | 'electrical' | 'hydraulic'; id: string; x: number; y: number } | null>(null);
 
   // Push state to undo history
   const updateProjectState = (newProject: FloorPlanProject) => {
@@ -188,25 +190,28 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
 
       // Doors and Windows
       project.openings.forEach((op) => {
+        ctx.save();
+        ctx.translate(op.x, op.y);
+        ctx.rotate(((op.rotation ?? 0) * Math.PI) / 180);
         if (op.type === 'door') {
           ctx.strokeStyle = '#F5B93A';
           ctx.lineWidth = 3;
           ctx.beginPath();
-          ctx.arc(op.x, op.y, 25, 0, Math.PI / 2);
+          ctx.arc(0, 0, 25, 0, Math.PI / 2);
           ctx.stroke();
           ctx.beginPath();
-          ctx.moveTo(op.x, op.y);
-          ctx.lineTo(op.x + 25, op.y);
+          ctx.moveTo(0, 0);
+          ctx.lineTo(25, 0);
           ctx.stroke();
         } else {
-          // Window
           ctx.strokeStyle = '#06B6D4';
           ctx.lineWidth = 4;
           ctx.beginPath();
-          ctx.moveTo(op.x - 20, op.y);
-          ctx.lineTo(op.x + 20, op.y);
+          ctx.moveTo(-20, 0);
+          ctx.lineTo(20, 0);
           ctx.stroke();
         }
+        ctx.restore();
       });
     }
 
@@ -297,13 +302,29 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
 
   const snap = (coord: number) => Math.round(coord / 20) * 20;
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleMouseDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
     const x = snap((e.clientX - rect.left) / zoom);
     const y = snap((e.clientY - rect.top) / zoom);
 
+    if (tool === 'select') {
+      const near = (a: number, b: number) => Math.hypot(a - x, b - y) <= 22;
+      const wall = [...project.walls].reverse().find(w => {
+        const vx = w.x2 - w.x1, vy = w.y2 - w.y1, len2 = vx * vx + vy * vy || 1;
+        const t = Math.max(0, Math.min(1, ((x - w.x1) * vx + (y - w.y1) * vy) / len2));
+        return Math.hypot(x - (w.x1 + t * vx), y - (w.y1 + t * vy)) <= 16;
+      });
+      const opening = [...project.openings].reverse().find(o => near(o.x, o.y));
+      const electrical = [...project.electrical].reverse().find(o => near(o.x, o.y));
+      const hydraulic = [...project.hydraulic].reverse().find(o => near(o.x, o.y));
+      const target = wall ? { kind: 'wall' as const, id: wall.id } : opening ? { kind: 'opening' as const, id: opening.id } : electrical ? { kind: 'electrical' as const, id: electrical.id } : hydraulic ? { kind: 'hydraulic' as const, id: hydraulic.id } : null;
+      setSelectedObject(target);
+      dragRef.current = target ? { ...target, x, y } : null;
+      if (target) e.currentTarget.setPointerCapture(e.pointerId);
+      return;
+    }
     if (tool === 'wall') {
       setIsDrawing(true);
       setStartPoint({ x, y });
@@ -376,7 +397,12 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleMouseMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (tool === 'select' && dragRef.current) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setCurrentMouse({ x: snap((e.clientX - rect.left) / zoom), y: snap((e.clientY - rect.top) / zoom) });
+      return;
+    }
     if (!isDrawing) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -386,7 +412,24 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     setCurrentMouse({ x, y });
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e?: React.PointerEvent<HTMLCanvasElement>) => {
+    if (tool === 'select' && dragRef.current && e) {
+      const drag = dragRef.current;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const endX = snap((e.clientX - rect.left) / zoom);
+      const endY = snap((e.clientY - rect.top) / zoom);
+      const dx = endX - drag.x;
+      const dy = endY - drag.y;
+      if (dx || dy) {
+        if (drag.kind === 'wall') updateProjectState({ ...project, walls: project.walls.map(w => w.id === drag.id ? { ...w, x1: w.x1 + dx, y1: w.y1 + dy, x2: w.x2 + dx, y2: w.y2 + dy } : w) });
+        else if (drag.kind === 'opening') updateProjectState({ ...project, openings: project.openings.map(o => o.id === drag.id ? { ...o, x: o.x + dx, y: o.y + dy } : o) });
+        else if (drag.kind === 'electrical') updateProjectState({ ...project, electrical: project.electrical.map(o => o.id === drag.id ? { ...o, x: o.x + dx, y: o.y + dy } : o) });
+        else updateProjectState({ ...project, hydraulic: project.hydraulic.map(o => o.id === drag.id ? { ...o, x: o.x + dx, y: o.y + dy } : o) });
+      }
+      dragRef.current = null;
+      setCurrentMouse(null);
+      return;
+    }
     if (isDrawing && startPoint && currentMouse && tool === 'wall') {
       if (startPoint.x !== currentMouse.x || startPoint.y !== currentMouse.y) {
         const newWall: WallSegment = {
@@ -419,7 +462,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   return (
     <div className="space-y-4 pb-24">
       {/* Top Project Bar */}
-      <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-[#17243A] border border-[#2A3A55]">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 rounded-2xl bg-[#17243A] border border-[#2A3A55]">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <select
@@ -460,7 +503,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         </div>
 
         {/* Action icons */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {onOpenCalendarModal && (
             <button
               onClick={onOpenCalendarModal}
@@ -595,13 +638,15 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       </div>
 
       {/* Real Interactive Canvas (Page 6: "Canvas com grade, escala, paredes, portas, janelas, cotas...") */}
-      <div className="relative rounded-2xl border border-[#2A3A55] overflow-hidden shadow-inner bg-[#101827]">
+      <div className="relative w-full min-w-0 rounded-2xl border border-[#2A3A55] overflow-hidden shadow-inner bg-[#101827]">
         <canvas
           ref={canvasRef}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          className="w-full cursor-crosshair touch-none"
+          onPointerDown={handleMouseDown}
+          onPointerMove={handleMouseMove}
+          onPointerUp={handleMouseUp}
+          onPointerCancel={handleMouseUp}
+          className="block w-full cursor-crosshair touch-none select-none"
+          style={{ touchAction: 'none' }}
         />
 
         {/* Floating Zoom & Undo Controls */}
@@ -662,8 +707,30 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         </div>
       </div>
 
+      {selectedObject && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#2A3A55] bg-[#17243A] p-2">
+          <span className="px-2 text-xs text-[#9FB0C8]">Elemento selecionado</span>
+          <button onClick={() => {
+            if (selectedObject.kind === 'opening') updateProjectState({ ...project, openings: project.openings.map(o => o.id === selectedObject.id ? { ...o, rotation: ((o.rotation ?? 0) + 90) % 360 } : o) });
+            else if (selectedObject.kind === 'wall') updateProjectState({ ...project, walls: project.walls.map(w => {
+              if (w.id !== selectedObject.id) return w;
+              const mx = (w.x1 + w.x2) / 2, my = (w.y1 + w.y2) / 2;
+              return { ...w, x1: mx - (w.y1 - w.y2) / 2, y1: my + (w.x1 - w.x2) / 2, x2: mx + (w.y1 - w.y2) / 2, y2: my - (w.x1 - w.x2) / 2 };
+            }) });
+          }} className="min-h-[44px] rounded-lg border border-[#2A3A55] px-3 text-sm text-white flex items-center gap-2"><RotateCw className="h-4 w-4" /> Girar 90°</button>
+          <button onClick={() => {
+            const id = selectedObject.id;
+            if (selectedObject.kind === 'opening') updateProjectState({ ...project, openings: project.openings.filter(o => o.id !== id) });
+            else if (selectedObject.kind === 'wall') updateProjectState({ ...project, walls: project.walls.filter(o => o.id !== id) });
+            else if (selectedObject.kind === 'electrical') updateProjectState({ ...project, electrical: project.electrical.filter(o => o.id !== id) });
+            else updateProjectState({ ...project, hydraulic: project.hydraulic.filter(o => o.id !== id) });
+            setSelectedObject(null);
+          }} className="min-h-[44px] rounded-lg border border-red-400/40 px-3 text-sm text-red-300 flex items-center gap-2"><Trash2 className="h-4 w-4" /> Excluir</button>
+        </div>
+      )}
+
       {/* Bottom Tools Toolbar (Page 6 briefing: "Barra de ferramentas inferior") */}
-      <div className="p-2.5 rounded-2xl bg-[#17243A] border border-[#2A3A55] flex items-center justify-between gap-1 overflow-x-auto no-scrollbar">
+      <div className="p-2.5 rounded-2xl bg-[#17243A] border border-[#2A3A55] grid grid-cols-2 sm:flex sm:items-center sm:justify-between gap-1">
         {[
           { id: 'select' as ToolMode, label: 'Mover/Selecionar', icon: Move },
           { id: 'wall' as ToolMode, label: '+ Parede', icon: Square },
