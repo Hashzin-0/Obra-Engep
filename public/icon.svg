@@ -1,43 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#17243A"/>
       <stop offset="100%" stop-color="#101827"/>
     </linearGradient>
-    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#5B9BFF"/>
-      <stop offset="100%" stop-color="#1F66D6"/>
-    </linearGradient>
-    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#3DD68C"/>
-      <stop offset="100%" stop-color="#1F66D6"/>
-    </linearGradient>
   </defs>
-  <!-- Background rounded rect -->
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
   <rect x="12" y="12" width="488" height="488" rx="100" fill="none" stroke="#2A3A55" stroke-width="6"/>
-
-  <!-- Compass & Technical Ruler Architecture Mark -->
-  <g transform="translate(256, 256)">
-    <!-- Blueprint grid circle -->
-    <circle r="180" fill="none" stroke="#2A3A55" stroke-width="4" stroke-dasharray="8 8"/>
-    <circle r="120" fill="none" stroke="#1F66D6" stroke-opacity="0.3" stroke-width="3"/>
-    
-    <!-- Drafting Compass arms (OBra) -->
-    <path d="M 0 -130 L -95 105 L -65 105 L 0 -50 L 65 105 L 95 105 Z" fill="url(#accent)"/>
-    <!-- Compass hinge -->
-    <circle cx="0" cy="-125" r="32" fill="#17243A" stroke="#5B9BFF" stroke-width="8"/>
-    <circle cx="0" cy="-125" r="14" fill="#3DD68C"/>
-    
-    <!-- Caliper & Gauge / Automotive styling arc -->
-    <path d="M -70 25 A 80 80 0 0 1 70 25" fill="none" stroke="#3DD68C" stroke-width="10" stroke-linecap="round"/>
-    
-    <!-- Precision Crosshair / Level lines -->
-    <line x1="-150" y1="25" x2="-85" y2="25" stroke="#5B9BFF" stroke-width="4" stroke-linecap="round"/>
-    <line x1="85" y1="25" x2="150" y2="25" stroke="#5B9BFF" stroke-width="4" stroke-linecap="round"/>
-    
-    <!-- Text / Emblem ENGEP base -->
-    <rect x="-90" y="120" width="180" height="26" rx="8" fill="#1F66D6"/>
-    <text x="0" y="138" font-family="system-ui, sans-serif" font-weight="900" font-size="16" fill="#FFFFFF" text-anchor="middle" letter-spacing="4">ENGEP</text>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 96 278 L 256 118 L 416 278" stroke="#1F66D6" stroke-width="34"/>
+    <path d="M 165 310 L 256 219 L 347 310" stroke="#F5B93A" stroke-width="28"/>
+    <path d="M 318 143 L 318 204" stroke="#1F66D6" stroke-width="22"/>
   </g>
 </svg>

@@ -31,6 +31,7 @@ interface HomeViewProps {
   onOpenCalculatorWithData?: (calc: CalculationHistoryItem) => void;
   onOpenCalendarModal?: () => void;
   onOpenVoiceAssistant?: () => void;
+  authenticatedName?: string;
   latestCalculation?: CalculationHistoryItem | null;
   favoritesCount: number;
   deadlines?: ProjectDeadline[];
@@ -42,6 +43,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onOpenCalculatorWithData,
   onOpenCalendarModal,
   onOpenVoiceAssistant,
+  authenticatedName,
   latestCalculation,
   favoritesCount,
   deadlines = [],
@@ -66,6 +68,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
     return localStorage.getItem('obra_engep_username') || 'Profissional';
   });
   const [isEditingName, setIsEditingName] = useState(false);
+  const greetingName = authenticatedName?.trim() || userName;
 
   const modules = [
     {
@@ -152,14 +155,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
           ) : (
             <h2
-              onClick={() => setIsEditingName(true)}
-              className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white dark:text-white cursor-pointer hover:opacity-90 inline-flex items-center justify-center gap-2 group transition-all"
-              title="Toque para editar seu nome"
+              onClick={() => { if (!authenticatedName) setIsEditingName(true); }}
+              className={`text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white dark:text-white inline-flex items-center justify-center gap-2 group transition-all ${authenticatedName ? '' : 'cursor-pointer hover:opacity-90'}`}
+              title={authenticatedName ? 'Nome da conta Google' : 'Toque para editar seu nome'}
             >
-              <span>Olá, {userName}</span>
-              <span className="text-xs text-[#9FB0C8] opacity-60 group-hover:opacity-100 font-normal underline decoration-dotted border border-[#2A3A55] px-2 py-0.5 rounded-md">
-                editar
-              </span>
+              <span>Olá, {greetingName}</span>
+              {!authenticatedName && <span className="text-xs text-[#9FB0C8] opacity-60 group-hover:opacity-100 font-normal underline decoration-dotted border border-[#2A3A55] px-2 py-0.5 rounded-md">editar</span>}
             </h2>
           )}
           <p className="text-xs sm:text-sm text-[#9FB0C8] mt-1.5 font-medium">Continue de onde parou</p>
