@@ -12,7 +12,7 @@ O catálogo do Obra-Engep consome ativos publicados por projetos externos; não 
 - Pacote original: [Kenney Furniture Kit](https://kenney.nl/assets/furniture-kit).
 - Espelho de distribuição consultado: [Hidencod/tge-assets](https://github.com/Hidencod/tge-assets), catálogo `catalog.json`.
 - Licença declarada para o pacote: CC0 1.0.
-- A integração atual mapeia 40 dos 96 símbolos a modelos GLB correspondentes ou próximos disponíveis no pacote. O catálogo 3D mostra somente itens com GLB mapeado; itens sem correspondência continuam disponíveis em 2D.
+- A integração atual mapeia 32 dos 96 símbolos a modelos GLB correspondentes ou próximos disponíveis no pacote. O catálogo 3D mostra somente itens com GLB mapeado; itens sem correspondência continuam disponíveis em 2D.
 - A vista 3D geral usa miniaturas dos modelos reais para manter a cena leve. O visualizador do catálogo carrega o GLB interativo sob demanda. Isso ainda não equivale a instanciar a malha GLB completa dentro da cena da planta.
 
 ## Carregamento e limites
