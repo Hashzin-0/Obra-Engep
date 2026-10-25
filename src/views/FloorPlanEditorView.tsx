@@ -482,6 +482,11 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       return;
     }
     if (activePointersRef.current.size >= 2) return;
+    if (tool === 'wall' && wallDrawMode === 'sequence' && wallSequencePoints.length) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setCurrentMouse({ x: snap((e.clientX - rect.left - canvasPan.x) / zoom), y: snap((e.clientY - rect.top - canvasPan.y) / zoom) });
+      return;
+    }
     if (tool === 'select' && selectionStartRef.current) { const r=e.currentTarget.getBoundingClientRect(); setSelectionRect({x1:selectionStartRef.current.x,y1:selectionStartRef.current.y,x2:snap((e.clientX-r.left-canvasPan.x)/zoom),y2:snap((e.clientY-r.top-canvasPan.y)/zoom)}); return; }
     if (dragRef.current || placementRef.current) {
       const rect = e.currentTarget.getBoundingClientRect();
@@ -897,7 +902,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         </label>
       </div>
 
-      <div className={`rounded-xl border border-[#2A3A55] bg-[#17243A] p-3 ${showFurnitureLayer ? '' : 'opacity-60'}`}>
+      {showFurnitureLayer && (<div className="rounded-xl border border-[#2A3A55] bg-[#17243A] p-3">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="min-w-0"><div className="text-sm font-semibold text-white">Mobiliário e objetos</div><p className="text-xs text-[#9FB0C8]">{(project.furniture ?? []).length} inserido(s) · escolha um item para adicionar à planta</p></div>
           <button type="button" onClick={() => setShowFurnitureCatalog(true)} className="flex min-h-10 shrink-0 items-center gap-2 rounded-xl bg-[#1F66D6] px-3 text-sm font-semibold text-white hover:bg-[#1A57B8]" aria-label="Abrir catálogo completo de mobiliário"><Plus className="h-4 w-4" /> Ver todos</button>
@@ -916,7 +921,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           ))}
           <button type="button" onClick={() => setShowFurnitureCatalog(true)} className="flex w-24 shrink-0 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-blue-400/60 bg-blue-500/10 text-blue-200 hover:bg-blue-500/20" aria-label="Ver catálogo completo"><Plus className="h-7 w-7" /><span className="text-xs font-semibold">Ver todos</span></button>
         </div>
-      </div>
+      </div>)}
 
       {(project.furniture ?? []).length > 0 && (
         <div className="rounded-xl border border-[#2A3A55] bg-[#17243A] p-3">
