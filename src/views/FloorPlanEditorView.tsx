@@ -11,6 +11,7 @@ import {
   Droplets,
   RotateCcw,
   RotateCw,
+  Copy,
   ZoomIn,
   ZoomOut,
   Download,
@@ -32,7 +33,7 @@ import { AlertBanner } from '../components/AlertBanner';
 import { Calendar, Bell, CalendarCheck } from 'lucide-react';
 import { exportToLocalCalendar, getGoogleCalendarUrl } from '../utils/calendarSync';
 import { FurnitureCatalog } from '../components/FurnitureCatalog';
-import type { FurnitureCatalogItem } from '../data/furnitureCatalog';
+import { FURNITURE_CATALOG, type FurnitureCatalogItem } from '../data/furnitureCatalog';
 
 type ToolMode = 'select' | 'wall' | 'door' | 'window' | 'socket' | 'light' | 'cold_water' | 'dimension';
 
@@ -70,6 +71,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   const [showArchLayer, setShowArchLayer] = useState(true);
   const [showElecLayer, setShowElecLayer] = useState(true);
   const [showHydLayer, setShowHydLayer] = useState(true);
+  const [showFurnitureLayer, setShowFurnitureLayer] = useState(true);
   const [showDimensions, setShowDimensions] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
   const [gapEnabled, setGapEnabled] = useState(true);
@@ -78,6 +80,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
 
   // Tool
   const [tool, setTool] = useState<ToolMode>('select');
+  const [wallDrawMode, setWallDrawMode] = useState<'segment' | 'sequence'>('segment');
+  const [wallSequencePoints, setWallSequencePoints] = useState<Array<{x:number;y:number}>>([]);
   const [zoom, setZoom] = useState(1);
   const [show3D, setShow3D] = useState(false);
   const [showFurnitureCatalog, setShowFurnitureCatalog] = useState(false);
@@ -314,7 +318,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     }
 
     // Furniture symbols use the original CC0 top-view SVG assets from FloorPlanner.
-    (project.furniture ?? []).forEach((item) => {
+    (showFurnitureLayer ? (project.furniture ?? []) : []).forEach((item) => {
       const width = item.widthIn * (40 / 39.37);
       const depth = item.depthIn * (40 / 39.37);
       const drawFallback = () => {
@@ -343,8 +347,17 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       drawFallback();
     });
 
+    if (tool === 'wall' && wallDrawMode === 'sequence' && wallSequencePoints.length) {
+      ctx.save(); ctx.strokeStyle = '#3DD68C'; ctx.fillStyle = '#3DD68C'; ctx.lineWidth = 4; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(wallSequencePoints[0].x, wallSequencePoints[0].y);
+      wallSequencePoints.slice(1).forEach(point => ctx.lineTo(point.x, point.y));
+      if (currentMouse) ctx.lineTo(currentMouse.x, currentMouse.y);
+      ctx.stroke(); ctx.setLineDash([]);
+      wallSequencePoints.forEach((point, index) => { ctx.beginPath(); ctx.arc(point.x, point.y, index === 0 ? 7 : 5, 0, Math.PI * 2); ctx.fill(); });
+      ctx.restore();
+    }
     // Temporary line while drawing a wall
-    if (isDrawing && startPoint && currentMouse && tool === 'wall') {
+    if (isDrawing && startPoint && currentMouse && tool === 'wall' && wallDrawMode === 'segment') {
       ctx.strokeStyle = '#3DD68C';
       ctx.lineWidth = 6;
       ctx.setLineDash([4, 4]);
@@ -371,6 +384,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     selectedObjects,
     selectionRect,
     canvasPan,
+    showFurnitureLayer,
+    wallDrawMode,
+    wallSequencePoints,
   ]);
 
   const snap = (coord: number) => gapEnabled ? Math.round(coord / gapDistance) * gapDistance : coord;
@@ -412,6 +428,24 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     const y = snap((e.clientY - rect.top - canvasPan.y) / zoom);
 
     if (tool === 'select') { const hit=[...project.openings.map(o=>({kind:'opening' as const,id:o.id,x:o.x,y:o.y})),...project.electrical.map(o=>({kind:'electrical' as const,id:o.id,x:o.x,y:o.y})),...project.hydraulic.map(o=>({kind:'hydraulic' as const,id:o.id,x:o.x,y:o.y})),...project.walls.map(w=>({kind:'wall' as const,id:w.id,x:(w.x1+w.x2)/2,y:(w.y1+w.y2)/2}))].reverse().find(o=>Math.hypot(o.x-x,o.y-y)<20); if(hit){const target={kind:hit.kind,id:hit.id};setSelectedObjects(prev=>e.shiftKey?(prev.some(s=>s.id===hit.id&&s.kind===hit.kind)?prev.filter(s=>s.id!==hit.id):[...prev,target]):(prev.some(s=>s.id===hit.id&&s.kind===hit.kind)?prev:[target]));setSelectedObject(target);dragRef.current={...target,x,y};selectionStartRef.current=null;}else{selectionStartRef.current={x,y};setSelectionRect({x1:x,y1:y,x2:x,y2:y});setIsDrawing(true);if(!e.shiftKey){setSelectedObjects([]);setSelectedObject(null);}} e.currentTarget.setPointerCapture(e.pointerId);return; }
+    if (tool === 'wall' && wallDrawMode === 'sequence') {
+      const points = wallSequencePoints;
+      if (!points.length) {
+        setWallSequencePoints([{ x, y }]); setCurrentMouse({ x, y });
+      } else {
+        const first = points[0];
+        const closesCycle = points.length >= 3 && Math.hypot(x - first.x, y - first.y) <= 18;
+        const end = closesCycle ? first : { x, y };
+        const previous = points[points.length - 1];
+        if (Math.hypot(end.x - previous.x, end.y - previous.y) > 1) {
+          const newWall: WallSegment = { id: ensureUuid('wall'), x1: previous.x, y1: previous.y, x2: end.x, y2: end.y, thickness: 15 };
+          updateProjectState({ ...project, walls: [...project.walls, newWall] });
+        }
+        if (closesCycle) { setWallSequencePoints([]); setCurrentMouse(null); }
+        else setWallSequencePoints([...points, end]);
+      }
+      e.currentTarget.setPointerCapture(e.pointerId); return;
+    }
     const kind = activeKind();
     if (kind) {
       const threshold = 18;
@@ -424,7 +458,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       e.currentTarget.setPointerCapture(e.pointerId);
       return;
     }
-    if (tool === 'wall') {
+    if (tool === 'wall' && wallDrawMode === 'segment') {
       const wall = [...project.walls].reverse().find(w => {
         const vx = w.x2 - w.x1, vy = w.y2 - w.y1, len2 = vx * vx + vy * vy || 1;
         const t = Math.max(0, Math.min(1, ((x - w.x1) * vx + (y - w.y1) * vy) / len2));
@@ -448,6 +482,11 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       return;
     }
     if (activePointersRef.current.size >= 2) return;
+    if (tool === 'wall' && wallDrawMode === 'sequence' && wallSequencePoints.length) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setCurrentMouse({ x: snap((e.clientX - rect.left - canvasPan.x) / zoom), y: snap((e.clientY - rect.top - canvasPan.y) / zoom) });
+      return;
+    }
     if (tool === 'select' && selectionStartRef.current) { const r=e.currentTarget.getBoundingClientRect(); setSelectionRect({x1:selectionStartRef.current.x,y1:selectionStartRef.current.y,x2:snap((e.clientX-r.left-canvasPan.x)/zoom),y2:snap((e.clientY-r.top-canvasPan.y)/zoom)}); return; }
     if (dragRef.current || placementRef.current) {
       const rect = e.currentTarget.getBoundingClientRect();
@@ -522,7 +561,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       }
       placementRef.current = false; setIsDrawing(false); setStartPoint(null); setCurrentMouse(null); return;
     }
-    if (isDrawing && startPoint && currentMouse && tool === 'wall') {
+    if (isDrawing && startPoint && currentMouse && tool === 'wall' && wallDrawMode === 'segment') {
       if (startPoint.x !== currentMouse.x || startPoint.y !== currentMouse.y) {
         const newWall: WallSegment = {
           id: `wall-${Date.now()}`,
@@ -677,8 +716,10 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           <Layers className="w-3.5 h-3.5" />
           Camadas:
         </span>
+        <button onClick={() => { const next = !(showArchLayer && showElecLayer && showHydLayer && showFurnitureLayer); setShowArchLayer(next); setShowElecLayer(next); setShowHydLayer(next); setShowFurnitureLayer(next); }}
+          className={`px-3 py-1 rounded-lg border transition ${showArchLayer && showElecLayer && showHydLayer && showFurnitureLayer ? 'bg-[#1F66D6] text-white border-[#1F66D6]' : 'border-[#2A3A55] text-[#9FB0C8]'}`}>Todas</button>
         <button
-          onClick={() => setShowArchLayer(!showArchLayer)}
+          onClick={() => { const next = !showArchLayer; setShowArchLayer(next); if (!next && ['wall','door','window'].includes(tool)) { setTool('select'); setWallSequencePoints([]); } }}
           className={`px-3 py-1 rounded-lg border transition ${
             showArchLayer
               ? 'bg-[#1F66D6] text-white border-[#1F66D6]'
@@ -688,7 +729,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           Arquitetura (Paredes)
         </button>
         <button
-          onClick={() => setShowElecLayer(!showElecLayer)}
+          onClick={() => { const next = !showElecLayer; setShowElecLayer(next); if (!next && ['light','socket'].includes(tool)) setTool('select'); }}
           className={`px-3 py-1 rounded-lg border transition flex items-center gap-1 ${
             showElecLayer
               ? 'bg-[#EAB308] text-black font-semibold border-[#EAB308]'
@@ -699,7 +740,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           Elétrica (Tomadas/Pontos)
         </button>
         <button
-          onClick={() => setShowHydLayer(!showHydLayer)}
+          onClick={() => { const next = !showHydLayer; setShowHydLayer(next); if (!next && tool === 'cold_water') setTool('select'); }}
           className={`px-3 py-1 rounded-lg border transition flex items-center gap-1 ${
             showHydLayer
               ? 'bg-[#06B6D4] text-white border-[#06B6D4]'
@@ -709,6 +750,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           <Droplets className="w-3 h-3" />
           Hidráulica (AF/ESG)
         </button>
+        <button onClick={() => setShowFurnitureLayer(!showFurnitureLayer)} className={`px-3 py-1 rounded-lg border transition ${showFurnitureLayer ? 'bg-violet-600 text-white border-violet-600' : 'border-[#2A3A55] text-[#9FB0C8]'}`}>Mobiliário</button>
         <button
           onClick={() => setShowDimensions(!showDimensions)}
           className={`px-3 py-1 rounded-lg border transition ${
@@ -805,6 +847,26 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#2A3A55] bg-[#17243A] p-2">
           <span className="px-2 text-xs text-[#9FB0C8]">Elemento selecionado</span>
           <button onClick={() => {
+            const id = ensureUuid('clone');
+            if (selectedObject.kind === 'wall') {
+              const source = project.walls.find(item => item.id === selectedObject.id); if (!source) return;
+              const clone = { ...source, id, x1: source.x1 + 20, y1: source.y1 + 20, x2: source.x2 + 20, y2: source.y2 + 20 };
+              updateProjectState({ ...project, walls: [...project.walls, clone] }); setSelectedObject({ kind: 'wall', id }); setSelectedObjects([{ kind: 'wall', id }]);
+            } else if (selectedObject.kind === 'opening') {
+              const source = project.openings.find(item => item.id === selectedObject.id); if (!source) return;
+              const clone = { ...source, id, x: source.x + 20, y: source.y + 20 };
+              updateProjectState({ ...project, openings: [...project.openings, clone] }); setSelectedObject({ kind: 'opening', id }); setSelectedObjects([{ kind: 'opening', id }]);
+            } else if (selectedObject.kind === 'electrical') {
+              const source = project.electrical.find(item => item.id === selectedObject.id); if (!source) return;
+              const clone = { ...source, id, x: source.x + 20, y: source.y + 20 };
+              updateProjectState({ ...project, electrical: [...project.electrical, clone] }); setSelectedObject({ kind: 'electrical', id }); setSelectedObjects([{ kind: 'electrical', id }]);
+            } else {
+              const source = project.hydraulic.find(item => item.id === selectedObject.id); if (!source) return;
+              const clone = { ...source, id, x: source.x + 20, y: source.y + 20 };
+              updateProjectState({ ...project, hydraulic: [...project.hydraulic, clone] }); setSelectedObject({ kind: 'hydraulic', id }); setSelectedObjects([{ kind: 'hydraulic', id }]);
+            }
+          }} className="min-h-[44px] rounded-lg border border-[#2A3A55] px-3 text-sm text-white flex items-center gap-2"><Copy className="h-4 w-4" /> Copiar</button>
+          <button onClick={() => {
             if (selectedObject.kind === 'opening') updateProjectState({ ...project, openings: project.openings.map(o => o.id === selectedObject.id ? { ...o, rotation: ((o.rotation ?? 0) + 90) % 360 } : o) });
             else if (selectedObject.kind === 'electrical') updateProjectState({ ...project, electrical: project.electrical.map(o => o.id === selectedObject.id ? { ...o, rotation: ((o.rotation ?? 0) + 90) % 360 } : o) });
             else if (selectedObject.kind === 'wall') updateProjectState({ ...project, walls: project.walls.map(w => {
@@ -840,15 +902,26 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         </label>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#2A3A55] bg-[#17243A] p-3">
-        <div className="min-w-0">
-          <div className="text-sm font-semibold text-white">Mobiliário e objetos</div>
-          <p className="text-xs text-[#9FB0C8]">{(project.furniture ?? []).length} objeto(s) na planta · símbolos 2D e modelos 3D de bibliotecas externas CC0</p>
+      {showFurnitureLayer && (<div className="rounded-xl border border-[#2A3A55] bg-[#17243A] p-3">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="min-w-0"><div className="text-sm font-semibold text-white">Mobiliário e objetos</div><p className="text-xs text-[#9FB0C8]">{(project.furniture ?? []).length} inserido(s) · escolha um item para adicionar à planta</p></div>
+          <button type="button" onClick={() => setShowFurnitureCatalog(true)} className="flex min-h-10 shrink-0 items-center gap-2 rounded-xl bg-[#1F66D6] px-3 text-sm font-semibold text-white hover:bg-[#1A57B8]" aria-label="Abrir catálogo completo de mobiliário"><Plus className="h-4 w-4" /> Ver todos</button>
         </div>
-        <button type="button" onClick={() => setShowFurnitureCatalog(true)} className="flex min-h-11 items-center gap-2 rounded-xl bg-[#1F66D6] px-4 text-sm font-semibold text-white hover:bg-[#1A57B8]">
-          <Plus className="h-4 w-4" /> Abrir catálogo 2D / 3D
-        </button>
-      </div>
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {FURNITURE_CATALOG.slice(0, 18).map(item => (
+            <button key={item.id} type="button" disabled={!showFurnitureLayer} onClick={() => {
+              const bounds = project.walls.length ? { x: (Math.min(...project.walls.flatMap(w => [w.x1,w.x2])) + Math.max(...project.walls.flatMap(w => [w.x1,w.x2]))) / 2, y: (Math.min(...project.walls.flatMap(w => [w.y1,w.y2])) + Math.max(...project.walls.flatMap(w => [w.y1,w.y2]))) / 2 } : { x: 240, y: 180 };
+              const count = (project.furniture ?? []).length;
+              const placed = { id: ensureUuid('furniture'), catalogId:item.id, name:item.name, category:item.category, x:bounds.x+(count%4)*24, y:bounds.y+(count%4)*24, rotation:0, widthIn:item.widthIn, depthIn:item.depthIn, heightIn:item.heightIn, symbolUrl:item.symbolUrl, modelUrl:item.modelUrl, thumbnailUrl:item.thumbnailUrl };
+              updateProjectState({ ...project, furniture:[...(project.furniture ?? []), placed] });
+            }} className="flex w-28 shrink-0 flex-col overflow-hidden rounded-xl border border-[#2A3A55] bg-[#101827] text-left transition hover:border-blue-500 disabled:cursor-not-allowed">
+              <span className="grid h-20 place-items-center bg-white p-2"><img src={item.symbolUrl} alt="" loading="lazy" className="h-full w-full object-contain" /></span>
+              <span className="line-clamp-2 min-h-10 p-2 text-[11px] font-semibold text-white">{item.name}</span><span className="px-2 pb-2 text-[10px] text-blue-300">+ Adicionar</span>
+            </button>
+          ))}
+          <button type="button" onClick={() => setShowFurnitureCatalog(true)} className="flex w-24 shrink-0 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-blue-400/60 bg-blue-500/10 text-blue-200 hover:bg-blue-500/20" aria-label="Ver catálogo completo"><Plus className="h-7 w-7" /><span className="text-xs font-semibold">Ver todos</span></button>
+        </div>
+      </div>)}
 
       {(project.furniture ?? []).length > 0 && (
         <div className="rounded-xl border border-[#2A3A55] bg-[#17243A] p-3">
@@ -858,6 +931,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
               <div key={item.id} className="flex min-w-0 items-center gap-2 rounded-lg border border-[#2A3A55] p-2">
                 <img src={item.symbolUrl} alt="" className="h-10 w-10 rounded bg-white object-contain p-1" />
                 <div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold text-white">{item.name}</div><div className="text-[10px] text-[#9FB0C8]">{(item.widthIn * 0.0254).toFixed(2)} × {(item.depthIn * 0.0254).toFixed(2)} m · {item.rotation}°</div></div>
+                <button type="button" onClick={() => { const clone = { ...item, id: ensureUuid('furniture-copy'), x: item.x + 20, y: item.y + 20 }; updateProjectState({ ...project, furniture:[...(project.furniture ?? []), clone] }); }} className="rounded-lg border border-[#2A3A55] px-2 py-2 text-xs text-white" aria-label={`Copiar ${item.name}`} title="Copiar"><Copy className="h-4 w-4" /></button>
                 <button type="button" onClick={() => updateProjectState({...project, furniture:(project.furniture ?? []).map(value => value.id === item.id ? {...value, rotation:(value.rotation + 90) % 360} : value)})} className="rounded-lg border border-[#2A3A55] px-2 py-2 text-xs text-white" aria-label={`Girar ${item.name} 90 graus`}><RotateCw className="h-4 w-4" /></button>
                 <button type="button" onClick={() => updateProjectState({...project, furniture:(project.furniture ?? []).filter(value => value.id !== item.id)})} className="rounded-lg border border-red-400/30 px-2 py-2 text-xs text-red-300" aria-label={`Remover ${item.name}`}><Trash2 className="h-4 w-4" /></button>
                 <details className="w-full pt-1">
@@ -879,16 +953,13 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       <div className="p-2.5 rounded-2xl bg-[#17243A] border border-[#2A3A55] grid grid-cols-2 sm:flex sm:items-center sm:justify-between gap-1">
         {[
           { id: 'select' as ToolMode, label: 'Mover/Selecionar', icon: Maximize2 },
-          { id: 'wall' as ToolMode, label: '+ Parede', icon: Square },
-          { id: 'door' as ToolMode, label: '+ Porta', icon: DoorOpen },
-          { id: 'window' as ToolMode, label: '+ Janela', icon: Maximize2 },
-          { id: 'light' as ToolMode, label: '+ Ponto Luz', icon: Zap },
-          { id: 'socket' as ToolMode, label: '+ Tomada', icon: Zap },
-          { id: 'cold_water' as ToolMode, label: '+ Ponto Água', icon: Droplets },
+          ...(showArchLayer ? [{ id: 'wall' as ToolMode, label: '+ Parede', icon: Square }, { id: 'door' as ToolMode, label: '+ Porta', icon: DoorOpen }, { id: 'window' as ToolMode, label: '+ Janela', icon: Maximize2 }] : []),
+          ...(showElecLayer ? [{ id: 'light' as ToolMode, label: '+ Ponto Luz', icon: Zap }, { id: 'socket' as ToolMode, label: '+ Tomada', icon: Zap }] : []),
+          ...(showHydLayer ? [{ id: 'cold_water' as ToolMode, label: '+ Ponto Água', icon: Droplets }] : []),
         ].map(({ id, label, icon: Icon }) => (
           <button
             key={id}
-            onClick={() => setTool(id)}
+            onClick={() => { setTool(id); if (id !== 'wall') { setWallSequencePoints([]); setCurrentMouse(null); } }}
             className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 min-h-[40px] ${
               tool === id
                 ? 'bg-[#1F66D6] text-white shadow-xs'
@@ -900,6 +971,15 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           </button>
         ))}
       </div>
+
+      {tool === 'wall' && showArchLayer && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#2A3A55] bg-[#17243A] p-3 text-xs text-[#DCE6F5]">
+          <span className="font-semibold text-[#9FB0C8]">Desenho de paredes:</span>
+          <button type="button" onClick={() => { setWallDrawMode('segment'); setWallSequencePoints([]); setIsDrawing(false); setStartPoint(null); }} className={`rounded-lg border px-3 py-2 ${wallDrawMode === 'segment' ? 'border-blue-500 bg-blue-600 text-white' : 'border-[#2A3A55] text-[#9FB0C8]'}`}>Linha única</button>
+          <button type="button" onClick={() => { setWallDrawMode('sequence'); setWallSequencePoints([]); setIsDrawing(false); setStartPoint(null); }} className={`rounded-lg border px-3 py-2 ${wallDrawMode === 'sequence' ? 'border-blue-500 bg-blue-600 text-white' : 'border-[#2A3A55] text-[#9FB0C8]'}`}>Sequência por vértices</button>
+          {wallDrawMode === 'sequence' && <><span>{wallSequencePoints.length} vértice(s) · clique no primeiro ponto para fechar o cômodo</span><button type="button" onClick={() => { setWallSequencePoints([]); setCurrentMouse(null); }} className="rounded-lg border border-red-400/40 px-3 py-2 text-red-300">Cancelar sequência</button></>}
+        </div>
+      )}
 
       {/* Project Milestones and Calendar Sync Section */}
       <div className="p-4 rounded-2xl bg-[#17243A] border border-[#2A3A55] space-y-3">
