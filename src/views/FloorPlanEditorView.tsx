@@ -31,6 +31,8 @@ import { LimitBar } from '../components/LimitBar';
 import { AlertBanner } from '../components/AlertBanner';
 import { Calendar, Bell, CalendarCheck } from 'lucide-react';
 import { exportToLocalCalendar, getGoogleCalendarUrl } from '../utils/calendarSync';
+import { FurnitureCatalog } from '../components/FurnitureCatalog';
+import type { FurnitureCatalogItem } from '../data/furnitureCatalog';
 
 type ToolMode = 'select' | 'wall' | 'door' | 'window' | 'socket' | 'light' | 'cold_water' | 'dimension';
 
@@ -78,6 +80,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   const [tool, setTool] = useState<ToolMode>('select');
   const [zoom, setZoom] = useState(1);
   const [show3D, setShow3D] = useState(false);
+  const [showFurnitureCatalog, setShowFurnitureCatalog] = useState(false);
   const [selectedObjects, setSelectedObjects] = useState<Array<{ kind: 'wall' | 'opening' | 'electrical' | 'hydraulic'; id: string }>>([]);
   const [selectionRect, setSelectionRect] = useState<{x1:number;y1:number;x2:number;y2:number}|null>(null);
   const selectionStartRef = useRef<{x:number;y:number}|null>(null);
@@ -309,6 +312,36 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       else { ctx.beginPath(); ctx.arc(p.x, p.y, tool === 'cold_water' ? 9 : 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
       ctx.restore();
     }
+
+    // Furniture symbols use the original CC0 top-view SVG assets from FloorPlanner.
+    (project.furniture ?? []).forEach((item) => {
+      const width = item.widthIn * (40 / 39.37);
+      const depth = item.depthIn * (40 / 39.37);
+      const drawFallback = () => {
+        ctx.save();
+        ctx.translate(item.x, item.y);
+        ctx.rotate((item.rotation * Math.PI) / 180);
+        ctx.fillStyle = '#D6C2A8';
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 1.5;
+        ctx.fillRect(-width / 2, -depth / 2, width, depth);
+        ctx.strokeRect(-width / 2, -depth / 2, width, depth);
+        ctx.restore();
+      };
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        ctx.save();
+        ctx.translate(item.x, item.y);
+        ctx.rotate((item.rotation * Math.PI) / 180);
+        ctx.drawImage(img, -width / 2, -depth / 2, width, depth);
+        ctx.restore();
+      };
+      img.onerror = drawFallback;
+      img.src = item.symbolUrl;
+      // Keep a visible, dimensionally scaled footprint while the original SVG loads.
+      drawFallback();
+    });
 
     // Temporary line while drawing a wall
     if (isDrawing && startPoint && currentMouse && tool === 'wall') {
@@ -806,6 +839,32 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         </label>
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#2A3A55] bg-[#17243A] p-3">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-white">Mobiliário e objetos</div>
+          <p className="text-xs text-[#9FB0C8]">{(project.furniture ?? []).length} objeto(s) na planta · símbolos 2D e modelos 3D de bibliotecas externas CC0</p>
+        </div>
+        <button type="button" onClick={() => setShowFurnitureCatalog(true)} className="flex min-h-11 items-center gap-2 rounded-xl bg-[#1F66D6] px-4 text-sm font-semibold text-white hover:bg-[#1A57B8]">
+          <Plus className="h-4 w-4" /> Abrir catálogo 2D / 3D
+        </button>
+      </div>
+
+      {(project.furniture ?? []).length > 0 && (
+        <div className="rounded-xl border border-[#2A3A55] bg-[#17243A] p-3">
+          <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-[#9FB0C8]">Objetos inseridos</h4>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {(project.furniture ?? []).map(item => (
+              <div key={item.id} className="flex min-w-0 items-center gap-2 rounded-lg border border-[#2A3A55] p-2">
+                <img src={item.symbolUrl} alt="" className="h-10 w-10 rounded bg-white object-contain p-1" />
+                <div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold text-white">{item.name}</div><div className="text-[10px] text-[#9FB0C8]">{(item.widthIn * 0.0254).toFixed(2)} × {(item.depthIn * 0.0254).toFixed(2)} m · {item.rotation}°</div></div>
+                <button type="button" onClick={() => updateProjectState({...project, furniture:(project.furniture ?? []).map(value => value.id === item.id ? {...value, rotation:(value.rotation + 90) % 360} : value)})} className="rounded-lg border border-[#2A3A55] px-2 py-2 text-xs text-white" aria-label={`Girar ${item.name} 90 graus`}><RotateCw className="h-4 w-4" /></button>
+                <button type="button" onClick={() => updateProjectState({...project, furniture:(project.furniture ?? []).filter(value => value.id !== item.id)})} className="rounded-lg border border-red-400/30 px-2 py-2 text-xs text-red-300" aria-label={`Remover ${item.name}`}><Trash2 className="h-4 w-4" /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Bottom Tools Toolbar (Page 6 briefing: "Barra de ferramentas inferior") */}
       <div className="p-2.5 rounded-2xl bg-[#17243A] border border-[#2A3A55] grid grid-cols-2 sm:flex sm:items-center sm:justify-between gap-1">
         {[
@@ -899,6 +958,26 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       </div>
 
       <LimitBar message="O editor gráfico gera representações conceituais e quantitativos preliminares. Plantas executivas para aprovação em prefeitura exigem assinatura e ART de profissional habilitado." />
+      {showFurnitureCatalog && (
+        <FurnitureCatalog
+          onClose={() => setShowFurnitureCatalog(false)}
+          onAdd={(item: FurnitureCatalogItem) => {
+            const bounds = project.walls.length ? {
+              x: (Math.min(...project.walls.flatMap(w => [w.x1, w.x2])) + Math.max(...project.walls.flatMap(w => [w.x1, w.x2]))) / 2,
+              y: (Math.min(...project.walls.flatMap(w => [w.y1, w.y2])) + Math.max(...project.walls.flatMap(w => [w.y1, w.y2]))) / 2,
+            } : { x: 240, y: 180 };
+            const placed = {
+              id: crypto.randomUUID(), catalogId: item.id, name: item.name, category: item.category,
+              x: bounds.x + ((project.furniture ?? []).length % 4) * 24,
+              y: bounds.y + ((project.furniture ?? []).length % 4) * 24,
+              rotation: 0, widthIn: item.widthIn, depthIn: item.depthIn, heightIn: item.heightIn,
+              symbolUrl: item.symbolUrl, modelUrl: item.modelUrl,
+            };
+            updateProjectState({...project, furniture:[...(project.furniture ?? []), placed]});
+            setShowFurnitureCatalog(false);
+          }}
+        />
+      )}
     </div>
   );
 };
