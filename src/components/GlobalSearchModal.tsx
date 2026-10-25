@@ -6,20 +6,22 @@
 import React, { useState, useMemo } from 'react';
 import { Search, X, ArrowUpRight, Calculator, FileText, Wrench, Shield, Sparkles, Scale } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
-import { INITIAL_NRS, INITIAL_ABNT, INITIAL_LEGISLATION, INITIAL_DIRT_CATALOG, INITIAL_PRODUCTS } from '../data/initialData';
+import { REFERENCE_NRS, REFERENCE_ABNT, REFERENCE_LEGISLATION, DIRT_CATALOG } from '../data/referenceData';
 import { SourceSeal } from './SourceSeal';
-import { ModuleId } from '../types';
+import { AutomotiveProductItem, ModuleId } from '../types';
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectResult: (category: string, itemId: string) => void;
+  products?: AutomotiveProductItem[];
 }
 
 export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   isOpen,
   onClose,
   onSelectResult,
+  products = [],
 }) => {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
@@ -72,7 +74,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
     // NRs
     if (selectedFilter === 'todos' || selectedFilter === 'nrs') {
-      INITIAL_NRS.forEach((nr) => {
+      REFERENCE_NRS.forEach((nr) => {
         if (
           nr.code.toLowerCase().includes(q) ||
           nr.title.toLowerCase().includes(q) ||
@@ -93,7 +95,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
     // ABNT
     if (selectedFilter === 'todos' || selectedFilter === 'abnt') {
-      INITIAL_ABNT.forEach((norma) => {
+      REFERENCE_ABNT.forEach((norma) => {
         if (
           norma.code.toLowerCase().includes(q) ||
           norma.title.toLowerCase().includes(q) ||
@@ -114,7 +116,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
     // Legislation
     if (selectedFilter === 'todos' || selectedFilter === 'legislacao') {
-      INITIAL_LEGISLATION.forEach((leg) => {
+      REFERENCE_LEGISLATION.forEach((leg) => {
         if (
           leg.code.toLowerCase().includes(q) ||
           leg.title.toLowerCase().includes(q) ||
@@ -135,7 +137,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
     // Automotive
     if (selectedFilter === 'todos' || selectedFilter === 'estetica') {
-      INITIAL_DIRT_CATALOG.forEach((dirt) => {
+      DIRT_CATALOG.forEach((dirt) => {
         if (
           dirt.name.toLowerCase().includes(q) ||
           dirt.surface.toLowerCase().includes(q) ||
@@ -153,7 +155,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
         }
       });
 
-      INITIAL_PRODUCTS.forEach((prod) => {
+      products.forEach((prod) => {
         if (
           prod.name.toLowerCase().includes(q) ||
           prod.manufacturer.toLowerCase().includes(q) ||
@@ -173,7 +175,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     }
 
     return list;
-  }, [query, selectedFilter]);
+  }, [query, selectedFilter, products]);
 
   if (!isOpen) return null;
 

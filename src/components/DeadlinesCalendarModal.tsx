@@ -4,7 +4,7 @@
  * Deadlines, Milestone Management, Calendar Sync & Android Push Notification Center
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Calendar,
   Bell,
@@ -26,10 +26,12 @@ import { useTheme } from '../context/ThemeContext';
 import { ProjectDeadline } from '../types';
 import { exportToLocalCalendar, getGoogleCalendarUrl } from '../utils/calendarSync';
 import {
-  getNotificationStatus,
-  requestNotificationPermission,
-  sendAndroidPushNotification,
-} from '../utils/notifications';
+  enablePushNotifications,
+  notificationPermission,
+  pushSupported,
+  sendTestPush,
+  subscriptionState,
+} from '../services/push';
 import {
   filterDeadlinesByPeriod,
   QuickFilterPeriod,
@@ -51,7 +53,8 @@ export const DeadlinesCalendarModal: React.FC<DeadlinesCalendarModalProps> = ({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
-  const [notificationStatus, setNotificationStatus] = useState(() => getNotificationStatus());
+  const [notificationStatus, setNotificationStatus] = useState(() => notificationPermission());
+  const [pushEnabled, setPushEnabled] = useState(false);
   const [isAddingDeadline, setIsAddingDeadline] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
@@ -60,7 +63,7 @@ export const DeadlinesCalendarModal: React.FC<DeadlinesCalendarModalProps> = ({
 
   // New deadline form state with Priority (Alta, Média, Baixa)
   const [newTitle, setNewTitle] = useState('');
-  const [newProjectName, setNewProjectName] = useState('Casa Unifamiliar');
+  const [newProjectName, setNewProjectName] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newDate, setNewDate] = useState(() => {
     const d = new Date();
@@ -72,6 +75,11 @@ export const DeadlinesCalendarModal: React.FC<DeadlinesCalendarModalProps> = ({
   const [newCategory, setNewCategory] = useState<ProjectDeadline['category']>('estrutural');
   const [newReminderMinutes, setNewReminderMinutes] = useState(1440); // 24h
 
+  useEffect(() => {
+    if (!isOpen || !pushSupported()) return;
+    void subscriptionState().then(setPushEnabled).catch(() => setPushEnabled(false));
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   // Compute counts for quick period filters
@@ -81,34 +89,25 @@ export const DeadlinesCalendarModal: React.FC<DeadlinesCalendarModalProps> = ({
   const filteredDeadlines = filterDeadlinesByPeriod(deadlines, activePeriod);
 
   const handleRequestPush = async () => {
-    const perm = await requestNotificationPermission();
-    setNotificationStatus(getNotificationStatus());
-    if (perm === 'granted') {
-      await sendAndroidPushNotification(
-        '🔔 OBra ENGEP — Notificações Ativadas',
-        'Você receberá lembretes automáticos de prazos, vistorias e etapas de projetos no seu Android!',
-        { type: 'test' }
-      );
-      setFeedbackMsg('Notificações Android Push ativadas com sucesso!');
-      setTimeout(() => setFeedbackMsg(null), 4000);
-    } else {
-      setFeedbackMsg('Permissão de notificação negada ou não concedida.');
-      setTimeout(() => setFeedbackMsg(null), 4000);
+    try {
+      const result = await enablePushNotifications();
+      setNotificationStatus(notificationPermission());
+      setPushEnabled(true);
+      setFeedbackMsg(result.message);
+    } catch (error) {
+      setFeedbackMsg(error instanceof Error ? error.message : 'Falha ao ativar notificações.');
     }
+    setTimeout(() => setFeedbackMsg(null), 4000);
   };
 
   const handleSendTestPush = async (deadline: ProjectDeadline) => {
-    const ok = await sendAndroidPushNotification(
-      `⚠️ Prazo Próximo (${deadline.priority.toUpperCase()}): ${deadline.title}`,
-      `Data: ${deadline.dueDate} às ${deadline.dueTime || '09:00'} · Projeto: ${deadline.projectName || 'Geral'}. Verifique os requisitos técnicos no app.`
-    );
-    if (ok) {
-      setFeedbackMsg(`Alerta push enviado para "${deadline.title}"!`);
-      setTimeout(() => setFeedbackMsg(null), 3000);
-    } else {
-      setFeedbackMsg('Ative a permissão de notificações para receber alertas push no Android.');
-      setTimeout(() => setFeedbackMsg(null), 4000);
+    try {
+      const result = await sendTestPush();
+      setFeedbackMsg(`Push de teste enviado (${result.sent} dispositivo(s)) para "${deadline.title}".`);
+    } catch (error) {
+      setFeedbackMsg(error instanceof Error ? error.message : 'Falha no envio de teste.');
     }
+    setTimeout(() => setFeedbackMsg(null), 4000);
   };
 
   const handleSyncAllToCalendar = async () => {
@@ -143,7 +142,7 @@ export const DeadlinesCalendarModal: React.FC<DeadlinesCalendarModalProps> = ({
     if (!newTitle.trim()) return;
 
     const item: ProjectDeadline = {
-      id: `dead-${Date.now()}`,
+      id: crypto.randomUUID(),
       title: newTitle.trim(),
       projectName: newProjectName.trim(),
       description: newDescription.trim(),
@@ -216,7 +215,7 @@ export const DeadlinesCalendarModal: React.FC<DeadlinesCalendarModalProps> = ({
         <div className="p-3.5 sm:p-4 bg-black/20 border-b border-[#2A3A55] flex flex-wrap items-center justify-between gap-2">
           {/* Push status & toggle button */}
           <div className="flex items-center gap-2">
-            {notificationStatus.permission === 'granted' ? (
+            {pushEnabled && notificationStatus === 'granted' && pushSupported() ? (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#12301F] text-[#3DD68C] border border-[#3DD68C]/30">
                 <BellRing className="w-3.5 h-3.5" />
                 <span>Notificações Android: Ativas</span>

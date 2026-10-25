@@ -24,25 +24,35 @@ import {
   Laptop,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
-import { CalculationHistoryItem, NotebookNote, ProjectDeadline } from '../types';
+import { CalculationHistoryItem, NotebookNote, ProjectDeadline, SyncState } from '../types';
 import { LimitBar } from '../components/LimitBar';
 import { AlertBanner } from '../components/AlertBanner';
 import {
-  getNotificationStatus,
-  requestNotificationPermission,
-  sendAndroidPushNotification,
-} from '../utils/notifications';
+  disablePushNotifications,
+  enablePushNotifications,
+  notificationPermission,
+  pushSupported,
+  sendTestPush,
+  subscriptionState,
+} from '../services/push';
+import { buildBackup, restoreBackup } from '../services/persistence';
+import { saveFeedback } from '../services/remoteRepository';
+import { ensureAnonymousSession, isSupabaseConfigured } from '../lib/supabase';
 import { exportToLocalCalendar, getGoogleCalendarUrl } from '../utils/calendarSync';
 import { CalendarCheck, BellRing, Smartphone, Clock, Calendar } from 'lucide-react';
 
 interface MoreViewProps {
   historyItems: CalculationHistoryItem[];
   deadlines?: ProjectDeadline[];
+  notes?: NotebookNote[];
+  onAddNote?: (note: NotebookNote) => void;
+  onDeleteNote?: (id: string) => void;
   onClearHistory: () => void;
   onDeleteHistoryItem: (id: string) => void;
   onReopenCalculation: (item: CalculationHistoryItem) => void;
   onOpenOnboarding: () => void;
   onOpenCalendarModal?: () => void;
+  syncState?: SyncState;
 }
 
 type SubSection = 'menu' | 'caderno' | 'historico' | 'notificacoes' | 'configuracoes' | 'sobre' | 'ajuda';
@@ -50,45 +60,43 @@ type SubSection = 'menu' | 'caderno' | 'historico' | 'notificacoes' | 'configura
 export const MoreView: React.FC<MoreViewProps> = ({
   historyItems,
   deadlines = [],
+  notes: notesProp,
+  onAddNote,
+  onDeleteNote,
   onClearHistory,
   onDeleteHistoryItem,
   onReopenCalculation,
   onOpenOnboarding,
   onOpenCalendarModal,
+  syncState,
 }) => {
   const { theme, resolvedTheme, setTheme, fontScale, setFontScale } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
   const [activeSection, setActiveSection] = useState<SubSection>('menu');
-  const [notificationStatus, setNotificationStatus] = useState(() => getNotificationStatus());
+  const [notificationStatus, setNotificationStatus] = useState(() => notificationPermission());
+  const [pushEnabled, setPushEnabled] = useState(false);
   const [pushFeedback, setPushFeedback] = useState<string | null>(null);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [feedbackSending, setFeedbackSending] = useState(false);
+  const [feedbackResult, setFeedbackResult] = useState<string | null>(null);
+  const supportEmail = (import.meta.env.VITE_SUPPORT_EMAIL as string | undefined) || '';
 
-  // Notebook state
-  const [notes, setNotes] = useState<NotebookNote[]>(() => {
-    const saved = localStorage.getItem('obra_engep_notebook');
-    return saved
-      ? JSON.parse(saved)
-      : [
-          {
-            id: 'n-1',
-            title: 'Verificação prévia do padrão de entrada Enel',
-            content: 'Conferir se o disjuntor de entrada da caixa de medição é de 50A ou 63A antes de ligar a nova máquina de solda.',
-            category: 'Elétrica',
-            tags: ['Entrada', 'Padrão', 'Campo'],
-            updatedAt: '25/10/2026',
-            timestamp: Date.now(),
-          },
-        ];
-  });
+  const [localNotes, setLocalNotes] = useState<NotebookNote[]>([]);
+  const notes = notesProp ?? localNotes;
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [newNoteContent, setNewNoteContent] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
+
+  React.useEffect(() => {
+    subscriptionState().then(setPushEnabled).catch(() => setPushEnabled(false));
+  }, []);
 
   const handleAddNote = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNoteTitle.trim()) return;
     const item: NotebookNote = {
-      id: `note-${Date.now()}`,
+      id: crypto.randomUUID(),
       title: newNoteTitle.trim(),
       content: newNoteContent.trim(),
       category: 'Geral',
@@ -96,34 +104,65 @@ export const MoreView: React.FC<MoreViewProps> = ({
       updatedAt: new Date().toLocaleDateString('pt-BR'),
       timestamp: Date.now(),
     };
-    const updated = [item, ...notes];
-    setNotes(updated);
-    localStorage.setItem('obra_engep_notebook', JSON.stringify(updated));
+    if (onAddNote) onAddNote(item);
+    else setLocalNotes((current) => [item, ...current]);
     setNewNoteTitle('');
     setNewNoteContent('');
     setIsAddingNote(false);
   };
 
   const handleDeleteNote = (id: string) => {
-    const updated = notes.filter((n) => n.id !== id);
-    setNotes(updated);
-    localStorage.setItem('obra_engep_notebook', JSON.stringify(updated));
+    if (onDeleteNote) onDeleteNote(id);
+    else setLocalNotes((current) => current.filter((note) => note.id !== id));
   };
 
   const handleExportBackup = () => {
-    const data = {
-      notebook: notes,
-      history: historyItems,
-      theme,
-      exportedAt: new Date().toISOString(),
-      appVersion: '2.1',
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(buildBackup(), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `OBra_ENGEP_Backup_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportBackup = async (file: File) => {
+    const result = restoreBackup(await file.text());
+    setPushFeedback(result.message);
+    if (result.ok) window.setTimeout(() => window.location.reload(), 900);
+  };
+
+  const activatePush = async () => {
+    try {
+      const result = await enablePushNotifications();
+      setNotificationStatus(notificationPermission());
+      setPushEnabled(true);
+      setPushFeedback(result.message);
+    } catch (error) {
+      setPushFeedback(error instanceof Error ? error.message : 'Falha ao ativar notificações.');
+    }
+    window.setTimeout(() => setPushFeedback(null), 5000);
+  };
+
+  const deactivatePush = async () => {
+    try {
+      const result = await disablePushNotifications();
+      setPushEnabled(false);
+      setPushFeedback(result.message);
+    } catch (error) {
+      setPushFeedback(error instanceof Error ? error.message : 'Falha ao desativar notificações.');
+    }
+    window.setTimeout(() => setPushFeedback(null), 5000);
+  };
+
+  const testPush = async () => {
+    try {
+      const result = await sendTestPush();
+      setPushFeedback(`Push de teste enviado: ${result.sent} dispositivo(s), ${result.failed} falha(s).`);
+    } catch (error) {
+      setPushFeedback(error instanceof Error ? error.message : 'Falha no push de teste.');
+    }
+    window.setTimeout(() => setPushFeedback(null), 5000);
   };
 
   return (
@@ -424,72 +463,68 @@ export const MoreView: React.FC<MoreViewProps> = ({
             </div>
           )}
 
-          {/* Android Push Notification Controller Card */}
           <div className="p-4 rounded-2xl bg-[#17243A] border border-[#2A3A55] space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Smartphone className="w-5 h-5 text-[#5B9BFF]" />
                 <div>
-                  <h4 className="font-bold text-sm text-white">Android Push Notifications API</h4>
+                  <h4 className="font-bold text-sm text-white">Web Push (VAPID + Supabase)</h4>
                   <p className="text-[11px] text-[#9FB0C8]">
-                    Lembretes no sistema operacional antes do vencimento de tarefas e vistorias
+                    Lembretes enviados pela Edge Function, mesmo com o app fechado
                   </p>
                 </div>
               </div>
               <span
                 className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${
-                  notificationStatus.permission === 'granted'
+                  pushEnabled && notificationStatus === 'granted'
                     ? 'bg-[#12301F] text-[#3DD68C] border-[#3DD68C]/40'
-                    : notificationStatus.permission === 'denied'
+                    : notificationStatus === 'denied'
                     ? 'bg-[#3B1A1C] text-[#FF6B6B] border-[#FF6B6B]/40'
                     : 'bg-[#3A2E10] text-[#F5B93A] border-[#F5B93A]/40'
                 }`}
               >
-                {notificationStatus.permission === 'granted'
-                  ? 'Permitido'
-                  : notificationStatus.permission === 'denied'
-                  ? 'Bloqueado'
-                  : 'Pendente'}
+                {!pushSupported()
+                  ? 'Indisponível'
+                  : pushEnabled && notificationStatus === 'granted'
+                    ? 'Ativo'
+                    : notificationStatus === 'denied'
+                      ? 'Bloqueado'
+                      : 'Pendente'}
               </span>
             </div>
 
+            {!pushSupported() && (
+              <p className="text-[11px] text-[#F5B93A]">
+                Configure VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY e use HTTPS (ou localhost) para habilitar Web Push.
+              </p>
+            )}
+
             <div className="flex items-center gap-2 pt-1 flex-wrap">
-              {notificationStatus.permission !== 'granted' ? (
+              {!pushEnabled ? (
                 <button
-                  onClick={async () => {
-                    const perm = await requestNotificationPermission();
-                    setNotificationStatus(getNotificationStatus());
-                    if (perm === 'granted') {
-                      await sendAndroidPushNotification(
-                        '🔔 OBra ENGEP — Push Ativado',
-                        'Você receberá notificações automáticas de prazos de obras e checklists.'
-                      );
-                      setPushFeedback('Notificações ativadas no seu dispositivo Android!');
-                      setTimeout(() => setPushFeedback(null), 4000);
-                    }
-                  }}
-                  className="px-3.5 py-2 rounded-xl bg-[#1F66D6] hover:bg-[#1A57B8] text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+                  onClick={activatePush}
+                  disabled={!pushSupported()}
+                  className="px-3.5 py-2 rounded-xl bg-[#1F66D6] hover:bg-[#1A57B8] disabled:opacity-40 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
                 >
                   <BellRing className="w-3.5 h-3.5" />
-                  <span>Ativar Notificações Android Push</span>
+                  <span>Ativar Web Push</span>
                 </button>
               ) : (
-                <button
-                  onClick={async () => {
-                    const ok = await sendAndroidPushNotification(
-                      '🔔 OBra ENGEP: Teste de Notificação',
-                      'Lembrete: Concretagem da laje maciça agendada para sexta-feira às 08:30 (NBR 6118).'
-                    );
-                    if (ok) {
-                      setPushFeedback('Notificação push de teste enviada com sucesso ao seu aparelho!');
-                      setTimeout(() => setPushFeedback(null), 3000);
-                    }
-                  }}
-                  className="px-3.5 py-2 rounded-xl bg-[#F5B93A]/20 hover:bg-[#F5B93A]/30 text-[#F5B93A] border border-[#F5B93A]/40 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
-                >
-                  <Bell className="w-3.5 h-3.5" />
-                  <span>Disparar Alerta Push de Teste</span>
-                </button>
+                <>
+                  <button
+                    onClick={testPush}
+                    className="px-3.5 py-2 rounded-xl bg-[#F5B93A]/20 hover:bg-[#F5B93A]/30 text-[#F5B93A] border border-[#F5B93A]/40 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+                  >
+                    <Bell className="w-3.5 h-3.5" />
+                    <span>Enviar Push de Teste</span>
+                  </button>
+                  <button
+                    onClick={deactivatePush}
+                    className="px-3.5 py-2 rounded-xl border border-[#2A3A55] text-[#9FB0C8] text-xs font-medium"
+                  >
+                    Desativar neste dispositivo
+                  </button>
+                </>
               )}
 
               <button
@@ -506,6 +541,11 @@ export const MoreView: React.FC<MoreViewProps> = ({
                 <span>Exportar Todos para Calendário (.ICS)</span>
               </button>
             </div>
+
+            <p className="text-[11px] text-[#6B7F9E]">
+              O agendamento é feito por pg_cron + pg_net no Supabase. A entrega usa VAPID; o Supabase guarda as
+              inscrições e os prazos.
+            </p>
           </div>
 
           {/* Upcoming Project Milestones with Calendar Sync */}
@@ -563,7 +603,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
             </h4>
             <div className="p-4 rounded-2xl bg-[#17243A] border border-[#3DD68C]/40 space-y-1">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#3DD68C]">Versão 2.1 Revisada com Notificações Push</span>
+                <span className="text-xs font-bold text-[#3DD68C]">Versão 2.2 com Web Push e Supabase</span>
                 <span className="text-[10px] text-[#9FB0C8]">25/10/2026</span>
               </div>
               <p className="text-xs text-[#E8EDF5] leading-relaxed">
@@ -618,7 +658,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
             <input
               type="range"
               min="90"
-              max="160"
+              max="200"
               step="5"
               value={fontScale}
               onChange={(e) => setFontScale(Number(e.target.value))}
@@ -627,7 +667,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
             <div className="flex justify-between text-[11px] text-[#9FB0C8]">
               <span>Padrão (100%)</span>
               <span>Grande (130%)</span>
-              <span>Extra Grande (160%)</span>
+              <span>Máximo (200%)</span>
             </div>
           </div>
 
@@ -637,16 +677,29 @@ export const MoreView: React.FC<MoreViewProps> = ({
               Armazenamento e Backup Local
             </h4>
             <p className="text-xs text-[#9FB0C8]">
-              Todos os seus cálculos, notas e projetos ficam armazenados exclusivamente no seu dispositivo (navegador / PWA).
+              Os dados ficam em cache no dispositivo e são sincronizados com o Supabase quando configurado. Exporte um backup antes de trocar de aparelho.
             </p>
-            <div className="flex items-center gap-2 pt-1">
+            <div className="flex items-center gap-2 pt-1 flex-wrap">
               <button
                 onClick={handleExportBackup}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-[#1F66D6] hover:bg-[#1A57B8] text-white text-xs font-semibold flex items-center justify-center gap-1.5"
+                className="flex-1 min-w-[140px] py-2.5 px-3 rounded-xl bg-[#1F66D6] hover:bg-[#1A57B8] text-white text-xs font-semibold flex items-center justify-center gap-1.5"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Exportar Backup JSON</span>
               </button>
+              <label className="flex-1 min-w-[140px] py-2.5 px-3 rounded-xl border border-[#2A3A55] text-xs font-medium text-[#9FB0C8] hover:text-white text-center cursor-pointer">
+                <Upload className="w-3.5 h-3.5 inline mr-1" />
+                Importar Backup
+                <input
+                  type="file"
+                  accept="application/json"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void handleImportBackup(file);
+                  }}
+                />
+              </label>
               <button
                 onClick={onOpenOnboarding}
                 className="py-2.5 px-3 rounded-xl border border-[#2A3A55] text-xs font-medium text-[#9FB0C8] hover:text-white"
@@ -654,6 +707,15 @@ export const MoreView: React.FC<MoreViewProps> = ({
                 Refazer Onboarding
               </button>
             </div>
+            {syncState && (
+              <p className="text-[11px] text-[#6B7F9E]">
+                Supabase: {syncState.status}
+                {syncState.message ? ` · ${syncState.message}` : ''}
+                {syncState.lastSyncedAt
+                  ? ` · última sincronização ${new Date(syncState.lastSyncedAt).toLocaleString('pt-BR')}`
+                  : ''}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -679,13 +741,13 @@ export const MoreView: React.FC<MoreViewProps> = ({
 
             <h4 className="text-sm font-bold text-white pt-2">Fontes e Revisões</h4>
             <ul className="list-disc pl-4 space-y-1 text-[#9FB0C8]">
-              <li>Ministério do Trabalho e Emprego — Normas Regulamentadoras (NR-06, NR-10, NR-18, NR-35)</li>
-              <li>ABNT — Normas Brasileiras (NBR 5410, NBR 5626, NBR 6118, NBR 15575)</li>
+              <li>Ministério do Trabalho e Emprego — NR-06, NR-10, NR-12, NR-18, NR-33 e NR-35</li>
+              <li>ABNT — NBR 5410, NBR 5626, NBR 6118, NBR 9050, NBR 9575 e NBR 15575</li>
               <li>Prefeitura de São Paulo — Código de Obras e Edificações (Lei 16.642/2017)</li>
             </ul>
           </div>
 
-          <LimitBar message="Versão 2.1 Revisada (25/10/2026). Todos os direitos reservados à identidade OBra ENGEP." />
+          <LimitBar message="Versão 2.2 (25/10/2026). Todos os direitos reservados à identidade OBra ENGEP." />
         </div>
       )}
 
@@ -708,6 +770,54 @@ export const MoreView: React.FC<MoreViewProps> = ({
                 Nunca aplique produtos sem antes checar a diluição registrada no rótulo e as cautelas contra mistura química.
               </div>
             </div>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-[#17243A] border border-[#2A3A55] space-y-3">
+            <h3 className="text-base font-bold text-white">Feedback e Suporte</h3>
+            <p className="text-xs text-[#9FB0C8]">
+              Encontrou erro de cálculo, link desatualizado ou problema de uso? Registre sua mensagem para análise.
+            </p>
+            {isSupabaseConfigured ? (
+              <>
+                <textarea
+                  rows={4}
+                  value={feedbackText}
+                  onChange={(e) => setFeedbackText(e.target.value)}
+                  placeholder="Descreva o problema, a tela e o resultado esperado."
+                  className="w-full rounded-xl bg-[#101827] border border-[#6B7F9E] p-3 text-xs text-white outline-none focus:border-[#5B9BFF]"
+                />
+                <button
+                  disabled={feedbackSending || !feedbackText.trim()}
+                  onClick={async () => {
+                    try {
+                      setFeedbackSending(true);
+                      const session = await ensureAnonymousSession();
+                      if (!session) throw new Error('Sessão Supabase indisponível.');
+                      await saveFeedback(session.userId, feedbackText.trim(), 'mais/ajuda');
+                      setFeedbackResult('Feedback registrado. Obrigado pela contribuição.');
+                      setFeedbackText('');
+                    } catch (error) {
+                      setFeedbackResult(error instanceof Error ? error.message : 'Falha ao registrar feedback.');
+                    } finally {
+                      setFeedbackSending(false);
+                    }
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-[#1F66D6] hover:bg-[#1A57B8] disabled:opacity-40 text-white text-xs font-semibold"
+                >
+                  {feedbackSending ? 'Enviando...' : 'Enviar feedback'}
+                </button>
+                {feedbackResult && <p className="text-[11px] text-[#3DD68C]">{feedbackResult}</p>}
+              </>
+            ) : (
+              <p className="text-[11px] text-[#F5B93A]">
+                Configure o Supabase para registrar feedback no app.
+              </p>
+            )}
+            {supportEmail && (
+              <a href={`mailto:${supportEmail}`} className="text-xs font-semibold text-[#5B9BFF] hover:underline">
+                {supportEmail}
+              </a>
+            )}
           </div>
         </div>
       )}

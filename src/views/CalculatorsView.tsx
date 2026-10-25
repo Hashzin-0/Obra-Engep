@@ -39,6 +39,10 @@ import {
   calculateFlowRate,
   calculateMasonryMaterials,
   calculateRoofArea,
+  calculateHazenWilliams,
+  calculateRecommendedDiameter,
+  calculateCableSizing,
+  type CableSizingResult,
 } from '../utils/calculations';
 import { ResultCard } from '../components/ResultCard';
 import { LimitBar } from '../components/LimitBar';
@@ -228,7 +232,10 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
   const [elecResistance, setElecResistance] = useState<number>(12.72);
   const [elecLengthMeters, setElecLengthMeters] = useState<number>(25);
   const [elecSectionMm2, setElecSectionMm2] = useState<number>(4);
-  const [elecResult, setElecResult] = useState<any>(() => calculateCurrent(3500, 220, 0.92));
+  const [elecResult, setElecResult] = useState<any>(null);
+  const [cableResult, setCableResult] = useState<CableSizingResult | null>(null);
+  const [elecConvValue, setElecConvValue] = useState<number>(1);
+  const [elecConvUnit, setElecConvUnit] = useState<'W' | 'kW' | 'CV' | 'HP'>('kW');
 
   // Hydraulic State
   const [hydOccupants, setHydOccupants] = useState<number>(4);
@@ -238,7 +245,12 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
   const [hydTimeMinutes, setHydTimeMinutes] = useState<number>(2.5);
   const [hydPipeLength, setHydPipeLength] = useState<number>(15);
   const [hydPipeDiameterMm, setHydPipeDiameterMm] = useState<number>(25);
-  const [hydResult, setHydResult] = useState<any>(() => calculateReservoirCapacity(4, 150, 2));
+  const [hydResult, setHydResult] = useState<any>(null);
+  const [hydFlowLmin, setHydFlowLmin] = useState<number>(20);
+  const [hydMaxVelocity, setHydMaxVelocity] = useState<number>(1.5);
+  const [hydMaterial, setHydMaterial] = useState<'PVC' | 'Cobre' | 'Aço galvanizado'>('PVC');
+  const [hydHeadLossResult, setHydHeadLossResult] = useState<any>(null);
+  const [hydDiameterResult, setHydDiameterResult] = useState<any>(null);
 
   // Structural & Materials State
   const [matWallLength, setMatWallLength] = useState<number>(6);
@@ -249,7 +261,7 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
   const [matRoofWidth, setMatRoofWidth] = useState<number>(6);
   const [matRoofSlope, setMatRoofSlope] = useState<number>(30);
   const [matConcreteVolumeM3, setMatConcreteVolumeM3] = useState<number>(2.5);
-  const [matResult, setMatResult] = useState<any>(() => calculateMasonryMaterials(6, 2.8, 2.4, 25, 10));
+  const [matResult, setMatResult] = useState<any>(null);
 
   // Conversions State
   const [convInputValue, setConvInputValue] = useState<number>(1);
@@ -266,7 +278,7 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
       const res = calculateCurrent(elecPower, elecVoltage, elecFP);
       setElecResult(res);
       onSaveToHistory({
-        id: `calc-${Date.now()}`,
+        id: crypto.randomUUID(),
         title: 'Corrente Elétrica Monofásica',
         category: 'eletrica',
         timestamp: Date.now(),
@@ -703,7 +715,7 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                   }
                   onSave={() => {
                     onSaveToHistory({
-                      id: `calc-${Date.now()}`,
+                      id: crypto.randomUUID(),
                       title: `Cálculo Elétrico - ${elecSubTab}`,
                       category: 'eletrica',
                       timestamp: Date.now(),
@@ -784,36 +796,156 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
             </div>
           )}
 
+          {/* 2b. ELÉTRICA: CONVERSÃO DE UNIDADES */}
+          {currentTool.id === 'conversao_eletrica' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-[#17243A] border border-[#2A3A55] space-y-3">
+                <h3 className="font-semibold text-white text-sm">Conversão de Potência Elétrica/Mecânica</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-[#9FB0C8]">Valor</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={elecConvValue}
+                      onChange={(e) => setElecConvValue(Number(e.target.value))}
+                      className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#9FB0C8]">Unidade de origem</label>
+                    <select
+                      value={elecConvUnit}
+                      onChange={(e) => setElecConvUnit(e.target.value as typeof elecConvUnit)}
+                      className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white mt-1"
+                    >
+                      <option value="W">Watt (W)</option>
+                      <option value="kW">Quilowatt (kW)</option>
+                      <option value="CV">Cavalo-vapor (CV)</option>
+                      <option value="HP">Horsepower (HP)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {(() => {
+                  const factors = { W: 1, kW: 1000, CV: 735.49875, HP: 745.699872 };
+                  const watts = elecConvValue * factors[elecConvUnit];
+                  return (
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {[
+                        { label: 'W', value: watts },
+                        { label: 'kW', value: watts / 1000 },
+                        { label: 'CV', value: watts / factors.CV },
+                        { label: 'HP', value: watts / factors.HP },
+                      ].map((item) => (
+                        <div key={item.label} className="p-3 rounded-xl bg-black/25 border border-white/5">
+                          <div className="text-[#9FB0C8]">{item.label}</div>
+                          <div className="font-mono font-bold text-white text-base mt-1">
+                            {Number.isFinite(item.value) ? item.value.toFixed(3) : '—'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <LimitBar message="Conversões usam 1 CV = 735,49875 W e 1 HP = 745,699872 W. Rendimento e fator de potência não estão incluídos." />
+            </div>
+          )}
+
           {/* 3. ELÉTRICA: DIMENSIONAMENTO DE CABOS & DISJUNTORES */}
           {(currentTool.id === 'dimensionamento_cabos' || currentTool.id === 'circuitos_disjuntores') && (
             <div className="space-y-4">
-              <AlertBanner level="warning" title="Módulo em Validação Normativa NBR 5410">
-                O dimensionamento de cabos deve considerar simultaneamente: capacidade de condução de corrente (tabelas 36 a 39), queda de tensão máxima admissível (4% para terminais) e coordenação com disjuntor termomagnético (IB ≤ In ≤ Iz).
+              <AlertBanner level="warning" title="Pré-dimensionamento NBR 5410">
+                O resultado considera cobre/PVC, método B1, dois condutores carregados e queda de tensão máxima de 4%.
+                Agrupamento, temperatura, curto-circuito e coordenação devem ser validados por profissional habilitado.
               </AlertBanner>
 
               <div className="p-4 rounded-2xl bg-[#17243A] border border-[#2A3A55] space-y-3">
-                <h4 className="font-semibold text-sm text-white">Tabela Rápida de Referência (Método B1 - Eletroduto embutido em alvenaria):</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  <div className="p-3 rounded-xl bg-black/25 border border-white/5 space-y-1">
-                    <div className="font-mono font-bold text-white">1,5 mm² • Disjuntor máx: 10A / 16A</div>
-                    <div className="text-[#9FB0C8]">Capacidade Iz: 17,5A • Uso: Iluminação</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-[#9FB0C8]">Potência (W)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={elecPower}
+                      onChange={(e) => setElecPower(Number(e.target.value))}
+                      className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
+                    />
                   </div>
-                  <div className="p-3 rounded-xl bg-black/25 border border-white/5 space-y-1">
-                    <div className="font-mono font-bold text-white">2,5 mm² • Disjuntor máx: 20A</div>
-                    <div className="text-[#9FB0C8]">Capacidade Iz: 24A • Uso: Tomadas Gerais (TUG)</div>
+                  <div>
+                    <label className="text-xs text-[#9FB0C8]">Tensão (V)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={elecVoltage}
+                      onChange={(e) => setElecVoltage(Number(e.target.value))}
+                      className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
+                    />
                   </div>
-                  <div className="p-3 rounded-xl bg-black/25 border border-white/5 space-y-1">
-                    <div className="font-mono font-bold text-white">4,0 mm² • Disjuntor máx: 25A / 32A</div>
-                    <div className="text-[#9FB0C8]">Capacidade Iz: 32A • Uso: Micro-ondas / Forno</div>
+                  <div>
+                    <label className="text-xs text-[#9FB0C8]">Fator de potência</label>
+                    <input
+                      type="number"
+                      min="0.01"
+                      max="1"
+                      step="0.01"
+                      value={elecFP}
+                      onChange={(e) => setElecFP(Number(e.target.value))}
+                      className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
+                    />
                   </div>
-                  <div className="p-3 rounded-xl bg-black/25 border border-white/5 space-y-1">
-                    <div className="font-mono font-bold text-white">6,0 mm² • Disjuntor máx: 32A / 40A</div>
-                    <div className="text-[#9FB0C8]">Capacidade Iz: 41A • Uso: Chuveiros até 7500W (220V)</div>
+                  <div>
+                    <label className="text-xs text-[#9FB0C8]">Comprimento do circuito (m)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={elecLengthMeters}
+                      onChange={(e) => setElecLengthMeters(Number(e.target.value))}
+                      className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
+                    />
                   </div>
                 </div>
+
+                <button
+                  onClick={() => {
+                    try {
+                      setCableResult(calculateCableSizing(elecPower, elecVoltage, elecFP, elecLengthMeters));
+                    } catch (error) {
+                      alert(error instanceof Error ? error.message : 'Valores inválidos.');
+                    }
+                  }}
+                  className="w-full h-12 rounded-xl bg-[#1F66D6] hover:bg-[#1A57B8] text-white font-semibold text-sm transition"
+                >
+                  Calcular Cabo e Disjuntor
+                </button>
               </div>
 
-              <LimitBar message="A escolha do disjuntor deve ser validada por profissional habilitado com ART. Não altere disjuntores sem redimensionar a fiação existente." />
+              {cableResult && (
+                <ResultCard
+                  title="Seção e Proteção Sugeridas"
+                  value={`${cableResult.sectionMm2} mm² / ${cableResult.breakerA || '—'} A`}
+                  unit=""
+                  formula={cableResult.formula}
+                  premises={cableResult.premises}
+                  limitWarning={cableResult.limitWarning}
+                  formulaLegend={[
+                    { symbol: 'IB', meaning: 'corrente de projeto (A)' },
+                    { symbol: 'In', meaning: 'corrente nominal do disjuntor (A)' },
+                    { symbol: 'Iz', meaning: 'capacidade de condução do cabo (A)' },
+                    { symbol: 'ΔV', meaning: 'queda de tensão percentual' },
+                  ]}
+                  secondaryDetails={[
+                    { label: 'Corrente de projeto', value: `${cableResult.currentA} A` },
+                    { label: 'Capacidade Iz do cabo', value: `${cableResult.ampacityA} A` },
+                    { label: 'Queda de tensão', value: `${cableResult.voltageDropPercent}%` },
+                    { label: 'Disjuntor sugerido', value: cableResult.breakerA ? `${cableResult.breakerA} A` : 'Revisar' },
+                  ]}
+                />
+              )}
+
+              <LimitBar message="Não altere disjuntores sem redimensionar a fiação existente. A escolha final exige verificação de curto-circuito e ART." />
             </div>
           )}
 
@@ -901,7 +1033,7 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
           )}
 
           {/* 5. HIDRÁULICA: VAZÃO E PRESSÃO */}
-          {(currentTool.id === 'vazao_pressao' || currentTool.id === 'perda_carga' || currentTool.id === 'diametro_tubo') && (
+          {currentTool.id === 'vazao_pressao' && (
             <div className="space-y-4">
               <div className="p-4 rounded-2xl bg-[#17243A] border border-[#2A3A55] space-y-3">
                 <h3 className="font-semibold text-white text-sm">Vazão Volumétrica e Pressão Dinâmica</h3>
@@ -952,6 +1084,157 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
               )}
 
               <LimitBar message="Unidades padronizadas sem ambiguidade: pressão (mca), vazão (L/min) e volume (Litros). Verifique sempre se a pressão dinâmica no ponto mais desfavorável é ≥ 1,0 mca (NBR 5626)." />
+            </div>
+          )}
+
+          {/* 5b. HIDRÁULICA: PERDA DE CARGA */}
+          {currentTool.id === 'perda_carga' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-[#17243A] border border-[#2A3A55] space-y-3">
+                <h3 className="font-semibold text-white text-sm">Perda de Carga por Hazen-Williams</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-[#9FB0C8]">Vazão (L/min)</label>
+                    <input
+                      type="number"
+                      min="0.1"
+                      value={hydFlowLmin}
+                      onChange={(e) => setHydFlowLmin(Number(e.target.value))}
+                      className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#9FB0C8]">Comprimento (m)</label>
+                    <input
+                      type="number"
+                      min="0.1"
+                      value={hydPipeLength}
+                      onChange={(e) => setHydPipeLength(Number(e.target.value))}
+                      className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#9FB0C8]">Diâmetro interno (mm)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={hydPipeDiameterMm}
+                      onChange={(e) => setHydPipeDiameterMm(Number(e.target.value))}
+                      className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#9FB0C8]">Material</label>
+                    <select
+                      value={hydMaterial}
+                      onChange={(e) => setHydMaterial(e.target.value as typeof hydMaterial)}
+                      className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white mt-1"
+                    >
+                      <option value="PVC">PVC (C=150)</option>
+                      <option value="Cobre">Cobre (C=130)</option>
+                      <option value="Aço galvanizado">Aço galvanizado (C=120)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    try {
+                      setHydHeadLossResult(
+                        calculateHazenWilliams(hydFlowLmin, hydPipeLength, hydPipeDiameterMm, hydMaterial)
+                      );
+                    } catch (error) {
+                      alert(error instanceof Error ? error.message : 'Valores inválidos.');
+                    }
+                  }}
+                  className="w-full h-12 rounded-xl bg-[#1F66D6] hover:bg-[#1A57B8] text-white font-semibold text-sm transition"
+                >
+                  Calcular Perda de Carga
+                </button>
+              </div>
+
+              {hydHeadLossResult && (
+                <ResultCard
+                  title="Perda de Carga Distribuída"
+                  value={hydHeadLossResult.value}
+                  unit={hydHeadLossResult.unit}
+                  formula={hydHeadLossResult.formula}
+                  premises={hydHeadLossResult.premises}
+                  limitWarning={hydHeadLossResult.limitWarning}
+                  formulaLegend={[
+                    { symbol: 'hf', meaning: 'perda de carga (mca)' },
+                    { symbol: 'L', meaning: 'comprimento da tubulação (m)' },
+                    { symbol: 'Q', meaning: 'vazão (m³/s)' },
+                    { symbol: 'C', meaning: 'coeficiente de rugosidade' },
+                    { symbol: 'D', meaning: 'diâmetro interno (m)' },
+                  ]}
+                />
+              )}
+
+              <LimitBar message="Perdas localizadas (joelhos, registros, tês) não estão incluídas. Some o comprimento equivalente para o cálculo final." />
+            </div>
+          )}
+
+          {/* 5c. HIDRÁULICA: DIÂMETRO RECOMENDADO */}
+          {currentTool.id === 'diametro_tubo' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-[#17243A] border border-[#2A3A55] space-y-3">
+                <h3 className="font-semibold text-white text-sm">Diâmetro Recomendado por Velocidade</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-[#9FB0C8]">Vazão (L/min)</label>
+                    <input
+                      type="number"
+                      min="0.1"
+                      value={hydFlowLmin}
+                      onChange={(e) => setHydFlowLmin(Number(e.target.value))}
+                      className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#9FB0C8]">Velocidade máxima (m/s)</label>
+                    <input
+                      type="number"
+                      min="0.1"
+                      step="0.1"
+                      value={hydMaxVelocity}
+                      onChange={(e) => setHydMaxVelocity(Number(e.target.value))}
+                      className="w-full h-12 px-3 rounded-xl bg-[#101827] border border-[#6B7F9E] text-white font-mono mt-1"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    try {
+                      setHydDiameterResult(calculateRecommendedDiameter(hydFlowLmin, hydMaxVelocity));
+                    } catch (error) {
+                      alert(error instanceof Error ? error.message : 'Valores inválidos.');
+                    }
+                  }}
+                  className="w-full h-12 rounded-xl bg-[#1F66D6] hover:bg-[#1A57B8] text-white font-semibold text-sm transition"
+                >
+                  Calcular Diâmetro
+                </button>
+              </div>
+
+              {hydDiameterResult && (
+                <ResultCard
+                  title="Diâmetro Comercial Sugerido"
+                  value={hydDiameterResult.value}
+                  unit={hydDiameterResult.unit}
+                  formula={hydDiameterResult.formula}
+                  premises={hydDiameterResult.premises}
+                  limitWarning={hydDiameterResult.limitWarning}
+                  formulaLegend={[
+                    { symbol: 'D', meaning: 'diâmetro interno (mm)' },
+                    { symbol: 'Q', meaning: 'vazão (m³/s)' },
+                    { symbol: 'v', meaning: 'velocidade máxima (m/s)' },
+                  ]}
+                />
+              )}
+
+              <LimitBar message="Confirme o diâmetro interno real do tubo (PN e fabricante). O diâmetro nominal externo não é o mesmo usado no cálculo hidráulico." />
             </div>
           )}
 

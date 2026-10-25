@@ -25,7 +25,8 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { FloorPlanProject, WallSegment, OpeningItem, ElectricalItem, HydraulicItem, ProjectDeadline } from '../types';
-import { INITIAL_PROJECT } from '../data/initialData';
+import { createEmptyProject } from '../data/referenceData';
+import { ensureUuid } from '../utils/uuid';
 import { LimitBar } from '../components/LimitBar';
 import { AlertBanner } from '../components/AlertBanner';
 import { Calendar, Bell, CalendarCheck } from 'lucide-react';
@@ -36,21 +37,31 @@ type ToolMode = 'select' | 'wall' | 'door' | 'window' | 'socket' | 'light' | 'co
 interface FloorPlanEditorViewProps {
   onOpenCalendarModal?: () => void;
   deadlines?: ProjectDeadline[];
+  projects?: FloorPlanProject[];
+  onSaveProject?: (project: FloorPlanProject) => void;
+  onDeleteProject?: (id: string) => void;
 }
 
 export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   onOpenCalendarModal,
   deadlines = [],
+  projects = [],
+  onSaveProject,
+  onDeleteProject,
 }) => {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
   const [project, setProject] = useState<FloorPlanProject>(() => {
     const saved = localStorage.getItem('obra_engep_active_project');
-    return saved ? JSON.parse(saved) : INITIAL_PROJECT;
+    if (saved) {
+      const parsed = JSON.parse(saved) as FloorPlanProject;
+      return { ...parsed, id: ensureUuid(parsed.id) };
+    }
+    return projects[0] ?? createEmptyProject();
   });
 
-  const [history, setHistory] = useState<FloorPlanProject[]>([INITIAL_PROJECT]);
+  const [history, setHistory] = useState<FloorPlanProject[]>([project]);
   const [historyIndex, setHistoryIndex] = useState<number>(0);
 
   // Active layers
@@ -79,6 +90,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     setHistoryIndex(newHistory.length - 1);
     setProject(newProject);
     localStorage.setItem('obra_engep_active_project', JSON.stringify(newProject));
+    onSaveProject?.(newProject);
   };
 
   const handleUndo = () => {
@@ -398,8 +410,29 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       {/* Top Project Bar */}
       <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-[#17243A] border border-[#2A3A55]">
         <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-bold text-sm text-white">{project.name}</h3>
+          <div className="flex items-center gap-2 flex-wrap">
+            <select
+              value={project.id}
+              onChange={(event) => {
+                const selected = projects.find((item) => item.id === event.target.value);
+                if (selected) {
+                  setProject(selected);
+                  setHistory([selected]);
+                  setHistoryIndex(0);
+                  setStage(selected.stage);
+                  localStorage.setItem('obra_engep_active_project', JSON.stringify(selected));
+                }
+              }}
+              className="bg-transparent text-sm font-bold text-white outline-none border border-[#2A3A55] rounded-lg px-2 py-1"
+              aria-label="Selecionar projeto"
+            >
+              {!projects.some((item) => item.id === project.id) && (
+                <option value={project.id} className="bg-[#17243A]">{project.name}</option>
+              )}
+              {projects.map((item) => (
+                <option key={item.id} value={item.id} className="bg-[#17243A]">{item.name}</option>
+              ))}
+            </select>
             <span
               className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${
                 stage === 'estudo_preliminar'
@@ -428,11 +461,59 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
             </button>
           )}
           <button
-            onClick={() => setStage(stage === 'estudo_preliminar' ? 'executivo' : 'estudo_preliminar')}
+            onClick={() => {
+              const next = stage === 'estudo_preliminar' ? 'executivo' : 'estudo_preliminar';
+              setStage(next);
+              updateProjectState({ ...project, stage: next });
+            }}
             className="px-2.5 py-1.5 rounded-xl border border-[#2A3A55] text-xs text-[#9FB0C8] hover:text-white"
           >
             Mudar Estágio
           </button>
+          <button
+            onClick={() => {
+              const name = window.prompt('Nome do novo projeto:', 'Novo projeto');
+              if (!name?.trim()) return;
+              const created = { ...createEmptyProject(), name: name.trim() };
+              setProject(created);
+              setHistory([created]);
+              setHistoryIndex(0);
+              setStage(created.stage);
+              localStorage.setItem('obra_engep_active_project', JSON.stringify(created));
+              onSaveProject?.(created);
+            }}
+            className="p-2 rounded-xl border border-[#2A3A55] text-[#9FB0C8] hover:text-white"
+            aria-label="Criar novo projeto"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => {
+              localStorage.setItem('obra_engep_active_project', JSON.stringify(project));
+              onSaveProject?.(project);
+            }}
+            className="p-2 rounded-xl bg-[#3DD68C] text-[#101827]"
+            aria-label="Salvar projeto"
+          >
+            <Save className="w-3.5 h-3.5" />
+          </button>
+          {onDeleteProject && projects.some((item) => item.id === project.id) && (
+            <button
+              onClick={() => {
+                if (!window.confirm(`Excluir o projeto "${project.name}"?`)) return;
+                onDeleteProject(project.id);
+                const next = projects.find((item) => item.id !== project.id) ?? createEmptyProject();
+                setProject(next);
+                setHistory([next]);
+                setHistoryIndex(0);
+                setStage(next.stage);
+              }}
+              className="p-2 rounded-xl border border-[#2A3A55] text-[#F87171] hover:text-white"
+              aria-label="Excluir projeto"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button
             onClick={handleExportPNG}
             aria-label="Exportar imagem da planta"

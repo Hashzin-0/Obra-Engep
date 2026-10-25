@@ -11,7 +11,10 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'push-sw.js'],
+        workbox: {
+          importScripts: ['push-sw.js'],
+        },
         manifest: {
           id: '/',
           name: 'OBra ENGEP',
@@ -51,7 +54,7 @@ export default defineConfig(() => {
     ],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(import.meta.dirname, '.'),
       },
     },
     server: {

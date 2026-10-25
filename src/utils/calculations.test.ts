@@ -9,6 +9,9 @@ import {
   calculateMasonryMaterials,
   calculateRoofArea,
   calculateDilution,
+  calculateHazenWilliams,
+  calculateRecommendedDiameter,
+  calculateCableSizing,
 } from './calculations';
 
 test('Calculadora Elétrica: Caso conhecido do briefing (3500 W, 220 V, FP 0.92 = 17.29 A)', () => {
@@ -68,4 +71,25 @@ test('Estética Automotiva: Diluição 1:10 para 1000 mL', () => {
   assert.equal(result.waterMl, 909.1);
   assert.equal(result.ratioLabel, '1:10');
   assert.ok(result.caution.includes('Nunca misturar'));
+});
+
+test('Hidráulica: Hazen-Williams retorna perda positiva e velocidade', () => {
+  const result = calculateHazenWilliams(20, 15, 25, 'PVC');
+  assert.ok(result.value > 0);
+  assert.equal(result.unit, 'mca');
+  assert.ok(result.limitWarning.includes('Velocidade'));
+});
+
+test('Hidráulica: diâmetro comercial mínimo para 20 L/min e 1,5 m/s', () => {
+  const result = calculateRecommendedDiameter(20, 1.5);
+  assert.equal(result.value, 20);
+  assert.equal(result.unit, 'mm');
+});
+
+test('Elétrica: cabo e disjuntor para 3500 W / 220 V / FP 0,92 / 25 m', () => {
+  const result = calculateCableSizing(3500, 220, 0.92, 25);
+  assert.equal(result.currentA, 17.29);
+  assert.equal(result.sectionMm2, 2.5);
+  assert.equal(result.breakerA, 20);
+  assert.ok(result.voltageDropPercent <= 4);
 });

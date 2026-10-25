@@ -213,3 +213,130 @@ export function calculateDilution(ratioNumber: number, targetTotalMl: number): {
     caution: 'Teste em área discreta. Nunca misturar produtos químicos. Diluição sempre com fonte registrada.',
   };
 }
+
+/**
+ * Hazen-Williams head loss for water-filled pipes.
+ * hf = 10.67 × L × Q^1.852 / (C^1.852 × D^4.87)
+ * Q in m³/s, D in m, hf in mca.
+ */
+export function calculateHazenWilliams(
+  flowLmin: number,
+  lengthM: number,
+  diameterMm: number,
+  material: 'PVC' | 'Cobre' | 'Aço galvanizado' = 'PVC'
+): ElectricalCalcResult {
+  if (flowLmin <= 0 || lengthM <= 0 || diameterMm <= 0) {
+    throw new Error('Vazão, comprimento e diâmetro devem ser maiores que zero.');
+  }
+  const c = material === 'PVC' ? 150 : material === 'Cobre' ? 130 : 120;
+  const flowM3s = flowLmin / 60000;
+  const diameterM = diameterMm / 1000;
+  const headLoss =
+    (10.67 * lengthM * Math.pow(flowM3s, 1.852)) /
+    (Math.pow(c, 1.852) * Math.pow(diameterM, 4.87));
+  const velocity = flowM3s / (Math.PI * Math.pow(diameterM, 2) / 4);
+
+  return {
+    value: Math.round(headLoss * 1000) / 1000,
+    unit: 'mca',
+    formula: 'hf = 10,67 × L × Q^1,852 / (C^1,852 × D^4,87)',
+    premises: `Q=${flowLmin} L/min, L=${lengthM} m, D=${diameterMm} mm, C=${c} (${material})`,
+    limitWarning:
+      velocity > 3
+        ? `Velocidade estimada de ${velocity.toFixed(2)} m/s acima do recomendado (≤ 3 m/s). Reavalie o diâmetro.`
+        : `Velocidade estimada de ${velocity.toFixed(2)} m/s. Perda localizada (conexões) não incluída.`,
+  };
+}
+
+/**
+ * Minimum internal diameter for a target maximum velocity.
+ * D = sqrt(4 × Q / (π × v))
+ */
+export function calculateRecommendedDiameter(
+  flowLmin: number,
+  maxVelocityMs: number = 1.5
+): ElectricalCalcResult {
+  if (flowLmin <= 0 || maxVelocityMs <= 0) {
+    throw new Error('Vazão e velocidade máxima devem ser maiores que zero.');
+  }
+  const flowM3s = flowLmin / 60000;
+  const areaM2 = flowM3s / maxVelocityMs;
+  const diameterMm = Math.sqrt((4 * areaM2) / Math.PI) * 1000;
+  const commercial = [20, 25, 32, 40, 50, 60, 75, 85, 100, 125, 150, 200, 250, 300];
+  const recommended = commercial.find((size) => size >= diameterMm) ?? Math.ceil(diameterMm);
+
+  return {
+    value: recommended,
+    unit: 'mm',
+    formula: 'D = √(4 × Q / (π × v))',
+    premises: `Q=${flowLmin} L/min, v máxima=${maxVelocityMs} m/s; diâmetro interno calculado ${diameterMm.toFixed(1)} mm`,
+    limitWarning: 'Diâmetro comercial nominal sugerido. Confirme diâmetro interno real do fabricante e perdas localizadas.',
+  };
+}
+
+export interface CableSizingResult {
+  currentA: number;
+  sectionMm2: number;
+  breakerA: number;
+  ampacityA: number;
+  voltageDropPercent: number;
+  formula: string;
+  premises: string;
+  limitWarning: string;
+}
+
+/**
+ * Preliminary single-phase cable/breaker sizing for copper PVC insulated cables,
+ * method B1, two loaded conductors. This is a planning aid, not a normative design.
+ */
+export function calculateCableSizing(
+  powerW: number,
+  voltageV: number,
+  powerFactor: number,
+  lengthM: number
+): CableSizingResult {
+  if (powerW <= 0 || voltageV <= 0 || powerFactor <= 0 || lengthM <= 0) {
+    throw new Error('Potência, tensão, fator de potência e comprimento devem ser maiores que zero.');
+  }
+
+  const currentA = powerW / (voltageV * powerFactor);
+  const ampacityTable: Array<{ section: number; ampacity: number }> = [
+    { section: 1.5, ampacity: 17.5 },
+    { section: 2.5, ampacity: 24 },
+    { section: 4, ampacity: 32 },
+    { section: 6, ampacity: 41 },
+    { section: 10, ampacity: 57 },
+    { section: 16, ampacity: 76 },
+    { section: 25, ampacity: 101 },
+    { section: 35, ampacity: 125 },
+    { section: 50, ampacity: 151 },
+    { section: 70, ampacity: 192 },
+    { section: 95, ampacity: 232 },
+    { section: 120, ampacity: 269 },
+    { section: 150, ampacity: 309 },
+    { section: 185, ampacity: 353 },
+    { section: 240, ampacity: 415 },
+  ];
+
+  const selected =
+    ampacityTable.find((entry) => {
+      const drop = (2 * lengthM * currentA) / (56 * entry.section);
+      return entry.ampacity >= currentA && (drop / voltageV) * 100 <= 4;
+    }) ?? ampacityTable[ampacityTable.length - 1];
+
+  const voltageDropPercent = ((2 * lengthM * currentA) / (56 * selected.section) / voltageV) * 100;
+  const breakers = [6, 10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125];
+  const breakerA = breakers.find((breaker) => breaker >= currentA && breaker <= selected.ampacity) ?? 0;
+
+  return {
+    currentA: Math.round(currentA * 100) / 100,
+    sectionMm2: selected.section,
+    breakerA,
+    ampacityA: selected.ampacity,
+    voltageDropPercent: Math.round(voltageDropPercent * 100) / 100,
+    formula: 'IB = P / (V × FP); IB ≤ In ≤ Iz; ΔV ≤ 4%',
+    premises: `Cobre/PVC, método B1, 2 condutores carregados: P=${powerW} W, V=${voltageV} V, FP=${powerFactor}, L=${lengthM} m`,
+    limitWarning:
+      'Pré-dimensionamento para circuito monofásico. Agrupamento, temperatura, curto-circuito e coordenação devem ser verificados por profissional habilitado conforme NBR 5410.',
+  };
+}

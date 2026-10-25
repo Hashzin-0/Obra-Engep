@@ -42,21 +42,12 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const isDark = resolvedTheme === 'dark';
 
   const [inputQuery, setInputQuery] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'm-0',
-      sender: 'gemini',
-      text: 'Agente de Voz Serverless conectado com **Gemini 3.8 Extended Thinking**. Toque na Orb central ou fale para iniciar a conversação Speech-to-Speech.',
-      thought: 'Inicialização serverless completa. Conexão bi-direcional pronta para streaming de voz e raciocínio técnico ABNT NBR 5410 / NR-35 / NR-10.',
-      timestamp: 'Agora',
-      modelBadge: 'Speech-to-Speech · Gemini 3.8',
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   const [isListening, setIsListening] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [audioFeedbackEnabled, setAudioFeedbackEnabled] = useState(true);
-  const [expandedThoughts, setExpandedThoughts] = useState<Record<string, boolean>>({ 'm-0': true });
+  const [expandedThoughts, setExpandedThoughts] = useState<Record<string, boolean>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'listening' | 'thinking' | 'speaking'>('idle');
 
@@ -122,7 +113,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       text: '',
       thought: '',
       timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      modelBadge: 'Gemini 3.8 Extended Thinking',
+      modelBadge: 'Gemini',
     };
 
     setMessages((prev) => [...prev, userMsg, initialGeminiMsg]);
@@ -193,7 +184,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             ? {
                 ...m,
                 text: m.text || 'Erro de conexão com o agente de voz serverless.',
-                thought: 'Falha temporária ao comunicar com a API do Gemini.',
+                thought: '',
               }
             : m
         )
@@ -304,7 +295,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
                   Speech-to-Speech
                 </span>
               </div>
-              <p className="text-[11px] text-[#9FB0C8]">Gemini 3.8 Extended Thinking</p>
+              <p className="text-[11px] text-[#9FB0C8]">Gemini · Assistente técnico</p>
             </div>
           </div>
 
@@ -438,6 +429,12 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
 
         {/* Conversation transcript & Extended thinking */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[350px]">
+          {messages.length === 0 && (
+            <div className="rounded-2xl border border-[#2A3A55] bg-[#17243A] p-4 text-xs text-[#9FB0C8]">
+              Faça uma pergunta técnica por texto ou voz. O assistente usa o modelo Gemini configurado no
+              servidor e responde apenas quando a API está disponível.
+            </div>
+          )}
           {messages.map((msg) => (
             <div
               key={msg.id}
@@ -445,7 +442,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             >
               <div className="flex items-center gap-2 mb-1 px-1">
                 <span className="text-[10px] font-bold text-[#9FB0C8] uppercase">
-                  {msg.sender === 'user' ? 'Você (Voz/Texto)' : 'Gemini 3.8'}
+                  {msg.sender === 'user' ? 'Você (Voz/Texto)' : 'Gemini'}
                 </span>
                 <span className="text-[10px] text-[#9FB0C8]/70">{msg.timestamp}</span>
               </div>

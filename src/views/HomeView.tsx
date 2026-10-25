@@ -31,7 +31,7 @@ interface HomeViewProps {
   onOpenCalculatorWithData?: (calc: CalculationHistoryItem) => void;
   onOpenCalendarModal?: () => void;
   onOpenVoiceAssistant?: () => void;
-  latestCalculation: CalculationHistoryItem;
+  latestCalculation?: CalculationHistoryItem | null;
   favoritesCount: number;
   deadlines?: ProjectDeadline[];
 }
@@ -63,7 +63,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         })()
   );
   const [userName, setUserName] = useState<string>(() => {
-    return localStorage.getItem('obra_engep_username') || 'Luis';
+    return localStorage.getItem('obra_engep_username') || 'Profissional';
   });
   const [isEditingName, setIsEditingName] = useState(false);
 
@@ -119,7 +119,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   ];
 
   const handleSaveName = (newName: string) => {
-    const trimmed = newName.trim() || 'Luis';
+    const trimmed = newName.trim() || 'Profissional';
     setUserName(trimmed);
     localStorage.setItem('obra_engep_username', trimmed);
     setIsEditingName(false);
@@ -193,7 +193,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </button>
       </section>
 
-      {/* Real-time Gemini 3.8 Extended Thinking Card */}
+      {/* Real-time Gemini Live Card */}
       <section>
         <div
           onClick={() => (onOpenVoiceAssistant ? onOpenVoiceAssistant() : onNavigateModule('ia'))}
@@ -205,7 +205,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <span className="uppercase tracking-wider">Conversação em Tempo Real</span>
             </div>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#1F66D6] text-white font-bold">
-              Gemini 3.8 Extended Thinking
+              Gemini Live
             </span>
           </div>
 
@@ -229,7 +229,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       <section>
         <div
           onClick={() => {
-            if (onOpenCalculatorWithData) onOpenCalculatorWithData(latestCalculation);
+            if (onOpenCalculatorWithData && latestCalculation) onOpenCalculatorWithData(latestCalculation);
             else onNavigateModule('calculadoras', 'eletrica');
           }}
           className={`cursor-pointer rounded-2xl border p-4 sm:p-5 transition group relative overflow-hidden ${
@@ -244,20 +244,22 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <span className="font-semibold uppercase tracking-wider">Última calculadora utilizada</span>
             </div>
             <span className="text-[11px] text-[#3DD68C] font-mono">
-              {latestCalculation.dateStr || 'Hoje'}
+              {latestCalculation?.dateStr || 'Sem cálculos'}
             </span>
           </div>
 
           <div className="flex items-center justify-between gap-4">
             <div>
               <div className="text-xl sm:text-2xl font-bold tracking-tight text-white dark:text-white flex items-baseline gap-1.5">
-                <span>{latestCalculation.title}:</span>
+                <span>{latestCalculation?.title || 'Nenhum cálculo salvo'}:</span>
                 <span className="text-[#5B9BFF] font-mono">
-                  {latestCalculation.resultValue.toLocaleString('pt-BR')} {latestCalculation.resultUnit}
+                  {latestCalculation
+                    ? `${latestCalculation.resultValue.toLocaleString('pt-BR')} ${latestCalculation.resultUnit}`
+                    : '—'}
                 </span>
               </div>
               <p className="text-xs text-[#9FB0C8] mt-1 font-mono">
-                {latestCalculation.formula} · {latestCalculation.premises}
+                {latestCalculation ? `${latestCalculation.formula} · ${latestCalculation.premises}` : 'Faça um cálculo para preencher o resumo.'}
               </p>
             </div>
             <div className="w-9 h-9 rounded-xl bg-[#1F66D6]/20 border border-[#1F66D6]/40 flex items-center justify-center shrink-0 group-hover:bg-[#1F66D6] group-hover:text-white transition">

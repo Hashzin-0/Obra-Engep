@@ -123,6 +123,38 @@ export interface AutomotiveProductItem {
   sourceLabel: string;
   verifiedDate: string;
   labelPhotoReference?: string;
+  labelPhotoUrl?: string;
+}
+
+export interface ManualItem {
+  id: string;
+  title: string;
+  category: string;
+  summary: string;
+  sourceLabel: string;
+  steps: string[];
+  cautions: string[];
+}
+
+export interface AppSettings {
+  theme: ThemeMode;
+  fontScale: number;
+  notificationsEnabled: boolean;
+  defaultProjectId?: string;
+}
+
+export interface SyncState {
+  status: 'disabled' | 'connecting' | 'synced' | 'offline' | 'error';
+  lastSyncedAt?: number;
+  message?: string;
+}
+
+export interface PushSubscriptionRecord {
+  id: string;
+  endpoint: string;
+  userAgent?: string;
+  createdAt: string;
+  lastSeenAt: string;
 }
 
 export interface WallSegment {

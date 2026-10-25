@@ -94,7 +94,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             <button
               onClick={onOpenVoiceAssistant}
               aria-label="Ativar Agente de Voz Speech to Speech"
-              title="Agente de Voz Real-Time · Gemini 3.8 Extended Thinking (Speech-to-Speech Serverless)"
+              title="Agente de Voz Real-Time · Gemini Live (Speech-to-Speech Serverless)"
               className="relative group p-1.5 rounded-xl border border-[#1F66D6]/40 bg-gradient-to-r from-[#17243A] to-[#101827] hover:border-[#5B9BFF] transition min-h-[44px] min-w-[44px] flex items-center justify-center overflow-hidden shrink-0 cursor-pointer"
             >
               {/* Animated orb glowing ring background */}
