@@ -1,0 +1,6 @@
+{
+  "name": "OBra ENGEP",
+  "description": "Manual técnico inteligente para obras, instalações, segurança e estética automotiva.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
