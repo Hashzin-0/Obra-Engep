@@ -295,7 +295,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
                   Speech-to-Speech
                 </span>
               </div>
-              <p className="text-[11px] text-[#9FB0C8]">Gemini · Assistente técnico</p>
+              <p className="text-[11px] text-[#9FB0C8]">Assistente técnico</p>
             </div>
           </div>
 
