@@ -69,6 +69,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   const [showHydLayer, setShowHydLayer] = useState(true);
   const [showDimensions, setShowDimensions] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
+  const [gapEnabled, setGapEnabled] = useState(true);
+  const [gapDistance, setGapDistance] = useState(20);
+  const [moveAttachedParts, setMoveAttachedParts] = useState(true);
 
   // Tool
   const [tool, setTool] = useState<ToolMode>('select');
@@ -223,28 +226,30 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     if (showElecLayer) {
       project.electrical.forEach((el) => {
         if (el.type === 'light') {
+          ctx.save(); ctx.translate(el.x, el.y); ctx.rotate(((el.rotation ?? 0) * Math.PI) / 180);
           ctx.fillStyle = '#EAB308';
           ctx.strokeStyle = '#CA8A04';
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.arc(el.x, el.y, 8, 0, Math.PI * 2);
+          ctx.arc(0, 0, 8, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
           // Cross inside lamp
           ctx.beginPath();
-          ctx.moveTo(el.x - 5, el.y - 5);
-          ctx.lineTo(el.x + 5, el.y + 5);
-          ctx.moveTo(el.x + 5, el.y - 5);
-          ctx.lineTo(el.x - 5, el.y + 5);
-          ctx.stroke();
+          ctx.moveTo(-5, -5);
+          ctx.lineTo(5, 5);
+          ctx.moveTo(5, -5);
+          ctx.lineTo(-5, 5);
+          ctx.stroke(); ctx.restore();
         } else if (el.type === 'socket') {
+          ctx.save(); ctx.translate(el.x, el.y); ctx.rotate(((el.rotation ?? 0) * Math.PI) / 180);
           ctx.fillStyle = '#FF6B6B';
           ctx.strokeStyle = '#DC2626';
           ctx.beginPath();
-          ctx.arc(el.x, el.y, 6, 0, Math.PI);
+          ctx.arc(0, 0, 6, 0, Math.PI);
           ctx.closePath();
           ctx.fill();
-          ctx.stroke();
+          ctx.stroke(); ctx.restore();
         } else if (el.type === 'panel') {
           ctx.fillStyle = '#1F66D6';
           ctx.fillRect(el.x - 8, el.y - 8, 16, 16);
@@ -325,7 +330,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     selectedObject,
   ]);
 
-  const snap = (coord: number) => Math.round(coord / 20) * 20;
+  const snap = (coord: number) => gapEnabled ? Math.round(coord / gapDistance) * gapDistance : coord;
   const snapToNearestWall = (x: number, y: number) => {
     let best = { x, y, rotation: 0, distance: Number.POSITIVE_INFINITY, wallId: '' };
     for (const wall of project.walls) {
@@ -367,7 +372,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     if (kind) {
       const threshold = 18;
       const opening = kind === 'opening' ? [...project.openings].reverse().find(o => Math.hypot(o.x - x, o.y - y) <= threshold) : undefined;
-      const electrical = kind === 'electrical' ? [...project.electrical].reverse().find(o => Math.hypot(o.x - x, o.y - y) <= threshold) : undefined;
+      const electrical = kind === 'electrical' ? [...project.electrical].reverse().find(o => o.type === tool && Math.hypot(o.x - x, o.y - y) <= threshold) : undefined;
       const hydraulic = kind === 'hydraulic' ? [...project.hydraulic].reverse().find(o => Math.hypot(o.x - x, o.y - y) <= threshold) : undefined;
       const target = opening ? { kind: 'opening' as const, id: opening.id } : electrical ? { kind: 'electrical' as const, id: electrical.id } : hydraulic ? { kind: 'hydraulic' as const, id: hydraulic.id } : null;
       if (target) { setSelectedObject(target); dragRef.current = { ...target, x, y }; placementRef.current = false; }
@@ -426,9 +431,28 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       const endX = snap((e.clientX - rect.left - canvasPan.x) / zoom), endY = snap((e.clientY - rect.top - canvasPan.y) / zoom);
       const dx = endX - drag.x, dy = endY - drag.y;
       if (dx || dy) {
-        if (drag.kind === 'wall') updateProjectState({ ...project, walls: project.walls.map(w => w.id === drag.id ? { ...w, x1: w.x1 + dx, y1: w.y1 + dy, x2: w.x2 + dx, y2: w.y2 + dy } : w) });
+        if (drag.kind === 'wall') {
+          const movedWall = project.walls.find(w => w.id === drag.id);
+          const distanceToWall = (x: number, y: number, w: WallSegment) => {
+            const vx = w.x2 - w.x1, vy = w.y2 - w.y1, len2 = vx * vx + vy * vy || 1;
+            const t = Math.max(0, Math.min(1, ((x - w.x1) * vx + (y - w.y1) * vy) / len2));
+            return Math.hypot(x - (w.x1 + t * vx), y - (w.y1 + t * vy));
+          };
+          const attached = movedWall && moveAttachedParts ? {
+            openings: project.openings.filter(o => o.wallId === movedWall.id || distanceToWall(o.x, o.y, movedWall) <= 28).map(o => o.id),
+            electrical: project.electrical.filter(o => distanceToWall(o.x, o.y, movedWall) <= 28).map(o => o.id),
+            hydraulic: project.hydraulic.filter(o => distanceToWall(o.x, o.y, movedWall) <= 28).map(o => o.id),
+          } : { openings: [], electrical: [], hydraulic: [] };
+          updateProjectState({
+            ...project,
+            walls: project.walls.map(w => w.id === drag.id ? { ...w, x1: w.x1 + dx, y1: w.y1 + dy, x2: w.x2 + dx, y2: w.y2 + dy } : w),
+            openings: project.openings.map(o => attached.openings.includes(o.id) ? { ...o, x: o.x + dx, y: o.y + dy } : o),
+            electrical: project.electrical.map(o => attached.electrical.includes(o.id) ? { ...o, x: o.x + dx, y: o.y + dy } : o),
+            hydraulic: project.hydraulic.map(o => attached.hydraulic.includes(o.id) ? { ...o, x: o.x + dx, y: o.y + dy } : o),
+          });
+        }
         else if (drag.kind === 'opening') { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, openings: project.openings.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y, rotation: p.rotation, wallId: p.wallId || o.wallId } : o) }); }
-        else if (drag.kind === 'electrical') { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, electrical: project.electrical.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y } : o) }); }
+        else if (drag.kind === 'electrical') { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, electrical: project.electrical.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y, rotation: p.wallId ? p.rotation : (o.rotation ?? 0) } : o) }); }
         else { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, hydraulic: project.hydraulic.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y } : o) }); }
       }
       dragRef.current = null; setCurrentMouse(null); setIsDrawing(false); setStartPoint(null); return;
@@ -441,7 +465,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         const item: OpeningItem = { id: ensureUuid(tool + '-' + Date.now()), type: tool, wallId: p.wallId || project.walls[0]?.id || '', x, y, width: tool === 'door' ? 80 : 100, rotation: p.rotation };
         updateProjectState({ ...project, openings: [...project.openings, item] }); setSelectedObject({ kind: 'opening', id: item.id });
       } else if (tool === 'light' || tool === 'socket') {
-        const item: ElectricalItem = { id: ensureUuid(tool + '-' + Date.now()), type: tool, x, y, circuit: tool === 'light' ? 'Circuito 1' : 'Circuito 2', label: tool === 'light' ? 'Ponto de Luz 100W' : 'Tomada 10A TUG' };
+        const item: ElectricalItem = { id: ensureUuid(tool + '-' + Date.now()), type: tool, x, y, rotation: p.wallId ? p.rotation : 0, circuit: tool === 'light' ? 'Circuito 1' : 'Circuito 2', label: tool === 'light' ? 'Ponto de Luz 100W' : 'Tomada 10A TUG' };
         updateProjectState({ ...project, electrical: [...project.electrical, item] }); setSelectedObject({ kind: 'electrical', id: item.id });
       } else if (tool === 'cold_water') {
         const item: HydraulicItem = { id: ensureUuid('af-' + Date.now()), type: 'cold_water', x, y, diameterMm: 25, label: 'Ponto AF 25mm' };
@@ -732,6 +756,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           <span className="px-2 text-xs text-[#9FB0C8]">Elemento selecionado</span>
           <button onClick={() => {
             if (selectedObject.kind === 'opening') updateProjectState({ ...project, openings: project.openings.map(o => o.id === selectedObject.id ? { ...o, rotation: ((o.rotation ?? 0) + 90) % 360 } : o) });
+            else if (selectedObject.kind === 'electrical') updateProjectState({ ...project, electrical: project.electrical.map(o => o.id === selectedObject.id ? { ...o, rotation: ((o.rotation ?? 0) + 90) % 360 } : o) });
             else if (selectedObject.kind === 'wall') updateProjectState({ ...project, walls: project.walls.map(w => {
               if (w.id !== selectedObject.id) return w;
               const mx = (w.x1 + w.x2) / 2, my = (w.y1 + w.y2) / 2;
@@ -748,6 +773,22 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           }} className="min-h-[44px] rounded-lg border border-red-400/40 px-3 text-sm text-red-300 flex items-center gap-2"><Trash2 className="h-4 w-4" /> Excluir</button>
         </div>
       )}
+
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#2A3A55] bg-[#17243A] px-3 py-2 text-xs text-[#DCE6F5]">
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input type="checkbox" checked={gapEnabled} onChange={e => setGapEnabled(e.target.checked)} className="h-3.5 w-3.5 accent-[#1F66D6]" />
+          <span>Gap</span>
+        </label>
+        <label className={`flex min-w-[150px] flex-1 items-center gap-2 ${gapEnabled ? '' : 'opacity-40'}`}>
+          <span>Distância</span>
+          <input aria-label="Distância do Gap" type="range" min="5" max="60" step="5" value={gapDistance} disabled={!gapEnabled} onChange={e => setGapDistance(Number(e.target.value))} className="min-w-0 flex-1 accent-[#1F66D6]" />
+          <span className="w-8 text-right tabular-nums">{gapEnabled ? gapDistance : '—'} px</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input type="checkbox" checked={moveAttachedParts} onChange={e => setMoveAttachedParts(e.target.checked)} className="h-3.5 w-3.5 accent-[#1F66D6]" />
+          <span>Mover partes juntas</span>
+        </label>
+      </div>
 
       {/* Bottom Tools Toolbar (Page 6 briefing: "Barra de ferramentas inferior") */}
       <div className="p-2.5 rounded-2xl bg-[#17243A] border border-[#2A3A55] grid grid-cols-2 sm:flex sm:items-center sm:justify-between gap-1">

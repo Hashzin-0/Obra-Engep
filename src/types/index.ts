@@ -178,6 +178,7 @@ export interface OpeningItem {
 }
 
 export interface ElectricalItem {
+  rotation?: number;
   id: string;
   type: 'socket' | 'switch' | 'light' | 'panel';
   x: number;
