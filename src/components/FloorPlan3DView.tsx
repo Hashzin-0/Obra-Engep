@@ -160,14 +160,16 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark }) => {
         });
 
         project.electrical.forEach(item => {
+          if (item.type === 'wire' && item.x2 !== undefined && item.y2 !== undefined) { const dx=item.x2-item.x,dz=item.y2-item.y,len=Math.hypot(dx,dz); if(len>1){const mesh=addBox(len,2,2,(item.x+item.x2)/2,8,(item.y+item.y2)/2,0xfacc15);mesh.rotation.y=-Math.atan2(dz,dx);} return; }
           const color = item.type === 'light' ? 0xfacc15 : item.type === 'panel' ? 0x2563eb : 0xfb7185;
           const point = new THREE.Mesh(new THREE.SphereGeometry(item.type === 'light' ? 6 : 4, 16, 12), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.12 }));
           point.position.set(item.x, item.type === 'light' ? 102 : 7, item.y);
           scene.add(point);
         });
         project.hydraulic.forEach(item => {
-          const color = item.type === 'sewage' || item.type === 'drain' ? 0x92400e : 0x0ea5e9;
-          const point = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 5, 16), new THREE.MeshStandardMaterial({ color }));
+          if ((item.type === 'water_pipe' || item.type === 'sewage_pipe') && item.x2 !== undefined && item.y2 !== undefined) { const dx=item.x2-item.x,dz=item.y2-item.y,len=Math.hypot(dx,dz); if(len>1){const mesh=addBox(len,item.type==='sewage_pipe'?4:3,3,(item.x+item.x2)/2,5,(item.y+item.y2)/2,item.type==='sewage_pipe'?0x92400e:0x0ea5e9);mesh.rotation.y=-Math.atan2(dz,dx);} return; }
+          const color = item.type === 'sewage' || item.type === 'drain' || item.type === 'sewage_pipe' ? 0x92400e : 0x0ea5e9;
+          const point = new THREE.Mesh(new THREE.CylinderGeometry(['sink','faucet','shower','toilet'].includes(item.type)?8:5, ['sink','faucet','shower','toilet'].includes(item.type)?8:5, 5, 16), new THREE.MeshStandardMaterial({ color }));
           point.position.set(item.x, 5, item.y);
           scene.add(point);
         });
