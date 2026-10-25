@@ -431,7 +431,26 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       const endX = snap((e.clientX - rect.left - canvasPan.x) / zoom), endY = snap((e.clientY - rect.top - canvasPan.y) / zoom);
       const dx = endX - drag.x, dy = endY - drag.y;
       if (dx || dy) {
-        if (drag.kind === 'wall') updateProjectState({ ...project, walls: project.walls.map(w => w.id === drag.id ? { ...w, x1: w.x1 + dx, y1: w.y1 + dy, x2: w.x2 + dx, y2: w.y2 + dy } : w) });
+        if (drag.kind === 'wall') {
+          const movedWall = project.walls.find(w => w.id === drag.id);
+          const distanceToWall = (x: number, y: number, w: WallSegment) => {
+            const vx = w.x2 - w.x1, vy = w.y2 - w.y1, len2 = vx * vx + vy * vy || 1;
+            const t = Math.max(0, Math.min(1, ((x - w.x1) * vx + (y - w.y1) * vy) / len2));
+            return Math.hypot(x - (w.x1 + t * vx), y - (w.y1 + t * vy));
+          };
+          const attached = movedWall && moveAttachedParts ? {
+            openings: project.openings.filter(o => o.wallId === movedWall.id || distanceToWall(o.x, o.y, movedWall) <= 28).map(o => o.id),
+            electrical: project.electrical.filter(o => distanceToWall(o.x, o.y, movedWall) <= 28).map(o => o.id),
+            hydraulic: project.hydraulic.filter(o => distanceToWall(o.x, o.y, movedWall) <= 28).map(o => o.id),
+          } : { openings: [], electrical: [], hydraulic: [] };
+          updateProjectState({
+            ...project,
+            walls: project.walls.map(w => w.id === drag.id ? { ...w, x1: w.x1 + dx, y1: w.y1 + dy, x2: w.x2 + dx, y2: w.y2 + dy } : w),
+            openings: project.openings.map(o => attached.openings.includes(o.id) ? { ...o, x: o.x + dx, y: o.y + dy } : o),
+            electrical: project.electrical.map(o => attached.electrical.includes(o.id) ? { ...o, x: o.x + dx, y: o.y + dy } : o),
+            hydraulic: project.hydraulic.map(o => attached.hydraulic.includes(o.id) ? { ...o, x: o.x + dx, y: o.y + dy } : o),
+          });
+        }
         else if (drag.kind === 'opening') { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, openings: project.openings.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y, rotation: p.rotation, wallId: p.wallId || o.wallId } : o) }); }
         else if (drag.kind === 'electrical') { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, electrical: project.electrical.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y } : o) }); }
         else { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, hydraulic: project.hydraulic.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y } : o) }); }
@@ -754,6 +773,22 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           }} className="min-h-[44px] rounded-lg border border-red-400/40 px-3 text-sm text-red-300 flex items-center gap-2"><Trash2 className="h-4 w-4" /> Excluir</button>
         </div>
       )}
+
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#2A3A55] bg-[#17243A] px-3 py-2 text-xs text-[#DCE6F5]">
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input type="checkbox" checked={gapEnabled} onChange={e => setGapEnabled(e.target.checked)} className="h-3.5 w-3.5 accent-[#1F66D6]" />
+          <span>Gap</span>
+        </label>
+        <label className={`flex min-w-[150px] flex-1 items-center gap-2 ${gapEnabled ? '' : 'opacity-40'}`}>
+          <span>Distância</span>
+          <input aria-label="Distância do Gap" type="range" min="5" max="60" step="5" value={gapDistance} disabled={!gapEnabled} onChange={e => setGapDistance(Number(e.target.value))} className="min-w-0 flex-1 accent-[#1F66D6]" />
+          <span className="w-8 text-right tabular-nums">{gapEnabled ? gapDistance : '—'} px</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input type="checkbox" checked={moveAttachedParts} onChange={e => setMoveAttachedParts(e.target.checked)} className="h-3.5 w-3.5 accent-[#1F66D6]" />
+          <span>Mover partes juntas</span>
+        </label>
+      </div>
 
       {/* Bottom Tools Toolbar (Page 6 briefing: "Barra de ferramentas inferior") */}
       <div className="p-2.5 rounded-2xl bg-[#17243A] border border-[#2A3A55] grid grid-cols-2 sm:flex sm:items-center sm:justify-between gap-1">
