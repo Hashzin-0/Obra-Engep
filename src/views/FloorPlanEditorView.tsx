@@ -69,6 +69,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   const [showHydLayer, setShowHydLayer] = useState(true);
   const [showDimensions, setShowDimensions] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
+  const [gapEnabled, setGapEnabled] = useState(true);
+  const [gapDistance, setGapDistance] = useState(20);
+  const [moveAttachedParts, setMoveAttachedParts] = useState(true);
 
   // Tool
   const [tool, setTool] = useState<ToolMode>('select');
@@ -223,28 +226,30 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     if (showElecLayer) {
       project.electrical.forEach((el) => {
         if (el.type === 'light') {
+          ctx.save(); ctx.translate(el.x, el.y); ctx.rotate(((el.rotation ?? 0) * Math.PI) / 180);
           ctx.fillStyle = '#EAB308';
           ctx.strokeStyle = '#CA8A04';
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.arc(el.x, el.y, 8, 0, Math.PI * 2);
+          ctx.arc(0, 0, 8, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
           // Cross inside lamp
           ctx.beginPath();
-          ctx.moveTo(el.x - 5, el.y - 5);
-          ctx.lineTo(el.x + 5, el.y + 5);
-          ctx.moveTo(el.x + 5, el.y - 5);
-          ctx.lineTo(el.x - 5, el.y + 5);
-          ctx.stroke();
+          ctx.moveTo(-5, -5);
+          ctx.lineTo(5, 5);
+          ctx.moveTo(5, -5);
+          ctx.lineTo(-5, 5);
+          ctx.stroke(); ctx.restore();
         } else if (el.type === 'socket') {
+          ctx.save(); ctx.translate(el.x, el.y); ctx.rotate(((el.rotation ?? 0) * Math.PI) / 180);
           ctx.fillStyle = '#FF6B6B';
           ctx.strokeStyle = '#DC2626';
           ctx.beginPath();
-          ctx.arc(el.x, el.y, 6, 0, Math.PI);
+          ctx.arc(0, 0, 6, 0, Math.PI);
           ctx.closePath();
           ctx.fill();
-          ctx.stroke();
+          ctx.stroke(); ctx.restore();
         } else if (el.type === 'panel') {
           ctx.fillStyle = '#1F66D6';
           ctx.fillRect(el.x - 8, el.y - 8, 16, 16);
@@ -325,7 +330,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     selectedObject,
   ]);
 
-  const snap = (coord: number) => Math.round(coord / 20) * 20;
+  const snap = (coord: number) => gapEnabled ? Math.round(coord / gapDistance) * gapDistance : coord;
   const snapToNearestWall = (x: number, y: number) => {
     let best = { x, y, rotation: 0, distance: Number.POSITIVE_INFINITY, wallId: '' };
     for (const wall of project.walls) {
@@ -367,7 +372,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     if (kind) {
       const threshold = 18;
       const opening = kind === 'opening' ? [...project.openings].reverse().find(o => Math.hypot(o.x - x, o.y - y) <= threshold) : undefined;
-      const electrical = kind === 'electrical' ? [...project.electrical].reverse().find(o => Math.hypot(o.x - x, o.y - y) <= threshold) : undefined;
+      const electrical = kind === 'electrical' ? [...project.electrical].reverse().find(o => o.type === tool && Math.hypot(o.x - x, o.y - y) <= threshold) : undefined;
       const hydraulic = kind === 'hydraulic' ? [...project.hydraulic].reverse().find(o => Math.hypot(o.x - x, o.y - y) <= threshold) : undefined;
       const target = opening ? { kind: 'opening' as const, id: opening.id } : electrical ? { kind: 'electrical' as const, id: electrical.id } : hydraulic ? { kind: 'hydraulic' as const, id: hydraulic.id } : null;
       if (target) { setSelectedObject(target); dragRef.current = { ...target, x, y }; placementRef.current = false; }
@@ -732,6 +737,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           <span className="px-2 text-xs text-[#9FB0C8]">Elemento selecionado</span>
           <button onClick={() => {
             if (selectedObject.kind === 'opening') updateProjectState({ ...project, openings: project.openings.map(o => o.id === selectedObject.id ? { ...o, rotation: ((o.rotation ?? 0) + 90) % 360 } : o) });
+            else if (selectedObject.kind === 'electrical') updateProjectState({ ...project, electrical: project.electrical.map(o => o.id === selectedObject.id ? { ...o, rotation: ((o.rotation ?? 0) + 90) % 360 } : o) });
             else if (selectedObject.kind === 'wall') updateProjectState({ ...project, walls: project.walls.map(w => {
               if (w.id !== selectedObject.id) return w;
               const mx = (w.x1 + w.x2) / 2, my = (w.y1 + w.y2) / 2;
