@@ -421,6 +421,28 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       wallSequencePoints.forEach((point, index) => { ctx.beginPath(); ctx.arc(point.x, point.y, index === 0 ? 7 : 5, 0, Math.PI * 2); ctx.fill(); });
       ctx.restore();
     }
+    // Preview every wall connected to a dragged vertex, with live length and angle.
+    if (dragRef.current?.kind === 'wall' && dragRef.current.endpoint && currentMouse) {
+      const drag = dragRef.current;
+      const draggedWall = project.walls.find(w => w.id === drag.id);
+      if (draggedWall) {
+        const oldX = drag.endpoint === 1 ? draggedWall.x1 : draggedWall.x2;
+        const oldY = drag.endpoint === 1 ? draggedWall.y1 : draggedWall.y2;
+        const newX = gapEnabled ? snap(currentMouse.x) : currentMouse.x;
+        const newY = gapEnabled ? snap(currentMouse.y) : currentMouse.y;
+        ctx.save(); ctx.strokeStyle = '#34D399'; ctx.fillStyle = '#34D399'; ctx.lineWidth = 4; ctx.setLineDash([6,4]);
+        project.walls.filter(w => Math.hypot(w.x1-oldX,w.y1-oldY)<2 || Math.hypot(w.x2-oldX,w.y2-oldY)<2).forEach(w => {
+          const a = Math.hypot(w.x1-oldX,w.y1-oldY)<2 ? {x:newX,y:newY} : {x:w.x1,y:w.y1};
+          const b = Math.hypot(w.x2-oldX,w.y2-oldY)<2 ? {x:newX,y:newY} : {x:w.x2,y:w.y2};
+          ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+          const label=(Math.hypot(b.x-a.x,b.y-a.y)/40).toFixed(2)+' m · '+(Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI).toFixed(1)+'°';
+          ctx.setLineDash([]); ctx.font='10px Roboto, sans-serif'; const tw=ctx.measureText(label).width+8;
+          ctx.fillStyle='rgba(15,23,42,.94)'; ctx.fillRect((a.x+b.x)/2-tw/2,(a.y+b.y)/2-20,tw,16);
+          ctx.fillStyle='#6EE7B7'; ctx.textAlign='center'; ctx.fillText(label,(a.x+b.x)/2,(a.y+b.y)/2-9); ctx.setLineDash([6,4]);
+        });
+        ctx.setLineDash([]); ctx.beginPath(); ctx.arc(newX,newY,7,0,Math.PI*2); ctx.fill(); ctx.restore();
+      }
+    }
     // Preview only: never mutate the project while the pointer is moving.
     if (isDrawing && startPoint && currentMouse && ['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'].includes(tool)) {
       if (Math.hypot(currentMouse.x - startPoint.x, currentMouse.y - startPoint.y) > 1) {
@@ -507,7 +529,6 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     for (const wall of project.walls) {
       const vx = wall.x2 - wall.x1, vy = wall.y2 - wall.y1;
       const len2 = vx * vx + vy * vy || 1;
-      const t = Math.max(0, Math.min(1, ((x - wall.x1) * vx + (y - wall.y1) * vy) / len2));
       let t = Math.max(0, Math.min(1, ((x - wall.x1) * vx + (y - wall.y1) * vy) / len2));
       const rawX = wall.x1 + t * vx, rawY = wall.y1 + t * vy;
       const distance = Math.hypot(x - rawX, y - rawY);
@@ -1058,6 +1079,18 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         </div></>}
       </div>
 
+      {selectedObject?.kind === 'opening' && project.openings.some(o => o.id === selectedObject.id && o.type === 'door') && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#2A3A55] bg-[#17243A] p-3">
+          <label className="text-sm text-[#DCE6F5]" htmlFor="door-style">Modelo da porta</label>
+          <select id="door-style" value={project.openings.find(o => o.id === selectedObject.id)?.doorStyle ?? 'wood'}
+            onChange={e => updateProjectState({...project, openings: project.openings.map(o => o.id === selectedObject.id ? {...o, doorStyle: e.target.value as OpeningItem['doorStyle']} : o)})}
+            className="min-h-[42px] rounded-lg border border-[#2A3A55] bg-[#101827] px-3 text-sm text-white">
+            <option value="wood">Madeira tradicional</option><option value="sliding">Deslizante</option>
+            <option value="glass">Vidro</option><option value="double">Duas folhas</option><option value="metal">Metálica</option>
+          </select>
+          <span className="text-xs text-[#9FB0C8]">Modelo exibido na vista 3D.</span>
+        </div>
+      )}
       {selectedObject && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#2A3A55] bg-[#17243A] p-2">
           <span className="px-2 text-xs text-[#9FB0C8]">Elemento selecionado</span>
