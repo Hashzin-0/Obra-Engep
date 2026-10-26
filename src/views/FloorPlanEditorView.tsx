@@ -443,6 +443,25 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         ctx.setLineDash([]); ctx.beginPath(); ctx.arc(newX,newY,7,0,Math.PI*2); ctx.fill(); ctx.restore();
       }
     }
+    if (dragRef.current?.kind === 'wall' && !dragRef.current.endpoint && currentMouse) {
+      const drag=dragRef.current, wall=project.walls.find(w=>w.id===drag.id);
+      if(wall){
+        let dx=currentMouse.x-drag.x,dy=currentMouse.y-drag.y;
+        let best=gapDistance+6,adjustment:{x:number;y:number}|null=null;
+        if(gapEnabled) {
+          const proposed=[{x:wall.x1+dx,y:wall.y1+dy},{x:wall.x2+dx,y:wall.y2+dy}];
+          project.walls.filter(w=>w.id!==wall.id).forEach(w=>[{x:w.x1,y:w.y1},{x:w.x2,y:w.y2}].forEach(v=>proposed.forEach(p=>{
+            const d=Math.hypot(p.x-v.x,p.y-v.y); if(d<best){best=d;adjustment={x:v.x-p.x,y:v.y-p.y};}
+          })));
+        }
+        if(adjustment){dx+=adjustment.x;dy+=adjustment.y;}
+        ctx.save();ctx.strokeStyle='#34D399';ctx.lineWidth=5;ctx.setLineDash([7,4]);
+        ctx.beginPath();ctx.moveTo(wall.x1+dx,wall.y1+dy);ctx.lineTo(wall.x2+dx,wall.y2+dy);ctx.stroke();ctx.setLineDash([]);
+        if(adjustment){ctx.fillStyle='#34D399';ctx.beginPath();ctx.arc(wall.x1+dx,wall.y1+dy,7,0,Math.PI*2);ctx.arc(wall.x2+dx,wall.y2+dy,7,0,Math.PI*2);ctx.fill();}
+        const label=(Math.hypot(wall.x2-wall.x1,wall.y2-wall.y1)/40).toFixed(2)+' m · '+(Math.atan2(wall.y2-wall.y1,wall.x2-wall.x1)*180/Math.PI).toFixed(1)+'°';
+        ctx.font='10px Roboto, sans-serif';const tw=ctx.measureText(label).width+8;ctx.fillStyle='rgba(15,23,42,.94)';ctx.fillRect((wall.x1+wall.x2)/2+dx-tw/2,(wall.y1+wall.y2)/2+dy-20,tw,16);ctx.fillStyle='#6EE7B7';ctx.textAlign='center';ctx.fillText(label,(wall.x1+wall.x2)/2+dx,(wall.y1+wall.y2)/2+dy-9);ctx.restore();
+      }
+    }
     // Preview only: never mutate the project while the pointer is moving.
     if (isDrawing && startPoint && currentMouse && ['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'].includes(tool)) {
       if (Math.hypot(currentMouse.x - startPoint.x, currentMouse.y - startPoint.y) > 1) {
