@@ -727,6 +727,16 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
             const t = Math.max(0, Math.min(1, ((x - w.x1) * vx + (y - w.y1) * vy) / len2));
             return Math.hypot(x - (w.x1 + t * vx), y - (w.y1 + t * vy));
           };
+          let wallDx = dx, wallDy = dy;
+          if (movedWall && gapEnabled) {
+            let best = gapDistance + 6, adjustment: {x:number;y:number} | null = null;
+            const proposed = [{x:movedWall.x1+dx,y:movedWall.y1+dy},{x:movedWall.x2+dx,y:movedWall.y2+dy}];
+            project.walls.filter(w=>w.id!==movedWall.id).forEach(w=>[{x:w.x1,y:w.y1},{x:w.x2,y:w.y2}].forEach(v=>proposed.forEach(p=>{
+              const d=Math.hypot(p.x-v.x,p.y-v.y);
+              if(d<best){best=d;adjustment={x:v.x-p.x,y:v.y-p.y};}
+            })));
+            if(adjustment){wallDx+=adjustment.x;wallDy+=adjustment.y;}
+          }
           const attached = movedWall && moveAttachedParts ? {
             openings: project.openings.filter(o => o.wallId === movedWall.id || distanceToWall(o.x, o.y, movedWall) <= 28).map(o => o.id),
             electrical: project.electrical.filter(o => distanceToWall(o.x, o.y, movedWall) <= 28).map(o => o.id),
@@ -734,10 +744,10 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           } : { openings: [], electrical: [], hydraulic: [] };
           updateProjectState({
             ...project,
-            walls: project.walls.map(w => w.id === drag.id ? { ...w, x1: w.x1 + dx, y1: w.y1 + dy, x2: w.x2 + dx, y2: w.y2 + dy } : w),
-            openings: project.openings.map(o => attached.openings.includes(o.id) ? { ...o, x: o.x + dx, y: o.y + dy } : o),
-            electrical: project.electrical.map(o => attached.electrical.includes(o.id) ? { ...o, x: o.x + dx, y: o.y + dy } : o),
-            hydraulic: project.hydraulic.map(o => attached.hydraulic.includes(o.id) ? { ...o, x: o.x + dx, y: o.y + dy } : o),
+            walls: project.walls.map(w => w.id === drag.id ? { ...w, x1: w.x1 + wallDx, y1: w.y1 + wallDy, x2: w.x2 + wallDx, y2: w.y2 + wallDy } : w),
+            openings: project.openings.map(o => attached.openings.includes(o.id) ? { ...o, x: o.x + wallDx, y: o.y + wallDy } : o),
+            electrical: project.electrical.map(o => attached.electrical.includes(o.id) ? { ...o, x: o.x + wallDx, y: o.y + wallDy } : o),
+            hydraulic: project.hydraulic.map(o => attached.hydraulic.includes(o.id) ? { ...o, x: o.x + wallDx, y: o.y + wallDy } : o),
           });
         }
         else if (drag.kind === 'opening') { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, openings: project.openings.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y, rotation: p.rotation, wallId: p.wallId || o.wallId } : o) }); }
