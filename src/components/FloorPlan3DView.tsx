@@ -145,74 +145,91 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark }) => {
         grid.position.set(centerX, -0.7, centerZ);
         scene.add(grid);
 
-        // Build walls around door openings instead of drawing an opaque wall through them.
-        const doorAssignments = new Map<string, Array<{x:number;y:number;width:number;rotation:number}>>();
-        project.openings.filter(o => o.type === 'door').forEach(o => {
+        // Cut real openings for both doors and windows. Openings are projected to
+        // the closest wall axis, so diagonal walls keep the correct angle and gap.
+        const openingAssignments = new Map<string, Array<{x:number;y:number;width:number;rotation:number;type:'door'|'window';doorStyle?:string}>>();
+        project.openings.forEach(o => {
           let bestWall: typeof project.walls[number] | undefined;
           let bestDistance = Infinity;
           project.walls.forEach(w => {
-            const dx = w.x2-w.x1, dz = w.y2-w.y1, len2 = dx*dx+dz*dz;
-            if (len2 < 1) return;
-            const t = Math.max(0, Math.min(1, ((o.x-w.x1)*dx+(o.y-w.y1)*dz)/len2));
-            const distance = Math.hypot(o.x-(w.x1+t*dx), o.y-(w.y1+t*dz));
-            if ((o.wallId === w.id || distance < bestDistance) && distance < 28) { bestWall=w; bestDistance=distance; }
+            const dx=w.x2-w.x1,dz=w.y2-w.y1,len2=dx*dx+dz*dz;
+            if(len2<1)return;
+            const t=Math.max(0,Math.min(1,((o.x-w.x1)*dx+(o.y-w.y1)*dz)/len2));
+            const distance=Math.hypot(o.x-(w.x1+t*dx),o.y-(w.y1+t*dz));
+            if((o.wallId===w.id || distance<bestDistance) && distance<32){bestWall=w;bestDistance=distance;}
           });
-          if (bestWall) doorAssignments.set(bestWall.id, [...(doorAssignments.get(bestWall.id)||[]), o]);
+          if(bestWall) openingAssignments.set(bestWall.id,[...(openingAssignments.get(bestWall.id)||[]),o]);
         });
 
         project.walls.forEach(w => {
-          const dx = w.x2 - w.x1;
-          const dz = w.y2 - w.y1;
-          const length = Math.hypot(dx, dz);
-          if (length < 1) return;
-          const thickness = Math.max(4, w.thickness || 8);
-          const angle = -Math.atan2(dz, dx);
-          const doors = (doorAssignments.get(w.id) || []).map(o => {
-            const t = Math.max(0, Math.min(1, ((o.x-w.x1)*dx+(o.y-w.y1)*dz)/(length*length)));
-            const halfWidth = Math.min(length * 0.45, Math.max(12, o.width * 0.25));
-            return { start: Math.max(0, t*length-halfWidth), end: Math.min(length, t*length+halfWidth) };
+          const dx=w.x2-w.x1,dz=w.y2-w.y1,length=Math.hypot(dx,dz);
+          if(length<1)return;
+          const thickness=Math.max(4,w.thickness||8),angle=-Math.atan2(dz,dx);
+          const openings=(openingAssignments.get(w.id)||[]).map(o=>{
+            const t=Math.max(0,Math.min(1,((o.x-w.x1)*dx+(o.y-w.y1)*dz)/(length*length)));
+            const halfWidth=Math.min(length*0.45,Math.max(10,o.width/2));
+            return {start:Math.max(0,t*length-halfWidth),end:Math.min(length,t*length+halfWidth),type:o.type};
           }).sort((a,b)=>a.start-b.start);
-          const addWallPart = (start:number, end:number, bottom:number, height:number) => {
-            if (end-start < 1 || height < 1) return;
-
-            // Wall coordinates describe centerlines. Extend only the actual wall
-            // endpoints by half their thickness so perpendicular walls overlap
-            // at shared corners instead of leaving a visible notch or nested end.
-            // Do not extend door-jamb cuts: those are interior segment boundaries.
-            const joinsAtStart = start <= 0.001;
-            const joinsAtEnd = end >= length - 0.001;
-            const partStart = joinsAtStart ? start - thickness / 2 : start;
-            const partEnd = joinsAtEnd ? end + thickness / 2 : end;
-            const partLength = partEnd - partStart;
-            const mid = (partStart + partEnd) / 2;
-            const x = w.x1 + (dx/length)*mid;
-            const z = w.y1 + (dz/length)*mid;
-            const mesh = addBox(partLength, height, thickness, x, bottom+height/2, z, isDark ? 0x94a3b8 : 0xcbd5e1);
-            mesh.rotation.y = angle;
+          const addWallPart=(start:number,end:number,bottom:number,height:number)=>{
+            if(end-start<1||height<1)return;
+            const joinsAtStart=start<=0.001,joinsAtEnd=end>=length-0.001;
+            const partStart=joinsAtStart?start-thickness/2:start,partEnd=joinsAtEnd?end+thickness/2:end;
+            const partLength=partEnd-partStart,mid=(partStart+partEnd)/2;
+            const mesh=addBox(partLength,height,thickness,w.x1+(dx/length)*mid,bottom+height/2,w.y1+(dz/length)*mid,isDark?0x94a3b8:0xcbd5e1);
+            mesh.rotation.y=angle;
           };
-          let cursor = 0;
-          doors.forEach(door => {
-            const start = Math.max(cursor, door.start), end = Math.max(start, door.end);
-            addWallPart(cursor, start, 0, 100);
-            // A 2 m doorway leaves the upper lintel intact; wall height is 2.5 m.
-            addWallPart(start, end, 80, 20);
-            cursor = Math.max(cursor, end);
+          let cursor=0;
+          openings.forEach(op=>{
+            const start=Math.max(cursor,op.start),end=Math.max(start,op.end);
+            addWallPart(cursor,start,0,100);
+            if(op.type==='door') addWallPart(start,end,80,20);
+            else {
+              // Window aperture: sill below 35 units and header above 70 units.
+              addWallPart(start,end,0,35);
+              addWallPart(start,end,70,30);
+            }
+            cursor=Math.max(cursor,end);
           });
-          addWallPart(cursor, length, 0, 100);
-          // Match the wall-body endpoint overlap so the top edges also meet cleanly.
-          const cap = addBox(length + thickness, 2, thickness + 1, (w.x1 + w.x2) / 2, 101, (w.y1 + w.y2) / 2, isDark ? 0xcbd5e1 : 0xf8fafc);
-          cap.rotation.y = angle;
+          addWallPart(cursor,length,0,100);
+          const cap=addBox(length+thickness,2,thickness+1,(w.x1+w.x2)/2,101,(w.y1+w.y2)/2,isDark?0xcbd5e1:0xf8fafc);
+          cap.rotation.y=angle;
         });
 
-        // Door leaves are placed inside their real wall gaps; windows remain visible markers.
-        project.openings.forEach(o => {
-          const widthPx = Math.max(16, o.width * 0.5);
-          if (o.type === 'door') {
-            const leaf = addBox(widthPx * 0.92, 3, 3, o.x, 4, o.y, 0x9a6b3f, 0.9);
-            leaf.rotation.y = -((o.rotation ?? 0) * Math.PI / 180);
-          } else {
-            const marker = addBox(widthPx, 8, 5, o.x, 52, o.y, 0x38bdf8, 0.65);
-            marker.rotation.y = -((o.rotation ?? 0) * Math.PI / 180);
+        // Procedural door models: frame, leaf, handle and material variants.
+        // These are actual 3D meshes and remain selectable/editable through the 2D object.
+        project.openings.forEach(o=>{
+          let wall=project.walls.find(w=>w.id===o.wallId);
+          if(!wall){
+            let nearest=Infinity;
+            project.walls.forEach(w=>{const dx=w.x2-w.x1,dz=w.y2-w.y1,l2=dx*dx+dz*dz||1,t=Math.max(0,Math.min(1,((o.x-w.x1)*dx+(o.y-w.y1)*dz)/l2)),d=Math.hypot(o.x-(w.x1+t*dx),o.y-(w.y1+t*dz));if(d<nearest){nearest=d;wall=w;}});
+          }
+          const angle=wall?-Math.atan2(wall.y2-wall.y1,wall.x2-wall.x1):-((o.rotation??0)*Math.PI/180);
+          const widthPx=Math.max(20,o.width),half=widthPx/2;
+          if(o.type==='door'){
+            const style=o.doorStyle??'wood';
+            const wood=style==='wood',glass=style==='glass'||style==='sliding',color=wood?0x98663d:style==='metal'?0x64748b:0x9ca3af;
+            const frameColor=0xe2e8f0;
+            const left=addBox(3,82,5,o.x-half+1.5,41,o.y,frameColor);left.rotation.y=angle;
+            const right=addBox(3,82,5,o.x+half-1.5,41,o.y,frameColor);right.rotation.y=angle;
+            const header=addBox(widthPx,3,5,o.x,81,o.y,frameColor);header.rotation.y=angle;
+            if(style==='sliding'){
+              const panelA=addBox(widthPx*0.49,78,3,o.x-widthPx*0.245,40,o.y,0x94a3b8,0.35);panelA.rotation.y=angle;
+              const panelB=addBox(widthPx*0.49,78,3,o.x+widthPx*0.245,40,o.y,0x64748b,0.35);panelB.rotation.y=angle;
+              const rail=addBox(widthPx,2,6,o.x,79,o.y,0x475569);rail.rotation.y=angle;
+            }else{
+              const leaf=addBox(widthPx*0.9,78,3,o.x,40,o.y,glass?0x67e8f9:color,glass?0.25:0.9);leaf.rotation.y=angle;
+              if(glass) leaf.material=new THREE.MeshStandardMaterial({color:0x67e8f9,transparent:true,opacity:0.58,roughness:0.2,metalness:0.1,side:THREE.DoubleSide});
+              const handle=addBox(2,8,2,o.x+half*0.65,42,o.y-2,0xfacc15);handle.rotation.y=angle;
+            }
+          }else{
+            // Window frame and glazing occupy the aperture; wall meshes are cut away around it.
+            const frame=0xe2e8f0,glass=0x38bdf8;
+            const sill=addBox(widthPx,3,thickness+2,o.x,35,o.y,frame);sill.rotation.y=angle;
+            const head=addBox(widthPx,3,thickness+2,o.x,70,o.y,frame);head.rotation.y=angle;
+            const jambL=addBox(3,35,thickness+2,o.x-half+1.5,52.5,o.y,frame);jambL.rotation.y=angle;
+            const jambR=addBox(3,35,thickness+2,o.x+half-1.5,52.5,o.y,frame);jambR.rotation.y=angle;
+            const pane=addBox(widthPx-6,30,2,o.x,52.5,o.y,glass,0.25);
+            pane.material=new THREE.MeshStandardMaterial({color:glass,transparent:true,opacity:0.55,roughness:0.2,side:THREE.DoubleSide});pane.rotation.y=angle;
           }
         });
 
