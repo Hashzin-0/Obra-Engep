@@ -478,8 +478,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   };
   const activeKind = (): 'opening' | 'electrical' | 'hydraulic' | null => {
     if (tool === 'door' || tool === 'window') return 'opening';
-    if (['socket','light','switch','panel','data_point','grounding'].includes(tool)) return 'electrical';
-    if (['cold_water','hot_water','sink','faucet','shower','toilet','floor_drain','cleanout','inspection_box','tank','heater','grease_trap','pool'].includes(tool)) return 'hydraulic';
+    if (['socket','light','switch','panel','data_point','grounding','solar_panel'].includes(tool)) return 'electrical';
+    if (['cold_water','hot_water','water_pipe','sewage_pipe','vent_pipe','rain_pipe','sink','faucet','shower','toilet','floor_drain','cleanout','inspection_box','tank','heater','grease_trap','pool'].includes(tool)) return 'hydraulic';
     return null;
   };
 
