@@ -45,6 +45,7 @@ import {
   type CableSizingResult,
 } from '../utils/calculations';
 import { ResultCard } from '../components/ResultCard';
+import { FuelCalculatorView } from './FuelCalculatorView';
 import { LimitBar } from '../components/LimitBar';
 import { AlertBanner } from '../components/AlertBanner';
 import { CalculationHistoryItem } from '../types';
@@ -192,6 +193,14 @@ const TOOLS_DIRECTORY: ToolDef[] = [
     title: 'Alvenaria e consumo de blocos',
     subtitle: 'Área líquida com margem de perda editável em destaque',
     icon: Building2,
+  },
+  {
+    id: 'calculadora_combustivel',
+    category: 'outras',
+    title: 'Consumo e custos de combustível',
+    subtitle: 'Eficiência, custo por km, viagens, autonomia e estudo E85',
+    icon: Fuel,
+    isPopular: true,
   },
   {
     id: 'conversor_areas',
@@ -1624,6 +1633,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
               <LimitBar message="Valores para estimativa preliminar de compras. Variações dimensionais de blocos cerâmicos ou de concreto devem ser conferidas no lote entregue." />
             </div>
           )}
+
+          {currentTool.id === 'calculadora_combustivel' && <FuelCalculatorView />}
 
           {currentTool.id === 'conversor_areas' && (
             <div className="space-y-4">
