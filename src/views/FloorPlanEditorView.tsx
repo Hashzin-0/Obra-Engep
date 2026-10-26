@@ -371,13 +371,52 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       wallSequencePoints.forEach((point, index) => { ctx.beginPath(); ctx.arc(point.x, point.y, index === 0 ? 7 : 5, 0, Math.PI * 2); ctx.fill(); });
       ctx.restore();
     }
-    // Temporary line while drawing a wall
+    // Preview only: never mutate the project while the pointer is moving.
     if (isDrawing && startPoint && currentMouse && ['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'].includes(tool)) {
-      const routeId=ensureUuid(tool);
-      if(Math.hypot(currentMouse.x-startPoint.x,currentMouse.y-startPoint.y)>5){
-        if(tool==='wire'||tool==='conduit'){const route:ElectricalItem={id:routeId,type:tool as ElectricalItem['type'],x:startPoint.x,y:startPoint.y,x2:currentMouse.x,y2:currentMouse.y,circuit:'Circuito 1',label:tool==='wire'?'Fiação elétrica':'Eletroduto elétrico'};updateProjectState({...project,electrical:[...project.electrical,route]});setSelectedObject({kind:'electrical',id:routeId});}
-        else{const route:HydraulicItem={id:routeId,type:tool as HydraulicItem['type'],x:startPoint.x,y:startPoint.y,x2:currentMouse.x,y2:currentMouse.y,diameterMm:tool==='sewage_pipe'?100:tool==='rain_pipe'?75:tool==='vent_pipe'?50:25,label:tool==='sewage_pipe'?'Tubulação de esgoto Ø100mm':tool==='rain_pipe'?'Águas pluviais Ø75mm':tool==='vent_pipe'?'Ventilação sanitária Ø50mm':'Tubulação de água Ø25mm'};updateProjectState({...project,hydraulic:[...project.hydraulic,route]});setSelectedObject({kind:'hydraulic',id:routeId});}
+      if (Math.hypot(currentMouse.x - startPoint.x, currentMouse.y - startPoint.y) > 1) {
+        ctx.save();
+        ctx.strokeStyle = tool === 'sewage_pipe' ? '#A16207' : tool === 'rain_pipe' ? '#2563EB' : tool === 'vent_pipe' ? '#A78BFA' : tool === 'wire' ? '#FACC15' : tool === 'conduit' ? '#F59E0B' : '#06B6D4';
+        ctx.lineWidth = tool === 'sewage_pipe' ? 4 : 3;
+        ctx.setLineDash(['sewage_pipe','rain_pipe','wire'].includes(tool) ? [6, 3] : []);
+        ctx.beginPath();
+        ctx.moveTo(startPoint.x, startPoint.y);
+        ctx.lineTo(currentMouse.x, currentMouse.y);
+        ctx.stroke();
+        ctx.restore();
       }
+    }
+    if (isDrawing && startPoint && currentMouse && ['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'].includes(tool)) {
+      const rect = e?.currentTarget.getBoundingClientRect();
+      const end = e && rect
+        ? { x: snap((e.clientX - rect.left - canvasPan.x) / zoom), y: snap((e.clientY - rect.top - canvasPan.y) / zoom) }
+        : currentMouse;
+      if (Math.hypot(end.x - startPoint.x, end.y - startPoint.y) > 5) {
+        const routeId = ensureUuid(tool);
+        if (tool === 'wire' || tool === 'conduit') {
+          const route: ElectricalItem = {
+            id: routeId, type: tool as ElectricalItem['type'],
+            x: startPoint.x, y: startPoint.y, x2: end.x, y2: end.y,
+            circuit: 'Circuito 1',
+            label: tool === 'wire' ? 'Fiação elétrica' : 'Eletroduto elétrico',
+          };
+          updateProjectState({ ...project, electrical: [...project.electrical, route] });
+          setSelectedObject({ kind: 'electrical', id: routeId });
+        } else {
+          const route: HydraulicItem = {
+            id: routeId, type: tool as HydraulicItem['type'],
+            x: startPoint.x, y: startPoint.y, x2: end.x, y2: end.y,
+            diameterMm: tool === 'sewage_pipe' ? 100 : tool === 'rain_pipe' ? 75 : tool === 'vent_pipe' ? 50 : 25,
+            label: tool === 'sewage_pipe' ? 'Tubulação de esgoto Ø100mm' : tool === 'rain_pipe' ? 'Águas pluviais Ø75mm' : tool === 'vent_pipe' ? 'Ventilação sanitária Ø50mm' : 'Tubulação de água Ø25mm',
+          };
+          updateProjectState({ ...project, hydraulic: [...project.hydraulic, route] });
+          setSelectedObject({ kind: 'hydraulic', id: routeId });
+        }
+      }
+      setIsDrawing(false);
+      setStartPoint(null);
+      setCurrentMouse(null);
+      placementRef.current = false;
+      return;
     }
     if (isDrawing && startPoint && currentMouse && tool === 'wall' && wallDrawMode === 'segment') {
       ctx.strokeStyle = '#3DD68C';
