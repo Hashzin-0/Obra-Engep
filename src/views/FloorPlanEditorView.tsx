@@ -219,10 +219,31 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         ctx.strokeStyle = isDark ? '#E8EDF5' : '#1E293B';
         ctx.lineWidth = w.thickness / 2;
         ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(w.x1, w.y1);
-        ctx.lineTo(w.x2, w.y2);
-        ctx.stroke();
+        // Openings interrupt the 2D wall stroke so doors/windows are real gaps,
+        // including on diagonal walls. Their positions are projected onto the wall axis.
+        const wallDx = w.x2 - w.x1, wallDy = w.y2 - w.y1;
+        const wallLen = Math.hypot(wallDx, wallDy) || 1;
+        const wallOpenings = project.openings.filter(op => {
+          if (op.wallId === w.id) return true;
+          const t = Math.max(0, Math.min(1, ((op.x-w.x1)*wallDx+(op.y-w.y1)*wallDy)/(wallLen*wallLen)));
+          return Math.hypot(op.x-(w.x1+t*wallDx), op.y-(w.y1+t*wallDy)) <= 12;
+        }).map(op => {
+          const t = Math.max(0, Math.min(1, ((op.x-w.x1)*wallDx+(op.y-w.y1)*wallDy)/(wallLen*wallLen)));
+          const half = Math.min(wallLen*0.45, Math.max(8, op.width/2));
+          return {start:Math.max(0,t*wallLen-half),end:Math.min(wallLen,t*wallLen+half)};
+        }).sort((a,b)=>a.start-b.start);
+        let wallCursor = 0;
+        wallOpenings.forEach(gap => {
+          if (gap.start > wallCursor) {
+            ctx.beginPath(); ctx.moveTo(w.x1+wallDx*wallCursor/wallLen,w.y1+wallDy*wallCursor/wallLen);
+            ctx.lineTo(w.x1+wallDx*gap.start/wallLen,w.y1+wallDy*gap.start/wallLen); ctx.stroke();
+          }
+          wallCursor = Math.max(wallCursor,gap.end);
+        });
+        if (wallCursor < wallLen) {
+          ctx.beginPath(); ctx.moveTo(w.x1+wallDx*wallCursor/wallLen,w.y1+wallDy*wallCursor/wallLen);
+          ctx.lineTo(w.x2,w.y2); ctx.stroke();
+        }
 
         // Dimensions sit outside the room perimeter; while drawing/moving a junction,
         // temporarily show the two resulting lengths and restore the full length afterward.
@@ -363,7 +384,33 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
 
     if (dragRef.current && currentMouse) {
       const drag = dragRef.current; ctx.save(); ctx.globalAlpha = 0.55; ctx.strokeStyle = '#5B9BFF'; ctx.fillStyle = '#5B9BFF'; ctx.lineWidth = 4; ctx.setLineDash([5, 3]);
-      if (drag.kind === 'wall') { const w = project.walls.find(item => item.id === drag.id); if (w) { const dx = currentMouse.x - drag.x, dy = currentMouse.y - drag.y; ctx.beginPath(); ctx.moveTo(w.x1 + dx, w.y1 + dy); ctx.lineTo(w.x2 + dx, w.y2 + dy); ctx.stroke(); } }
+      if (drag.kind === 'wall') {
+        const w = project.walls.find(item => item.id === drag.id);
+        if (w) {
+          const dx = currentMouse.x - drag.x, dy = currentMouse.y - drag.y;
+          if (drag.endpoint) {
+            const old = drag.endpoint === 1 ? {x:w.x1,y:w.y1} : {x:w.x2,y:w.y2};
+            const moved = {x:currentMouse.x,y:currentMouse.y};
+            const connected = project.walls.filter(other => other.id !== w.id &&
+              (Math.hypot(other.x1-old.x,other.y1-old.y)<2 || Math.hypot(other.x2-old.x,other.y2-old.y)<2));
+            connected.forEach(other => {
+              ctx.beginPath();
+              ctx.moveTo(Math.hypot(other.x1-old.x,other.y1-old.y)<2?moved.x:other.x1,Math.hypot(other.x1-old.x,other.y1-old.y)<2?moved.y:other.y1);
+              ctx.lineTo(Math.hypot(other.x2-old.x,other.y2-old.y)<2?moved.x:other.x2,Math.hypot(other.x2-old.x,other.y2-old.y)<2?moved.y:other.y2);ctx.stroke();
+            });
+            ctx.beginPath();ctx.moveTo(drag.endpoint===1?moved.x:w.x1+dx,drag.endpoint===1?moved.y:w.y1+dy);ctx.lineTo(drag.endpoint===2?moved.x:w.x2+dx,drag.endpoint===2?moved.y:w.y2+dy);ctx.stroke();
+            ctx.beginPath();ctx.arc(moved.x,moved.y,5,0,Math.PI*2);ctx.fill();
+          } else {
+            const movedA={x:w.x1+dx,y:w.y1+dy}, movedB={x:w.x2+dx,y:w.y2+dy};
+            ctx.beginPath();ctx.moveTo(movedA.x,movedA.y);ctx.lineTo(movedB.x,movedB.y);ctx.stroke();
+            // Preview a prospective junction when either translated endpoint approaches another wall.
+            project.walls.filter(other=>other.id!==w.id).forEach(other=>{
+              const vx=other.x2-other.x1,vy=other.y2-other.y1,l2=vx*vx+vy*vy||1;
+              [movedA,movedB].forEach(p=>{const t=Math.max(0,Math.min(1,((p.x-other.x1)*vx+(p.y-other.y1)*vy)/l2));const q={x:other.x1+t*vx,y:other.y1+t*vy};if(Math.hypot(p.x-q.x,p.y-q.y)<18){ctx.beginPath();ctx.arc(q.x,q.y,6,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();}});
+            });
+          }
+        }
+      }
       else { const item = drag.kind === 'opening' ? project.openings.find(o => o.id === drag.id) : drag.kind === 'electrical' ? project.electrical.find(o => o.id === drag.id) : project.hydraulic.find(o => o.id === drag.id); if (item) { ctx.beginPath(); ctx.arc(item.x + currentMouse.x - drag.x, item.y + currentMouse.y - drag.y, 12, 0, Math.PI * 2); ctx.stroke(); } }
       ctx.restore();
     }
@@ -540,7 +587,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     const x = snap((e.clientX - rect.left - canvasPan.x) / zoom);
     const y = snap((e.clientY - rect.top - canvasPan.y) / zoom);
 
-    if (tool === 'select' && showWallVertices) {
+    if ((tool === 'select' || (tool === 'wall' && wallDrawMode === 'segment')) && showWallVertices) {
       const vertexHit = project.walls.flatMap(w => [
         { wall: w, endpoint: 1 as const, x: w.x1, y: w.y1 },
         { wall: w, endpoint: 2 as const, x: w.x2, y: w.y2 },
@@ -1055,6 +1102,16 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       {selectedObject && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#2A3A55] bg-[#17243A] p-2">
           <span className="px-2 text-xs text-[#9FB0C8]">Elemento selecionado</span>
+          {selectedObject.kind === 'opening' && project.openings.find(o => o.id === selectedObject.id)?.type === 'door' && (
+            <label className="flex items-center gap-2 text-xs text-[#9FB0C8]">
+              Porta
+              <select value={project.openings.find(o => o.id === selectedObject.id)?.doorStyle ?? 'wood'}
+                onChange={e => updateProjectState({...project,openings:project.openings.map(o=>o.id===selectedObject.id?{...o,doorStyle:e.target.value as NonNullable<OpeningItem['doorStyle']>}:o)})}
+                className="min-h-[40px] rounded-lg border border-[#2A3A55] bg-[#101827] px-2 text-white" aria-label="Modelo de porta">
+                <option value="wood">Madeira</option><option value="sliding">Deslizante</option><option value="glass">Vidro</option><option value="metal">Metal</option>
+              </select>
+            </label>
+          )}
           <button type="button" onClick={() => {
             const kind=selectedObject.kind,id=selectedObject.id;
             if(kind==='wall') updateProjectState({...project,walls:project.walls.map(v=>v.id===id?{...v,locked:!v.locked}:v)});
