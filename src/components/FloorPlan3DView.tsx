@@ -95,6 +95,52 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark }) => {
 
         // One floor surface shared with all scene objects.
         addBox(spanX + 180, 4, spanZ + 180, centerX, -3, centerZ, isDark ? 0x1e293b : 0xdbe4ee);
+
+        // Individual room floors are polygonal surfaces, not rectangular approximations.
+        const roomMaterials: Record<string, number> = {
+          concrete: isDark ? 0x64748b : 0xcbd5e1,
+          wood: 0xa8794f,
+          tile: isDark ? 0x94a3b8 : 0xe2e8f0,
+          stone: isDark ? 0x78716c : 0xd6d3d1,
+          laminate: 0xc49a6c,
+        };
+        (project.rooms ?? []).forEach((room: any) => {
+          if (!Array.isArray(room.vertices) || room.vertices.length < 3) return;
+          const shape = new THREE.Shape();
+          shape.moveTo(room.vertices[0].x, -room.vertices[0].y);
+          room.vertices.slice(1).forEach((p: {x:number;y:number}) => shape.lineTo(p.x, -p.y));
+          shape.closePath();
+          const floor = new THREE.Mesh(
+            new THREE.ShapeGeometry(shape),
+            new THREE.MeshStandardMaterial({ color: roomMaterials[room.material] ?? roomMaterials.concrete, roughness: room.material === 'tile' ? 0.35 : 0.85, side: THREE.DoubleSide })
+          );
+          floor.rotation.x = -Math.PI / 2;
+          floor.position.y = -0.65;
+          floor.receiveShadow = true;
+          scene.add(floor);
+
+          const center = room.vertices.reduce((a: {x:number;y:number}, p: {x:number;y:number}) => ({x:a.x+p.x/room.vertices.length,y:a.y+p.y/room.vertices.length}), {x:0,y:0});
+          if (room.name) {
+            const labelCanvas = document.createElement('canvas');
+            labelCanvas.width = 512; labelCanvas.height = 128;
+            const labelCtx = labelCanvas.getContext('2d');
+            if (labelCtx) {
+              labelCtx.clearRect(0,0,512,128);
+              labelCtx.fillStyle = isDark ? 'rgba(15,23,42,0.72)' : 'rgba(255,255,255,0.72)';
+              labelCtx.fillRect(12,28,488,72);
+              labelCtx.font = 'bold 38px sans-serif';
+              labelCtx.textAlign = 'center'; labelCtx.textBaseline = 'middle';
+              labelCtx.fillStyle = isDark ? '#F8FAFC' : '#0F172A';
+              labelCtx.fillText(String(room.name).slice(0,32),256,64);
+              const texture = new THREE.CanvasTexture(labelCanvas);
+              const label = new THREE.Mesh(new THREE.PlaneGeometry(72,18),new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false,side:THREE.DoubleSide}));
+              label.rotation.x = -Math.PI/2;
+              label.position.set(center.x,0.15,center.y);
+              scene.add(label);
+            }
+          }
+        });
+
         const grid = new THREE.GridHelper(Math.max(spanX, spanZ) + 160, Math.max(10, Math.round(Math.max(spanX, spanZ) / 20)), isDark ? 0x475569 : 0x94a3b8, isDark ? 0x334155 : 0xcbd5e1);
         grid.position.set(centerX, -0.7, centerZ);
         scene.add(grid);
