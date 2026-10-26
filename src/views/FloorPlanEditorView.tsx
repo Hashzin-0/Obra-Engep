@@ -899,7 +899,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           Arquitetura (Paredes)
         </button>
         <button
-          onClick={() => { const next = !showElecLayer; setShowElecLayer(next); if (!next && ['light','socket','switch','panel','wire','conduit','data_point','grounding','solar_panel'].includes(tool) setTool('select'); }}
+          onClick={() => { const next = !showElecLayer; setShowElecLayer(next); if (!next && ['light','socket','switch','panel','wire','conduit','data_point','grounding','solar_panel'].includes(tool)) setTool('select'); }}
           className={`px-3 py-1 rounded-lg border transition flex items-center gap-1 ${
             showElecLayer
               ? 'bg-[#EAB308] text-black font-semibold border-[#EAB308]'
