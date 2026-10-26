@@ -16,6 +16,7 @@ import {
   Bookmark,
   Check,
   Gauge,
+  Fuel,
   Layers,
   ShieldCheck,
   Disc,
