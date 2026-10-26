@@ -186,6 +186,7 @@ export interface OpeningItem {
   width: number;
   rotation?: number;
   locked?: boolean;
+  doorStyle?: 'wood' | 'sliding' | 'glass' | 'metal';
 }
 
 export interface ElectricalItem {
