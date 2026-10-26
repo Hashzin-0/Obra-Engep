@@ -521,7 +521,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       }
       e.currentTarget.setPointerCapture(e.pointerId); return;
     }
-    if (['wire','water_pipe','sewage_pipe'].includes(tool)) { placementRef.current=false; setIsDrawing(true); setStartPoint({x,y}); setCurrentMouse({x,y}); e.currentTarget.setPointerCapture(e.pointerId); return; }
+    if (['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'].includes(tool)) { placementRef.current=false; setIsDrawing(true); setStartPoint({x,y}); setCurrentMouse({x,y}); e.currentTarget.setPointerCapture(e.pointerId); return; }
     const kind = activeKind();
     if (kind) {
       const threshold = 18;
