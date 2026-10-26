@@ -168,6 +168,15 @@ export interface WallSegment {
   locked?: boolean;
 }
 
+export type FloorMaterial = 'concrete' | 'wood' | 'tile' | 'stone' | 'laminate';
+
+export interface FloorPlanRoom {
+  id: string;
+  name: string;
+  vertices: Array<{ x: number; y: number }>;
+  material: FloorMaterial;
+}
+
 export interface OpeningItem {
   id: string;
   type: 'door' | 'window';
@@ -182,7 +191,7 @@ export interface OpeningItem {
 export interface ElectricalItem {
   rotation?: number;
   id: string;
-  type: 'socket' | 'switch' | 'light' | 'panel' | 'wire' | 'conduit' | 'data_point' | 'grounding';
+  type: 'socket' | 'switch' | 'light' | 'panel' | 'wire' | 'conduit' | 'data_point' | 'grounding' | 'solar_panel';
   x2?: number;
   y2?: number;
   locked?: boolean;
@@ -194,7 +203,7 @@ export interface ElectricalItem {
 
 export interface HydraulicItem {
   id: string;
-  type: 'cold_water' | 'hot_water' | 'sewage' | 'drain' | 'water_pipe' | 'sewage_pipe' | 'vent_pipe' | 'rain_pipe' | 'sink' | 'faucet' | 'shower' | 'toilet' | 'floor_drain' | 'cleanout' | 'inspection_box' | 'tank' | 'heater' | 'grease_trap';
+  type: 'cold_water' | 'hot_water' | 'sewage' | 'drain' | 'water_pipe' | 'sewage_pipe' | 'vent_pipe' | 'rain_pipe' | 'sink' | 'faucet' | 'shower' | 'toilet' | 'floor_drain' | 'cleanout' | 'inspection_box' | 'tank' | 'heater' | 'grease_trap' | 'pool';
   x2?: number;
   y2?: number;
   locked?: boolean;
@@ -245,6 +254,7 @@ export interface FloorPlanProject {
   scale: string; // e.g. "1:50"
   updatedAt: string;
   walls: WallSegment[];
+  rooms?: FloorPlanRoom[];
   openings: OpeningItem[];
   electrical: ElectricalItem[];
   hydraulic: HydraulicItem[];

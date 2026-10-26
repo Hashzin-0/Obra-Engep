@@ -95,6 +95,52 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark }) => {
 
         // One floor surface shared with all scene objects.
         addBox(spanX + 180, 4, spanZ + 180, centerX, -3, centerZ, isDark ? 0x1e293b : 0xdbe4ee);
+
+        // Individual room floors are polygonal surfaces, not rectangular approximations.
+        const roomMaterials: Record<string, number> = {
+          concrete: isDark ? 0x64748b : 0xcbd5e1,
+          wood: 0xa8794f,
+          tile: isDark ? 0x94a3b8 : 0xe2e8f0,
+          stone: isDark ? 0x78716c : 0xd6d3d1,
+          laminate: 0xc49a6c,
+        };
+        (project.rooms ?? []).forEach((room: any) => {
+          if (!Array.isArray(room.vertices) || room.vertices.length < 3) return;
+          const shape = new THREE.Shape();
+          shape.moveTo(room.vertices[0].x, -room.vertices[0].y);
+          room.vertices.slice(1).forEach((p: {x:number;y:number}) => shape.lineTo(p.x, -p.y));
+          shape.closePath();
+          const floor = new THREE.Mesh(
+            new THREE.ShapeGeometry(shape),
+            new THREE.MeshStandardMaterial({ color: roomMaterials[room.material] ?? roomMaterials.concrete, roughness: room.material === 'tile' ? 0.35 : 0.85, side: THREE.DoubleSide })
+          );
+          floor.rotation.x = -Math.PI / 2;
+          floor.position.y = -0.65;
+          floor.receiveShadow = true;
+          scene.add(floor);
+
+          const center = room.vertices.reduce((a: {x:number;y:number}, p: {x:number;y:number}) => ({x:a.x+p.x/room.vertices.length,y:a.y+p.y/room.vertices.length}), {x:0,y:0});
+          if (room.name) {
+            const labelCanvas = document.createElement('canvas');
+            labelCanvas.width = 512; labelCanvas.height = 128;
+            const labelCtx = labelCanvas.getContext('2d');
+            if (labelCtx) {
+              labelCtx.clearRect(0,0,512,128);
+              labelCtx.fillStyle = isDark ? 'rgba(15,23,42,0.72)' : 'rgba(255,255,255,0.72)';
+              labelCtx.fillRect(12,28,488,72);
+              labelCtx.font = 'bold 38px sans-serif';
+              labelCtx.textAlign = 'center'; labelCtx.textBaseline = 'middle';
+              labelCtx.fillStyle = isDark ? '#F8FAFC' : '#0F172A';
+              labelCtx.fillText(String(room.name).slice(0,32),256,64);
+              const texture = new THREE.CanvasTexture(labelCanvas);
+              const label = new THREE.Mesh(new THREE.PlaneGeometry(72,18),new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false,side:THREE.DoubleSide}));
+              label.rotation.x = -Math.PI/2;
+              label.position.set(center.x,0.15,center.y);
+              scene.add(label);
+            }
+          }
+        });
+
         const grid = new THREE.GridHelper(Math.max(spanX, spanZ) + 160, Math.max(10, Math.round(Math.max(spanX, spanZ) / 20)), isDark ? 0x475569 : 0x94a3b8, isDark ? 0x334155 : 0xcbd5e1);
         grid.position.set(centerX, -0.7, centerZ);
         scene.add(grid);
@@ -172,6 +218,12 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark }) => {
 
         project.electrical.forEach(item => {
           if ((item.type === 'wire' || item.type === 'conduit') && item.x2 !== undefined && item.y2 !== undefined) { const dx=item.x2-item.x,dz=item.y2-item.y,len=Math.hypot(dx,dz); if(len>1){const mesh=addBox(len,item.type==='conduit'?4:2,2,(item.x+item.x2)/2,8,(item.y+item.y2)/2,item.type==='conduit'?0xa78bfa:0xfacc15);mesh.rotation.y=-Math.atan2(dz,dx);} return; }
+          if (item.type === 'solar_panel') {
+            const panel = addBox(28, 2, 20, item.x, 8, item.y, 0x1d4ed8);
+            panel.rotation.y = -((item.rotation ?? 0) * Math.PI / 180);
+            panel.material = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, emissive: 0x172554, roughness: 0.35, metalness: 0.25 });
+            return;
+          }
           const color = item.type === 'light' ? 0xfacc15 : item.type === 'panel' ? 0x2563eb : 0xfb7185;
           const point = new THREE.Mesh(new THREE.SphereGeometry(item.type === 'light' ? 6 : 4, 16, 12), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.12 }));
           point.position.set(item.x, item.type === 'light' ? 102 : 7, item.y);
@@ -179,6 +231,11 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark }) => {
         });
         project.hydraulic.forEach(item => {
           if ((item.type === 'water_pipe' || item.type === 'sewage_pipe' || item.type === 'vent_pipe' || item.type === 'rain_pipe') && item.x2 !== undefined && item.y2 !== undefined) { const dx=item.x2-item.x,dz=item.y2-item.y,len=Math.hypot(dx,dz); if(len>1){const mesh=addBox(len,item.type==='sewage_pipe'?4:3,3,(item.x+item.x2)/2,5,(item.y+item.y2)/2,item.type==='sewage_pipe'?0x92400e:item.type==='rain_pipe'?0x2563eb:item.type==='vent_pipe'?0xa78bfa:0x0ea5e9);mesh.rotation.y=-Math.atan2(dz,dx);} return; }
+          if (item.type === 'pool') {
+            const pool = addBox(48, 3, 32, item.x, -0.2, item.y, 0x0891b2);
+            pool.material = new THREE.MeshStandardMaterial({ color: 0x0891b2, roughness: 0.2, metalness: 0.05, transparent: true, opacity: 0.78 });
+            return;
+          }
           const color = item.type === 'sewage' || item.type === 'drain' || item.type === 'sewage_pipe' || item.type === 'grease_trap' || item.type === 'inspection_box' ? 0x92400e : item.type === 'rain_pipe' ? 0x2563eb : item.type === 'vent_pipe' ? 0xa78bfa : 0x0ea5e9;
           const point = new THREE.Mesh(new THREE.CylinderGeometry(['sink','faucet','shower','toilet','floor_drain','cleanout','inspection_box','tank','heater','grease_trap'].includes(item.type)?8:5, ['sink','faucet','shower','toilet'].includes(item.type)?8:5, 5, 16), new THREE.MeshStandardMaterial({ color }));
           point.position.set(item.x, 5, item.y);
