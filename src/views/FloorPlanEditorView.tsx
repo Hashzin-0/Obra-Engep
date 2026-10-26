@@ -224,19 +224,40 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         ctx.lineTo(w.x2, w.y2);
         ctx.stroke();
 
-        // Dimension text along wall if dimensions enabled
+        // Dimensions sit outside the room perimeter; while drawing/moving a junction,
+        // temporarily show the two resulting lengths and restore the full length afterward.
         if (showDimensions) {
-          const dx = w.x2 - w.x1;
-          const dy = w.y2 - w.y1;
-          const lengthPx = Math.sqrt(dx * dx + dy * dy);
-          const lengthM = (lengthPx / 40).toFixed(2); // 40px = 1.00m
-
-          const midX = (w.x1 + w.x2) / 2;
-          const midY = (w.y1 + w.y2) / 2;
-
-          ctx.fillStyle = '#5B9BFF';
-          ctx.font = '10px Roboto, sans-serif';
-          ctx.fillText(`${lengthM} m`, midX - 12, midY - 6);
+          const dx = w.x2 - w.x1, dy = w.y2 - w.y1;
+          const lengthPx = Math.hypot(dx, dy);
+          const lengthM = (lengthPx / 40).toFixed(2);
+          const midX = (w.x1 + w.x2) / 2, midY = (w.y1 + w.y2) / 2;
+          const room = (project.rooms ?? []).find(r => r.vertices.some((p,i) => {
+            const q = r.vertices[(i+1)%r.vertices.length];
+            return (Math.hypot(p.x-w.x1,p.y-w.y1)<3 && Math.hypot(q.x-w.x2,q.y-w.y2)<3) ||
+              (Math.hypot(p.x-w.x2,p.y-w.y2)<3 && Math.hypot(q.x-w.x1,q.y-w.y1)<3);
+          }));
+          let nx = -dy / Math.max(1,lengthPx), ny = dx / Math.max(1,lengthPx);
+          if (room) {
+            const cx=room.vertices.reduce((a,p)=>a+p.x/room.vertices.length,0), cy=room.vertices.reduce((a,p)=>a+p.y/room.vertices.length,0);
+            if ((midX+nx*20-cx)**2+(midY+ny*20-cy)**2 < (midX-nx*20-cx)**2+(midY-ny*20-cy)**2) { nx=-nx; ny=-ny; }
+          }
+          const labelAt = (text:string, x:number, y:number) => {
+            ctx.save(); ctx.font='10px Roboto, sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+            const width=ctx.measureText(text).width+8;
+            ctx.fillStyle=isDark?'rgba(15,23,42,.92)':'rgba(255,255,255,.94)';
+            ctx.fillRect(x-width/2,y-8,width,16); ctx.fillStyle='#5B9BFF'; ctx.fillText(text,x,y); ctx.restore();
+          };
+          const candidates = [currentMouse, startPoint].filter((p): p is {x:number;y:number} => !!p);
+          const split = candidates.map(p => {
+            const t=((p.x-w.x1)*dx+(p.y-w.y1)*dy)/(lengthPx*lengthPx||1);
+            const px=w.x1+t*dx, py=w.y1+t*dy;
+            return {t, distance:Math.hypot(p.x-px,p.y-py)};
+          }).find(v=>v.t>0.03&&v.t<0.97&&v.distance<16);
+          if (split && lengthPx>1) {
+            const first=lengthPx*split.t/40, second=lengthPx*(1-split.t)/40;
+            labelAt(`${first.toFixed(2)} m`,w.x1+dx*split.t/2+nx*18,w.y1+dy*split.t/2+ny*18);
+            labelAt(`${second.toFixed(2)} m`,w.x1+dx*(split.t+(1-split.t)/2)+nx*18,w.y1+dy*(split.t+(1-split.t)/2)+ny*18);
+          } else labelAt(`${lengthM} m`,midX+nx*18,midY+ny*18);
         }
       });
 
