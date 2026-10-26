@@ -168,6 +168,15 @@ export interface WallSegment {
   locked?: boolean;
 }
 
+export type FloorMaterial = 'concrete' | 'wood' | 'tile' | 'stone' | 'laminate';
+
+export interface FloorPlanRoom {
+  id: string;
+  name: string;
+  vertices: Array<{ x: number; y: number }>;
+  material: FloorMaterial;
+}
+
 export interface OpeningItem {
   id: string;
   type: 'door' | 'window';
@@ -245,6 +254,7 @@ export interface FloorPlanProject {
   scale: string; // e.g. "1:50"
   updatedAt: string;
   walls: WallSegment[];
+  rooms?: FloorPlanRoom[];
   openings: OpeningItem[];
   electrical: ElectricalItem[];
   hydraulic: HydraulicItem[];
