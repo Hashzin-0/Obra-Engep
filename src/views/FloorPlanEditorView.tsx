@@ -27,7 +27,7 @@ import {
   Unlock,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
-import { FloorPlanProject, WallSegment, OpeningItem, ElectricalItem, HydraulicItem, ProjectDeadline } from '../types';
+import { FloorPlanProject, FloorPlanRoom, FloorMaterial, WallSegment, OpeningItem, ElectricalItem, HydraulicItem, ProjectDeadline } from '../types';
 import { createEmptyProject } from '../data/referenceData';
 import { ensureUuid } from '../utils/uuid';
 import { LimitBar } from '../components/LimitBar';
@@ -95,6 +95,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   const activePointersRef = useRef(new Map<number, { x: number; y: number }>());
   const panGestureRef = useRef<{ x: number; y: number; centerX: number; centerY: number; distance:number; zoom:number } | null>(null);
   const [stage, setStage] = useState<'estudo_preliminar' | 'executivo'>(project.stage);
+  const [pendingRoomId, setPendingRoomId] = useState<string | null>(null);
 
   useEffect(() => {
     if (projects.length > 0 && !projects.some((item) => item.id === project.id)) {
@@ -113,7 +114,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
   const [currentMouse, setCurrentMouse] = useState<{ x: number; y: number } | null>(null);
   const [selectedObject, setSelectedObject] = useState<{ kind: 'wall' | 'opening' | 'electrical' | 'hydraulic'; id: string } | null>(null);
-  const dragRef = useRef<{ kind: 'wall' | 'opening' | 'electrical' | 'hydraulic'; id: string; x: number; y: number } | null>(null);
+  const dragRef = useRef<{ kind: 'wall' | 'opening' | 'electrical' | 'hydraulic'; id: string; x: number; y: number; endpoint?: 1 | 2 } | null>(null);
   const placementRef = useRef(false);
 
   // Push state to undo history
@@ -181,6 +182,35 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         ctx.lineTo(width / zoom, y);
         ctx.stroke();
       }
+    }
+
+    // Room floors are drawn before walls so the wall strokes remain on top.
+    if (showArchLayer) {
+      (project.rooms ?? []).forEach((room) => {
+        if (room.vertices.length < 3) return;
+        const materialColors: Record<FloorMaterial, string> = {
+          concrete: isDark ? '#64748B' : '#CBD5E1',
+          wood: '#A8794F',
+          tile: isDark ? '#94A3B8' : '#E2E8F0',
+          stone: isDark ? '#78716C' : '#D6D3D1',
+          laminate: '#C49A6C',
+        };
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(room.vertices[0].x, room.vertices[0].y);
+        room.vertices.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.closePath();
+        ctx.fillStyle = materialColors[room.material] ?? materialColors.concrete;
+        ctx.globalAlpha = 0.72;
+        ctx.fill();
+        const center = room.vertices.reduce((acc,p)=>({x:acc.x+p.x/room.vertices.length,y:acc.y+p.y/room.vertices.length}),{x:0,y:0});
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = isDark ? '#F8FAFC' : '#0F172A';
+        ctx.font = 'bold 12px Roboto, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(room.name || 'Cômodo', center.x, center.y);
+        ctx.restore();
+      });
     }
 
     // ARCHITECTURAL LAYER: Walls
@@ -450,6 +480,21 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     const x = snap((e.clientX - rect.left - canvasPan.x) / zoom);
     const y = snap((e.clientY - rect.top - canvasPan.y) / zoom);
 
+    if (tool === 'select' && showWallVertices) {
+      const vertexHit = project.walls.flatMap(w => [
+        { wall: w, endpoint: 1 as const, x: w.x1, y: w.y1 },
+        { wall: w, endpoint: 2 as const, x: w.x2, y: w.y2 },
+      ]).reverse().find(v => Math.hypot(v.x - x, v.y - y) <= 12);
+      if (vertexHit) {
+        const target = { kind: 'wall' as const, id: vertexHit.wall.id };
+        setSelectedObject(target);
+        setSelectedObjects([target]);
+        dragRef.current = vertexHit.wall.locked ? null : { ...target, x: vertexHit.x, y: vertexHit.y, endpoint: vertexHit.endpoint };
+        e.currentTarget.setPointerCapture(e.pointerId);
+        return;
+      }
+    }
+
     if (tool === 'select') { const hit=[...project.openings.map(o=>({kind:'opening' as const,id:o.id,x:o.x,y:o.y})),...project.electrical.map(o=>({kind:'electrical' as const,id:o.id,x:o.x,y:o.y})),...project.hydraulic.map(o=>({kind:'hydraulic' as const,id:o.id,x:o.x,y:o.y})),...project.walls.map(w=>({kind:'wall' as const,id:w.id,x:(w.x1+w.x2)/2,y:(w.y1+w.y2)/2}))].reverse().find(o=>Math.hypot(o.x-x,o.y-y)<20); if(hit){const hitItem=hit.kind==='wall'?project.walls.find(v=>v.id===hit.id):hit.kind==='opening'?project.openings.find(v=>v.id===hit.id):hit.kind==='electrical'?project.electrical.find(v=>v.id===hit.id):project.hydraulic.find(v=>v.id===hit.id);if(hitItem?.locked){const target={kind:hit.kind,id:hit.id};setSelectedObject(target);setSelectedObjects([target]);dragRef.current=null;e.currentTarget.setPointerCapture(e.pointerId);return;}const target={kind:hit.kind,id:hit.id};setSelectedObjects(prev=>e.shiftKey?(prev.some(s=>s.id===hit.id&&s.kind===hit.kind)?prev.filter(s=>s.id!==hit.id):[...prev,target]):(prev.some(s=>s.id===hit.id&&s.kind===hit.kind)?prev:[target]));setSelectedObject(target);dragRef.current={...target,x,y};selectionStartRef.current=null;}else{selectionStartRef.current={x,y};setSelectionRect({x1:x,y1:y,x2:x,y2:y});setIsDrawing(true);if(!e.shiftKey){setSelectedObjects([]);setSelectedObject(null);}} e.currentTarget.setPointerCapture(e.pointerId);return; }
     if (tool === 'wall' && wallDrawMode === 'sequence') {
       const points = wallSequencePoints;
@@ -473,10 +518,21 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           (Math.hypot(w.x1-previous.x,w.y1-previous.y)<2 && Math.hypot(w.x2-end.x,w.y2-end.y)<2) ||
           (Math.hypot(w.x2-previous.x,w.y2-previous.y)<2 && Math.hypot(w.x1-end.x,w.y1-end.y)<2)
         );
-        if (Math.hypot(end.x - previous.x, end.y - previous.y) > 1 && !alreadyExists) {
-          const newWall: WallSegment = { id: ensureUuid('wall'), x1: previous.x, y1: previous.y, x2: end.x, y2: end.y, thickness: 15 };
-          updateProjectState({ ...project, walls: [...project.walls, newWall] });
+        const addedWalls = Math.hypot(end.x - previous.x, end.y - previous.y) > 1 && !alreadyExists
+          ? [{ id: ensureUuid('wall'), x1: previous.x, y1: previous.y, x2: end.x, y2: end.y, thickness: 15 } as WallSegment]
+          : [];
+        const nextWalls = [...project.walls, ...addedWalls];
+        let nextRooms = project.rooms ?? [];
+        if (closesRoom) {
+          const vertices = [...points, ...(returnsToStart ? [] : [end])];
+          const uniqueVertices = vertices.filter((p, i) => i === 0 || Math.hypot(p.x - vertices[i-1].x, p.y - vertices[i-1].y) > 1);
+          if (uniqueVertices.length >= 3) {
+            const room: FloorPlanRoom = { id: ensureUuid('room'), name: 'Novo cômodo', vertices: uniqueVertices, material: 'concrete' };
+            nextRooms = [...nextRooms, room];
+            setPendingRoomId(room.id);
+          }
         }
+        if (addedWalls.length || nextRooms !== (project.rooms ?? [])) updateProjectState({ ...project, walls: nextWalls, rooms: nextRooms });
         if (closesRoom) { setWallSequencePoints([]); setCurrentMouse(null); }
         else setWallSequencePoints([...points, end]);
       }
@@ -552,7 +608,22 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       const rect = e.currentTarget.getBoundingClientRect();
       const endX = snap((e.clientX - rect.left - canvasPan.x) / zoom), endY = snap((e.clientY - rect.top - canvasPan.y) / zoom);
       const dx = endX - drag.x, dy = endY - drag.y;
-      if ((dx || dy) && tool === 'select' && selectedObjects.length > 1 && selectedObjects.some(s=>s.id===drag.id&&s.kind===drag.kind)) {
+      if (drag.kind === 'wall' && drag.endpoint && (dx || dy)) {
+        const wall = project.walls.find(w => w.id === drag.id);
+        if (wall) {
+          const oldX = drag.endpoint === 1 ? wall.x1 : wall.x2;
+          const oldY = drag.endpoint === 1 ? wall.y1 : wall.y2;
+          const newX = gapEnabled ? snap(endX) : endX;
+          const newY = gapEnabled ? snap(endY) : endY;
+          const walls = project.walls.map(w => ({
+            ...w,
+            ...(drag.endpoint === 1 && Math.hypot(w.x1-oldX,w.y1-oldY) < 2 ? { x1:newX, y1:newY } : {}),
+            ...(drag.endpoint === 2 && Math.hypot(w.x2-oldX,w.y2-oldY) < 2 ? { x2:newX, y2:newY } : {}),
+          }));
+          const rooms = (project.rooms ?? []).map(room => ({ ...room, vertices: room.vertices.map(p => Math.hypot(p.x-oldX,p.y-oldY)<2 ? {x:newX,y:newY} : p) }));
+          updateProjectState({ ...project, walls, rooms });
+        }
+      } else if ((dx || dy) && tool === 'select' && selectedObjects.length > 1 && selectedObjects.some(s=>s.id===drag.id&&s.kind===drag.kind)) {
         const ids=(kind:string)=>new Set(selectedObjects.filter(s=>s.kind===kind).map(s=>s.id)); const walls=ids('wall'), openings=ids('opening'), electrical=ids('electrical'), hydraulic=ids('hydraulic');
         updateProjectState({...project,walls:project.walls.map(w=>walls.has(w.id)?{...w,x1:w.x1+dx,y1:w.y1+dy,x2:w.x2+dx,y2:w.y2+dy}:w),openings:project.openings.map(o=>openings.has(o.id)?{...o,x:o.x+dx,y:o.y+dy}:o),electrical:project.electrical.map(o=>electrical.has(o.id)?{...o,x:o.x+dx,y:o.y+dy}:o),hydraulic:project.hydraulic.map(o=>hydraulic.has(o.id)?{...o,x:o.x+dx,y:o.y+dy}:o)});
       } else if (dx || dy) {
@@ -998,6 +1069,26 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           </div>
         </div>
       )}
+
+      {pendingRoomId && (() => {
+        const room = (project.rooms ?? []).find(item => item.id === pendingRoomId);
+        if (!room) return null;
+        return <div className="fixed bottom-20 left-3 right-3 z-50 mx-auto max-w-md rounded-2xl border border-[#3B82F6]/50 bg-[#17243A] p-4 shadow-2xl">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-bold text-white">Cômodo criado</h3>
+            <button type="button" onClick={() => setPendingRoomId(null)} className="rounded-lg px-2 py-1 text-xs text-[#9FB0C8]">Concluir</button>
+          </div>
+          <label className="block text-xs text-[#9FB0C8]">Nome do cômodo
+            <input autoFocus value={room.name} onChange={e => updateProjectState({...project, rooms:(project.rooms ?? []).map(item=>item.id===room.id?{...item,name:e.target.value}:item)})} className="mt-1 min-h-10 w-full rounded-lg border border-[#2A3A55] bg-[#101827] px-3 text-sm text-white" placeholder="Ex.: Sala, cozinha, banheiro" />
+          </label>
+          <label className="mt-3 block text-xs text-[#9FB0C8]">Material do piso
+            <select value={room.material} onChange={e => updateProjectState({...project, rooms:(project.rooms ?? []).map(item=>item.id===room.id?{...item,material:e.target.value as FloorMaterial}:item)})} className="mt-1 min-h-10 w-full rounded-lg border border-[#2A3A55] bg-[#101827] px-3 text-sm text-white">
+              <option value="concrete">Concreto</option><option value="wood">Madeira</option><option value="tile">Azulejo / cerâmica</option><option value="stone">Pedra</option><option value="laminate">Piso laminado</option>
+            </select>
+          </label>
+          <p className="mt-2 text-[10px] text-[#9FB0C8]">O nome também aparece sobre o piso na planta 2D e 3D.</p>
+        </div>;
+      })()}
 
       {/* Bottom Tools Toolbar (Page 6 briefing: "Barra de ferramentas inferior") */}
       <div className="p-2.5 rounded-2xl bg-[#17243A] border border-[#2A3A55] grid grid-cols-2 sm:flex sm:items-center sm:justify-between gap-1">
