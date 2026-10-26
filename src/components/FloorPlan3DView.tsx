@@ -128,10 +128,20 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark }) => {
           }).sort((a,b)=>a.start-b.start);
           const addWallPart = (start:number, end:number, bottom:number, height:number) => {
             if (end-start < 1 || height < 1) return;
-            const mid = (start+end)/2;
+
+            // Wall coordinates describe centerlines. Extend only the actual wall
+            // endpoints by half their thickness so perpendicular walls overlap
+            // at shared corners instead of leaving a visible notch or nested end.
+            // Do not extend door-jamb cuts: those are interior segment boundaries.
+            const joinsAtStart = start <= 0.001;
+            const joinsAtEnd = end >= length - 0.001;
+            const partStart = joinsAtStart ? start - thickness / 2 : start;
+            const partEnd = joinsAtEnd ? end + thickness / 2 : end;
+            const partLength = partEnd - partStart;
+            const mid = (partStart + partEnd) / 2;
             const x = w.x1 + (dx/length)*mid;
             const z = w.y1 + (dz/length)*mid;
-            const mesh = addBox(end-start, height, thickness, x, bottom+height/2, z, isDark ? 0x94a3b8 : 0xcbd5e1);
+            const mesh = addBox(partLength, height, thickness, x, bottom+height/2, z, isDark ? 0x94a3b8 : 0xcbd5e1);
             mesh.rotation.y = angle;
           };
           let cursor = 0;
@@ -143,7 +153,8 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark }) => {
             cursor = Math.max(cursor, end);
           });
           addWallPart(cursor, length, 0, 100);
-          const cap = addBox(length, 2, thickness + 1, (w.x1 + w.x2) / 2, 101, (w.y1 + w.y2) / 2, isDark ? 0xcbd5e1 : 0xf8fafc);
+          // Match the wall-body endpoint overlap so the top edges also meet cleanly.
+          const cap = addBox(length + thickness, 2, thickness + 1, (w.x1 + w.x2) / 2, 101, (w.y1 + w.y2) / 2, isDark ? 0xcbd5e1 : 0xf8fafc);
           cap.rotation.y = angle;
         });
 
