@@ -275,23 +275,22 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         ctx.save();
         ctx.translate(op.x, op.y);
         ctx.rotate(((op.rotation ?? 0) * Math.PI) / 180);
+        const openingHalf = Math.max(10, op.width * 0.25);
+        // Erase the wall stroke underneath the opening so the plan shows a real gap.
+        ctx.strokeStyle = isDark ? '#101827' : '#F8FAFC';
+        ctx.lineWidth = 21;
+        ctx.beginPath(); ctx.moveTo(-openingHalf, 0); ctx.lineTo(openingHalf, 0); ctx.stroke();
         if (op.type === 'door') {
-          ctx.strokeStyle = '#F5B93A';
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.arc(0, 0, 25, 0, Math.PI / 2);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.lineTo(25, 0);
-          ctx.stroke();
+          ctx.strokeStyle = '#F5B93A'; ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.moveTo(-openingHalf, 0); ctx.lineTo(-openingHalf, -openingHalf); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-openingHalf, 0, openingHalf, -Math.PI / 2, 0); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-openingHalf, 0); ctx.lineTo(-openingHalf, -openingHalf); ctx.stroke();
         } else {
-          ctx.strokeStyle = '#06B6D4';
-          ctx.lineWidth = 4;
-          ctx.beginPath();
-          ctx.moveTo(-20, 0);
-          ctx.lineTo(20, 0);
-          ctx.stroke();
+          ctx.strokeStyle = '#06B6D4'; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.moveTo(-openingHalf, -3); ctx.lineTo(openingHalf, -3); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-openingHalf, 3); ctx.lineTo(openingHalf, 3); ctx.stroke();
+          ctx.strokeStyle = '#BAF3FF'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(0, -3); ctx.lineTo(0, 3); ctx.stroke();
         }
         ctx.restore();
       });
@@ -509,9 +508,16 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       const vx = wall.x2 - wall.x1, vy = wall.y2 - wall.y1;
       const len2 = vx * vx + vy * vy || 1;
       const t = Math.max(0, Math.min(1, ((x - wall.x1) * vx + (y - wall.y1) * vy) / len2));
+      let t = Math.max(0, Math.min(1, ((x - wall.x1) * vx + (y - wall.y1) * vy) / len2));
+      const rawX = wall.x1 + t * vx, rawY = wall.y1 + t * vy;
+      const distance = Math.hypot(x - rawX, y - rawY);
+      if (gapEnabled && len2 > 1) {
+        const length = Math.sqrt(len2);
+        const stepT = gapDistance / length;
+        t = Math.max(0, Math.min(1, Math.round(t / stepT) * stepT));
+      }
       const px = wall.x1 + t * vx, py = wall.y1 + t * vy;
-      const distance = Math.hypot(x - px, y - py);
-      if (distance < best.distance) best = { x: snap(px), y: snap(py), rotation: Math.round(Math.atan2(vy, vx) * 180 / Math.PI / 90) * 90, distance, wallId: wall.id };
+      if (distance < best.distance) best = { x: px, y: py, rotation: Math.atan2(vy, vx) * 180 / Math.PI, distance, wallId: wall.id };
     }
     return best.distance <= 64 ? best : { x, y, rotation: 0, distance: best.distance, wallId: '' };
   };
@@ -540,7 +546,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     const x = snap((e.clientX - rect.left - canvasPan.x) / zoom);
     const y = snap((e.clientY - rect.top - canvasPan.y) / zoom);
 
-    if (tool === 'select' && showWallVertices) {
+    if ((tool === 'select' || tool === 'wall') && showWallVertices) {
       const vertexHit = project.walls.flatMap(w => [
         { wall: w, endpoint: 1 as const, x: w.x1, y: w.y1 },
         { wall: w, endpoint: 2 as const, x: w.x2, y: w.y2 },
