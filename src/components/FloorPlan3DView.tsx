@@ -201,6 +201,20 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark }) => {
           cap.rotation.y = angle;
         });
 
+        // Fill shared junctions with a small wall-material core. This closes the
+        // diagonal corner gaps left by intersecting rotated wall boxes.
+        const junctions: Array<{x:number;z:number;count:number}> = [];
+        project.walls.forEach(w => [{x:w.x1,z:w.y1},{x:w.x2,z:w.y2}].forEach(p => {
+          let node=junctions.find(v=>Math.hypot(v.x-p.x,v.z-p.z)<3);
+          if (!node) { node={x:p.x,z:p.z,count:0}; junctions.push(node); }
+          node.count++;
+        }));
+        junctions.filter(p=>p.count>1).forEach(p => {
+          const thickness=Math.max(4,...project.walls.filter(w=>Math.hypot(w.x1-p.x,w.y1-p.z)<3||Math.hypot(w.x2-p.x,w.y2-p.z)<3).map(w=>w.thickness||8));
+          addBox(thickness,100,thickness,p.x,50,p.z,isDark?0x94a3b8:0xcbd5e1);
+          addBox(thickness+1,2,thickness+1,p.x,101,p.z,isDark?0xcbd5e1:0xf8fafc);
+        });
+
         // Door panels stand vertically in the opening; style is configurable.
         // Windows receive a thin frame/glazing centered in the actual wall cutout.
         project.openings.forEach(o => {
