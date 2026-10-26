@@ -580,9 +580,11 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       });
       if (wall) { const target = { kind: 'wall' as const, id: wall.id }; setSelectedObject(target); dragRef.current = wall.locked ? null : { ...target, x, y }; e.currentTarget.setPointerCapture(e.pointerId); return; }
       setSelectedObject(null);
+      const nearestStart = snapToNearestWall(x, y);
+      const start = nearestStart.distance <= 16 ? { x: nearestStart.x, y: nearestStart.y } : { x, y };
       setIsDrawing(true);
-      setStartPoint({ x, y });
-      setCurrentMouse({ x, y });
+      setStartPoint(start);
+      setCurrentMouse(start);
     }
   };
 
@@ -613,6 +615,10 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     const rect = canvas.getBoundingClientRect();
     const x = snap((e.clientX - rect.left - canvasPan.x) / zoom);
     const y = snap((e.clientY - rect.top - canvasPan.y) / zoom);
+    if (tool === 'wall' && wallDrawMode === 'segment') {
+      const nearest = snapToNearestWall(x, y);
+      if (nearest.distance <= 16) { setCurrentMouse({ x: nearest.x, y: nearest.y }); return; }
+    }
     setCurrentMouse({ x, y });
   };
 
@@ -638,8 +644,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           const newY = gapEnabled ? snap(endY) : endY;
           const walls = project.walls.map(w => ({
             ...w,
-            ...(drag.endpoint === 1 && Math.hypot(w.x1-oldX,w.y1-oldY) < 2 ? { x1:newX, y1:newY } : {}),
-            ...(drag.endpoint === 2 && Math.hypot(w.x2-oldX,w.y2-oldY) < 2 ? { x2:newX, y2:newY } : {}),
+            ...(Math.hypot(w.x1-oldX,w.y1-oldY) < 2 ? { x1:newX, y1:newY } : {}),
+            ...(Math.hypot(w.x2-oldX,w.y2-oldY) < 2 ? { x2:newX, y2:newY } : {}),
           }));
           const rooms = (project.rooms ?? []).map(room => ({ ...room, vertices: room.vertices.map(p => Math.hypot(p.x-oldX,p.y-oldY)<2 ? {x:newX,y:newY} : p) }));
           updateProjectState({ ...project, walls, rooms });
