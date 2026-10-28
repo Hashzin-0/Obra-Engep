@@ -49,6 +49,7 @@ import { ResultCard } from '../components/ResultCard';
 import { FuelCalculatorView } from './FuelCalculatorView';
 import { ElectricalCalculatorsView } from './ElectricalCalculatorsView';
 import { ElectricalReferenceToolsView, ELECTRICAL_REFERENCE_TOOLS } from './ElectricalReferenceToolsView';
+import { AdvancedElectricalCalculatorView, ADVANCED_ELECTRICAL_TOOLS } from './AdvancedElectricalCalculatorView';
 import { LimitBar } from '../components/LimitBar';
 import { AlertBanner } from '../components/AlertBanner';
 import { CalculationHistoryItem } from '../types';
@@ -155,6 +156,13 @@ const TOOLS_DIRECTORY: ToolDef[] = [
     title: tool.title,
     subtitle: tool.subtitle,
     icon: Grid,
+  })),
+  ...ADVANCED_ELECTRICAL_TOOLS.map((tool) => ({
+    id: 'calc_' + tool.id,
+    category: 'eletrica' as const,
+    title: tool.title,
+    subtitle: tool.subtitle,
+    icon: Zap,
   })),
   
   // HIDRÁULICA
@@ -1688,6 +1696,7 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
           {currentTool.id === 'calculadora_corrente' && <ElectricalCalculatorsView mode="current" />}
           {currentTool.id === 'calculadora_fita_led' && <ElectricalCalculatorsView mode="led-strip" />}
           {currentTool.id.startsWith('ref_') && <ElectricalReferenceToolsView toolId={currentTool.id.slice(4)} title={currentTool.title} />}
+          {currentTool.id.startsWith('calc_') && <AdvancedElectricalCalculatorView toolId={currentTool.id.slice(5)} title={currentTool.title} />}
 
           {currentTool.id === 'calculadora_combustivel' && <FuelCalculatorView />}
 
