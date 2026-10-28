@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { LimitBar } from '../components/LimitBar';
 
 export type ElectricalCalculatorMode = 'lighting' | 'ampacity' | 'resistor' | 'current' | 'led-strip';
@@ -14,9 +14,9 @@ const panelClass = 'p-4 rounded-2xl bg-[#17243A] border border-[#2A3A55] space-y
 const resultClass = 'p-3 rounded-xl bg-black/25 border border-[#2A3A55]';
 
 function NumberField({ label, value, onChange, min = 0, step = 'any' }: {
-  label: string; value: number; onChange: (value: number) => void; min?: number; step?: number | string;
+  label: string; value: number; onChange: (value: number) => void; min?: number; max?: number; step?: number | string;
 }) {
-  return <label className="block min-w-0"><span className={labelClass}>{label}</span><input className={fieldClass} type="number" min={min} step={step} value={Number.isFinite(value) ? value : ''} onChange={(e) => onChange(e.target.value === '' ? Number.NaN : Number(e.target.value))} /></label>;
+  return <label className="block min-w-0"><span className={labelClass}>{label}</span><input className={fieldClass} type="number" min={min} max={max} step={step} value={Number.isFinite(value) ? value : ''} onChange={(e) => onChange(e.target.value === '' ? Number.NaN : Number(e.target.value))} /></label>;
 }
 function SelectField({ label, value, onChange, options }: {
   label: string; value: string; onChange: (value: string) => void; options: Array<{ value: string; label: string }>;
