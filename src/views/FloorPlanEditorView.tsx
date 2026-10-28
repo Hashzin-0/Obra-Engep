@@ -85,6 +85,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   const [tool, setTool] = useState<ToolMode>('select');
   const [wallDrawMode, setWallDrawMode] = useState<'segment' | 'sequence'>('segment');
   const [wallSequencePoints, setWallSequencePoints] = useState<Array<{x:number;y:number}>>([]);
+  const [routeSequencePoints, setRouteSequencePoints] = useState<Array<{x:number;y:number}>>([]);
+  useEffect(() => { if (!['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'].includes(tool)) setRouteSequencePoints([]); }, [tool]);
   const [zoom, setZoom] = useState(1);
   const [show3D, setShow3D] = useState(false);
   const [showFurnitureCatalog, setShowFurnitureCatalog] = useState(false);
@@ -216,6 +218,13 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     // ARCHITECTURAL LAYER: Walls
     if (showArchLayer) {
       project.walls.forEach((w) => {
+        // During a shared-vertex drag, the green preview replaces the old strokes of all connected walls.
+        const vertexDrag = dragRef.current?.kind === 'wall' && dragRef.current.endpoint && currentMouse ? project.walls.find(item => item.id === dragRef.current?.id) : undefined;
+        if (vertexDrag && dragRef.current?.endpoint) {
+          const vx = dragRef.current.endpoint === 1 ? vertexDrag.x1 : vertexDrag.x2;
+          const vy = dragRef.current.endpoint === 1 ? vertexDrag.y1 : vertexDrag.y2;
+          if (Math.hypot(w.x1-vx,w.y1-vy)<2 || Math.hypot(w.x2-vx,w.y2-vy)<2) return;
+        }
         ctx.strokeStyle = isDark ? '#E8EDF5' : '#1E293B';
         ctx.lineWidth = w.thickness / 2;
         ctx.lineCap = 'round';
@@ -459,19 +468,16 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         ctx.font='10px Roboto, sans-serif';const tw=ctx.measureText(label).width+8;ctx.fillStyle='rgba(15,23,42,.94)';ctx.fillRect((wall.x1+wall.x2)/2+dx-tw/2,(wall.y1+wall.y2)/2+dy-20,tw,16);ctx.fillStyle='#6EE7B7';ctx.textAlign='center';ctx.fillText(label,(wall.x1+wall.x2)/2+dx,(wall.y1+wall.y2)/2+dy-9);ctx.restore();
       }
     }
-    // Preview only: never mutate the project while the pointer is moving.
-    if (isDrawing && startPoint && currentMouse && ['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'].includes(tool)) {
-      if (Math.hypot(currentMouse.x - startPoint.x, currentMouse.y - startPoint.y) > 1) {
-        ctx.save();
-        ctx.strokeStyle = tool === 'sewage_pipe' ? '#A16207' : tool === 'rain_pipe' ? '#2563EB' : tool === 'vent_pipe' ? '#A78BFA' : tool === 'wire' ? '#FACC15' : tool === 'conduit' ? '#F59E0B' : '#06B6D4';
-        ctx.lineWidth = tool === 'sewage_pipe' ? 4 : 3;
-        ctx.setLineDash(['sewage_pipe','rain_pipe','wire'].includes(tool) ? [6, 3] : []);
-        ctx.beginPath();
-        ctx.moveTo(startPoint.x, startPoint.y);
-        ctx.lineTo(currentMouse.x, currentMouse.y);
-        ctx.stroke();
-        ctx.restore();
+    // Preview the next segment of a multi-vertex route without mutating saved geometry.
+    if (routeSequencePoints.length && currentMouse && ['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'].includes(tool)) {
+      const last = routeSequencePoints[routeSequencePoints.length - 1];
+      if (Math.hypot(currentMouse.x-last.x,currentMouse.y-last.y)>1) {
+        ctx.save(); ctx.strokeStyle=tool==='sewage_pipe'?'#A16207':tool==='rain_pipe'?'#2563EB':tool==='vent_pipe'?'#A78BFA':tool==='wire'?'#FACC15':tool==='conduit'?'#F59E0B':'#06B6D4';
+        ctx.lineWidth=tool==='sewage_pipe'?4:3; ctx.setLineDash(['sewage_pipe','rain_pipe','wire'].includes(tool)?[6,3]:[]);
+        ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(currentMouse.x,currentMouse.y);ctx.stroke();ctx.restore();
       }
+      ctx.save();ctx.fillStyle='#F8FAFC';ctx.strokeStyle='#3B82F6';ctx.lineWidth=2;
+      routeSequencePoints.forEach(point=>{ctx.beginPath();ctx.arc(point.x,point.y,4,0,Math.PI*2);ctx.fill();ctx.stroke();});ctx.restore();
     }
 
     if (isDrawing && startPoint && currentMouse && tool === 'wall' && wallDrawMode === 'segment') {
@@ -609,7 +615,21 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       }
       e.currentTarget.setPointerCapture(e.pointerId); return;
     }
-    if (['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'].includes(tool)) { placementRef.current=false; setIsDrawing(true); setStartPoint({x,y}); setCurrentMouse({x,y}); e.currentTarget.setPointerCapture(e.pointerId); return; }
+    if (['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'].includes(tool)) {
+      placementRef.current=false;
+      const routeTypes=['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'];
+      const endpoints=[...project.electrical.filter(item=>routeTypes.includes(item.type)&&item.x2!==undefined&&item.y2!==undefined).flatMap(item=>[{x:item.x,y:item.y},{x:item.x2 as number,y:item.y2 as number}]),...project.hydraulic.filter(item=>routeTypes.includes(item.type)&&item.x2!==undefined&&item.y2!==undefined).flatMap(item=>[{x:item.x,y:item.y},{x:item.x2 as number,y:item.y2 as number}]),...project.walls.flatMap(w=>[{x:w.x1,y:w.y1},{x:w.x2,y:w.y2}])];
+      const nearest=endpoints.reduce((best,point)=>{const distance=Math.hypot(point.x-x,point.y-y);return distance<=18&&(!best||distance<best.distance)?{x:point.x,y:point.y,distance}:best;},null as ({x:number;y:number;distance:number}|null));
+      const clicked=nearest?{x:nearest.x,y:nearest.y}:{x,y};
+      if(!routeSequencePoints.length){setRouteSequencePoints([clicked]);setCurrentMouse(clicked);}
+      else {const last=routeSequencePoints[routeSequencePoints.length-1];if(Math.hypot(clicked.x-last.x,clicked.y-last.y)<=6){setRouteSequencePoints([]);setCurrentMouse(null);setIsDrawing(false);e.currentTarget.setPointerCapture(e.pointerId);return;}
+        const routeId=ensureUuid(tool);
+        if(tool==='wire'||tool==='conduit'){const route:ElectricalItem={id:routeId,type:tool as ElectricalItem['type'],x:last.x,y:last.y,x2:clicked.x,y2:clicked.y,circuit:'Circuito 1',label:tool==='wire'?'Fiação elétrica':'Eletroduto elétrico'};updateProjectState({...project,electrical:[...project.electrical,route]});setSelectedObject({kind:'electrical',id:routeId});}
+        else {const route:HydraulicItem={id:routeId,type:tool as HydraulicItem['type'],x:last.x,y:last.y,x2:clicked.x,y2:clicked.y,diameterMm:tool==='sewage_pipe'?100:tool==='rain_pipe'?75:tool==='vent_pipe'?50:25,label:tool==='sewage_pipe'?'Tubulação de esgoto Ø100mm':tool==='rain_pipe'?'Águas pluviais Ø75mm':tool==='vent_pipe'?'Ventilação sanitária Ø50mm':'Tubulação de água Ø25mm'};updateProjectState({...project,hydraulic:[...project.hydraulic,route]});setSelectedObject({kind:'hydraulic',id:routeId});}
+        setRouteSequencePoints([...routeSequencePoints,clicked]);setCurrentMouse(clicked);setIsDrawing(false);setStartPoint(null);
+      }
+      e.currentTarget.setPointerCapture(e.pointerId);return;
+    }
     const kind = activeKind();
     if (kind) {
       const threshold = 18;
@@ -653,6 +673,13 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       setCurrentMouse({ x: snap((e.clientX - rect.left - canvasPan.x) / zoom), y: snap((e.clientY - rect.top - canvasPan.y) / zoom) });
       return;
     }
+    if (['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'].includes(tool) && routeSequencePoints.length) {
+      const rect=e.currentTarget.getBoundingClientRect();const x=snap((e.clientX-rect.left-canvasPan.x)/zoom),y=snap((e.clientY-rect.top-canvasPan.y)/zoom);
+      const routeTypes=['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'];
+      const endpoints=[...project.electrical.filter(item=>routeTypes.includes(item.type)&&item.x2!==undefined&&item.y2!==undefined).flatMap(item=>[{x:item.x,y:item.y},{x:item.x2 as number,y:item.y2 as number}]),...project.hydraulic.filter(item=>routeTypes.includes(item.type)&&item.x2!==undefined&&item.y2!==undefined).flatMap(item=>[{x:item.x,y:item.y},{x:item.x2 as number,y:item.y2 as number}]),...project.walls.flatMap(w=>[{x:w.x1,y:w.y1},{x:w.x2,y:w.y2}])];
+      const nearest=endpoints.reduce((best,point)=>{const distance=Math.hypot(point.x-x,point.y-y);return distance<=18&&(!best||distance<best.distance)?{x:point.x,y:point.y,distance}:best;},null as ({x:number;y:number;distance:number}|null));
+      setCurrentMouse(nearest?{x:nearest.x,y:nearest.y}:{x,y});return;
+    }
     if (tool === 'select' && selectionStartRef.current) { const r=e.currentTarget.getBoundingClientRect(); setSelectionRect({x1:selectionStartRef.current.x,y1:selectionStartRef.current.y,x2:snap((e.clientX-r.left-canvasPan.x)/zoom),y2:snap((e.clientY-r.top-canvasPan.y)/zoom)}); return; }
     if (dragRef.current || placementRef.current) {
       const rect = e.currentTarget.getBoundingClientRect();
@@ -686,19 +713,20 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       const endX = snap((e.clientX - rect.left - canvasPan.x) / zoom), endY = snap((e.clientY - rect.top - canvasPan.y) / zoom);
       const dx = endX - drag.x, dy = endY - drag.y;
       if (drag.kind === 'wall' && drag.endpoint && (dx || dy)) {
-        const wall = project.walls.find(w => w.id === drag.id);
-        if (wall) {
-          const oldX = drag.endpoint === 1 ? wall.x1 : wall.x2;
-          const oldY = drag.endpoint === 1 ? wall.y1 : wall.y2;
-          const newX = gapEnabled ? snap(endX) : endX;
-          const newY = gapEnabled ? snap(endY) : endY;
-          const walls = project.walls.map(w => ({
-            ...w,
-            ...(Math.hypot(w.x1-oldX,w.y1-oldY) < 2 ? { x1:newX, y1:newY } : {}),
-            ...(Math.hypot(w.x2-oldX,w.y2-oldY) < 2 ? { x2:newX, y2:newY } : {}),
-          }));
-          const rooms = (project.rooms ?? []).map(room => ({ ...room, vertices: room.vertices.map(p => Math.hypot(p.x-oldX,p.y-oldY)<2 ? {x:newX,y:newY} : p) }));
-          updateProjectState({ ...project, walls, rooms });
+        const wall=project.walls.find(w=>w.id===drag.id);
+        if(wall){
+          const oldX=drag.endpoint===1?wall.x1:wall.x2,oldY=drag.endpoint===1?wall.y1:wall.y2;
+          const newX=gapEnabled?snap(endX):endX,newY=gapEnabled?snap(endY):endY;
+          const connectedWalls=project.walls.filter(w=>Math.hypot(w.x1-oldX,w.y1-oldY)<2||Math.hypot(w.x2-oldX,w.y2-oldY)<2);
+          const movedWallIds=new Set(connectedWalls.map(w=>w.id));
+          const walls=project.walls.map(w=>({...w,...(Math.hypot(w.x1-oldX,w.y1-oldY)<2?{x1:newX,y1:newY}:{}),...(Math.hypot(w.x2-oldX,w.y2-oldY)<2?{x2:newX,y2:newY}:{})}));
+          const rooms=(project.rooms??[]).map(room=>({...room,vertices:room.vertices.map(p=>Math.hypot(p.x-oldX,p.y-oldY)<2?{x:newX,y:newY}:p)}));
+          const projectPointAlongMovedWall=(point:{x:number;y:number},oldWall:WallSegment)=>{const vx=oldWall.x2-oldWall.x1,vy=oldWall.y2-oldWall.y1,len2=vx*vx+vy*vy||1;const t=Math.max(0,Math.min(1,((point.x-oldWall.x1)*vx+(point.y-oldWall.y1)*vy)/len2));const distance=Math.hypot(point.x-(oldWall.x1+t*vx),point.y-(oldWall.y1+t*vy));if(distance>28)return null;const nextWall=walls.find(w=>w.id===oldWall.id)!;return {point:{x:nextWall.x1+t*(nextWall.x2-nextWall.x1),y:nextWall.y1+t*(nextWall.y2-nextWall.y1)},distance,rotation:Math.atan2(nextWall.y2-nextWall.y1,nextWall.x2-nextWall.x1)*180/Math.PI};};
+          const moveAttachedPoint=(point:{x:number;y:number},preferredWallId?:string)=>{const candidates=connectedWalls.filter(w=>!preferredWallId||w.id===preferredWallId).map(w=>({wall:w,result:projectPointAlongMovedWall(point,w)})).filter((item):item is {wall:WallSegment;result:NonNullable<ReturnType<typeof projectPointAlongMovedWall>>}=>!!item.result).sort((a,b)=>a.result.distance-b.result.distance);return candidates.length?{...candidates[0].result,wallId:candidates[0].wall.id}:null;};
+          const openings=moveAttachedParts?project.openings.map(item=>{const moved=moveAttachedPoint({x:item.x,y:item.y},movedWallIds.has(item.wallId)?item.wallId:undefined);return moved?{...item,x:moved.point.x,y:moved.point.y,rotation:moved.rotation,wallId:moved.wallId}:item;}):project.openings;
+          const electrical=moveAttachedParts?project.electrical.map(item=>{const moved=moveAttachedPoint({x:item.x,y:item.y});const endMoved=item.x2!==undefined&&item.y2!==undefined?moveAttachedPoint({x:item.x2,y:item.y2}):null;return moved?{...item,x:moved.point.x,y:moved.point.y,...(endMoved?{x2:endMoved.point.x,y2:endMoved.point.y}:{}),...(item.rotation!==undefined?{rotation:moved.rotation}:{})}:endMoved?{...item,x2:endMoved.point.x,y2:endMoved.point.y}:item;}):project.electrical;
+          const hydraulic=moveAttachedParts?project.hydraulic.map(item=>{const moved=moveAttachedPoint({x:item.x,y:item.y});const endMoved=item.x2!==undefined&&item.y2!==undefined?moveAttachedPoint({x:item.x2,y:item.y2}):null;return moved?{...item,x:moved.point.x,y:moved.point.y,...(endMoved?{x2:endMoved.point.x,y2:endMoved.point.y}:{})}:endMoved?{...item,x2:endMoved.point.x,y2:endMoved.point.y}:item;}):project.hydraulic;
+          updateProjectState({...project,walls,rooms,openings,electrical,hydraulic});
         }
       } else if ((dx || dy) && tool === 'select' && selectedObjects.length > 1 && selectedObjects.some(s=>s.id===drag.id&&s.kind===drag.kind)) {
         const ids=(kind:string)=>new Set(selectedObjects.filter(s=>s.kind===kind).map(s=>s.id)); const walls=ids('wall'), openings=ids('opening'), electrical=ids('electrical'), hydraulic=ids('hydraulic');
@@ -1056,6 +1084,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           className="block w-full cursor-crosshair touch-none select-none"
           style={{ touchAction: 'none' }}
         />}
+
+        {!show3D && routeSequencePoints.length > 0 && <button type="button" onClick={() => { setRouteSequencePoints([]); setCurrentMouse(null); }} className="absolute z-20 bottom-3 right-3 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-lg">Concluir traçado</button>}
 
         {!show3D && <>{/* Floating Zoom & Undo Controls */}
         <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-[#17243A]/90 backdrop-blur-sm p-1.5 rounded-xl border border-[#2A3A55]">
