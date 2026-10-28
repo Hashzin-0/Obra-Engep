@@ -308,6 +308,7 @@ export const ElectricalReferenceToolsView: React.FC<{toolId:string;title:string}
       volt_ampere:[['Símbolo','VA','Volt-ampere'],['Potência aparente','S = V × I (monofásico)','Não é igual a W quando FP < 1']],
       volt:[['Símbolo','V','Volt'],['Definição','1 V = 1 J/C','Energia por unidade de carga']],
       voltage:[['Definição','Diferença de potencial','Volt (V)'],['Lei de Ohm','V = I × R','Para elemento resistivo']],
+      kwh:[['Símbolo','kWh','Energia elétrica'],['Conversão','1 kWh = 1000 Wh = 3,6 MJ','Energia = potência × tempo'],['Uso comum','Consumo de equipamentos e faturamento','Confira período e potência média']],
       watt_hour:[['Símbolo','Wh / kWh','Energia'],['Conversão','1 kWh = 1000 Wh','1 kWh = 3,6 MJ']],
       watt:[['Símbolo','W','Watt'],['Definição','1 W = 1 J/s','Potência é energia por tempo']],
       manual_bender:[['Preparação','Identificar diâmetro e material','Usar curvador compatível'],['Curva','Respeitar raio mínimo','Evitar achatamento e dobras'],['Segurança','Fixar e usar EPI','Não improvisar ferramentas']],
