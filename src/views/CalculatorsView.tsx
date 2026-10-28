@@ -47,6 +47,7 @@ import {
 } from '../utils/calculations';
 import { ResultCard } from '../components/ResultCard';
 import { FuelCalculatorView } from './FuelCalculatorView';
+import { ElectricalCalculatorsView } from './ElectricalCalculatorsView';
 import { LimitBar } from '../components/LimitBar';
 import { AlertBanner } from '../components/AlertBanner';
 import { CalculationHistoryItem } from '../types';
@@ -108,6 +109,43 @@ const TOOLS_DIRECTORY: ToolDef[] = [
     title: 'Conversão de unidades elétricas',
     subtitle: 'W, kW, kVA, CV, HP e fatores de conversão',
     icon: ArrowLeftRight,
+  },
+
+  {
+    id: 'calculadora_iluminacao',
+    category: 'eletrica',
+    title: 'Calculadora de iluminação',
+    subtitle: 'Iluminância em lux, área, fluxo luminoso e quantidade de lâmpadas',
+    icon: Sparkles,
+  },
+  {
+    id: 'capacidade_conducao_corrente',
+    category: 'eletrica',
+    title: 'Capacidade de condução de corrente',
+    subtitle: 'Bitola, método de instalação, isolação e fatores de correção',
+    icon: Zap,
+    tag: 'Estimativa técnica',
+  },
+  {
+    id: 'calculadora_resistores',
+    category: 'eletrica',
+    title: 'Calculadora de resistores',
+    subtitle: 'Código de cores, resistência nominal e tolerância',
+    icon: Cpu,
+  },
+  {
+    id: 'calculadora_corrente',
+    category: 'eletrica',
+    title: 'Calculadora de corrente',
+    subtitle: 'Corrente monofásica e trifásica a partir da potência',
+    icon: Gauge,
+  },
+  {
+    id: 'calculadora_fita_led',
+    category: 'eletrica',
+    title: 'Fonte para fitas de LED',
+    subtitle: 'Potência, tensão, corrente, margem da fonte e queda de tensão',
+    icon: Zap,
   },
 
   // HIDRÁULICA
@@ -1634,6 +1672,12 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
               <LimitBar message="Valores para estimativa preliminar de compras. Variações dimensionais de blocos cerâmicos ou de concreto devem ser conferidas no lote entregue." />
             </div>
           )}
+
+          {currentTool.id === 'calculadora_iluminacao' && <ElectricalCalculatorsView mode="lighting" />}
+          {currentTool.id === 'capacidade_conducao_corrente' && <ElectricalCalculatorsView mode="ampacity" />}
+          {currentTool.id === 'calculadora_resistores' && <ElectricalCalculatorsView mode="resistor" />}
+          {currentTool.id === 'calculadora_corrente' && <ElectricalCalculatorsView mode="current" />}
+          {currentTool.id === 'calculadora_fita_led' && <ElectricalCalculatorsView mode="led-strip" />}
 
           {currentTool.id === 'calculadora_combustivel' && <FuelCalculatorView />}
 
