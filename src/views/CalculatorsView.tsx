@@ -48,6 +48,7 @@ import {
 import { ResultCard } from '../components/ResultCard';
 import { FuelCalculatorView } from './FuelCalculatorView';
 import { ElectricalCalculatorsView } from './ElectricalCalculatorsView';
+import { ElectricalReferenceToolsView, ELECTRICAL_REFERENCE_TOOLS } from './ElectricalReferenceToolsView';
 import { LimitBar } from '../components/LimitBar';
 import { AlertBanner } from '../components/AlertBanner';
 import { CalculationHistoryItem } from '../types';
@@ -148,6 +149,14 @@ const TOOLS_DIRECTORY: ToolDef[] = [
     icon: Zap,
   },
 
+  ...ELECTRICAL_REFERENCE_TOOLS.map((tool) => ({
+    id: 'ref_' + tool.id,
+    category: 'eletrica' as const,
+    title: tool.title,
+    subtitle: tool.subtitle,
+    icon: Grid,
+  })),
+  
   // HIDRÁULICA
   {
     id: 'reservatorio',
@@ -1678,6 +1687,7 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
           {currentTool.id === 'calculadora_resistores' && <ElectricalCalculatorsView mode="resistor" />}
           {currentTool.id === 'calculadora_corrente' && <ElectricalCalculatorsView mode="current" />}
           {currentTool.id === 'calculadora_fita_led' && <ElectricalCalculatorsView mode="led-strip" />}
+          {currentTool.id.startsWith('ref_') && <ElectricalReferenceToolsView toolId={currentTool.id.slice(4)} title={currentTool.title} />}
 
           {currentTool.id === 'calculadora_combustivel' && <FuelCalculatorView />}
 
