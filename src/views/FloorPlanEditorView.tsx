@@ -1085,6 +1085,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           style={{ touchAction: 'none' }}
         />}
 
+        {!show3D && routeSequencePoints.length > 0 && <button type="button" onClick={() => { setRouteSequencePoints([]); setCurrentMouse(null); }} className="absolute z-20 bottom-3 right-3 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-lg">Concluir traçado</button>}
+
         {!show3D && <>{/* Floating Zoom & Undo Controls */}
         <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-[#17243A]/90 backdrop-blur-sm p-1.5 rounded-xl border border-[#2A3A55]">
           <button
