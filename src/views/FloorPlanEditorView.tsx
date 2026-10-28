@@ -275,23 +275,22 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         ctx.save();
         ctx.translate(op.x, op.y);
         ctx.rotate(((op.rotation ?? 0) * Math.PI) / 180);
+        const openingHalf = Math.max(10, op.width * 0.25);
+        // Erase the wall stroke underneath the opening so the plan shows a real gap.
+        ctx.strokeStyle = isDark ? '#101827' : '#F8FAFC';
+        ctx.lineWidth = 21;
+        ctx.beginPath(); ctx.moveTo(-openingHalf, 0); ctx.lineTo(openingHalf, 0); ctx.stroke();
         if (op.type === 'door') {
-          ctx.strokeStyle = '#F5B93A';
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.arc(0, 0, 25, 0, Math.PI / 2);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.lineTo(25, 0);
-          ctx.stroke();
+          ctx.strokeStyle = '#F5B93A'; ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.moveTo(-openingHalf, 0); ctx.lineTo(-openingHalf, -openingHalf); ctx.stroke();
+          ctx.beginPath(); ctx.arc(-openingHalf, 0, openingHalf, -Math.PI / 2, 0); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-openingHalf, 0); ctx.lineTo(-openingHalf, -openingHalf); ctx.stroke();
         } else {
-          ctx.strokeStyle = '#06B6D4';
-          ctx.lineWidth = 4;
-          ctx.beginPath();
-          ctx.moveTo(-20, 0);
-          ctx.lineTo(20, 0);
-          ctx.stroke();
+          ctx.strokeStyle = '#06B6D4'; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.moveTo(-openingHalf, -3); ctx.lineTo(openingHalf, -3); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-openingHalf, 3); ctx.lineTo(openingHalf, 3); ctx.stroke();
+          ctx.strokeStyle = '#BAF3FF'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(0, -3); ctx.lineTo(0, 3); ctx.stroke();
         }
         ctx.restore();
       });
@@ -422,6 +421,47 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       wallSequencePoints.forEach((point, index) => { ctx.beginPath(); ctx.arc(point.x, point.y, index === 0 ? 7 : 5, 0, Math.PI * 2); ctx.fill(); });
       ctx.restore();
     }
+    // Preview every wall connected to a dragged vertex, with live length and angle.
+    if (dragRef.current?.kind === 'wall' && dragRef.current.endpoint && currentMouse) {
+      const drag = dragRef.current;
+      const draggedWall = project.walls.find(w => w.id === drag.id);
+      if (draggedWall) {
+        const oldX = drag.endpoint === 1 ? draggedWall.x1 : draggedWall.x2;
+        const oldY = drag.endpoint === 1 ? draggedWall.y1 : draggedWall.y2;
+        const newX = gapEnabled ? snap(currentMouse.x) : currentMouse.x;
+        const newY = gapEnabled ? snap(currentMouse.y) : currentMouse.y;
+        ctx.save(); ctx.strokeStyle = '#34D399'; ctx.fillStyle = '#34D399'; ctx.lineWidth = 4; ctx.setLineDash([6,4]);
+        project.walls.filter(w => Math.hypot(w.x1-oldX,w.y1-oldY)<2 || Math.hypot(w.x2-oldX,w.y2-oldY)<2).forEach(w => {
+          const a = Math.hypot(w.x1-oldX,w.y1-oldY)<2 ? {x:newX,y:newY} : {x:w.x1,y:w.y1};
+          const b = Math.hypot(w.x2-oldX,w.y2-oldY)<2 ? {x:newX,y:newY} : {x:w.x2,y:w.y2};
+          ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+          const label=(Math.hypot(b.x-a.x,b.y-a.y)/40).toFixed(2)+' m · '+(Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI).toFixed(1)+'°';
+          ctx.setLineDash([]); ctx.font='10px Roboto, sans-serif'; const tw=ctx.measureText(label).width+8;
+          ctx.fillStyle='rgba(15,23,42,.94)'; ctx.fillRect((a.x+b.x)/2-tw/2,(a.y+b.y)/2-20,tw,16);
+          ctx.fillStyle='#6EE7B7'; ctx.textAlign='center'; ctx.fillText(label,(a.x+b.x)/2,(a.y+b.y)/2-9); ctx.setLineDash([6,4]);
+        });
+        ctx.setLineDash([]); ctx.beginPath(); ctx.arc(newX,newY,7,0,Math.PI*2); ctx.fill(); ctx.restore();
+      }
+    }
+    if (dragRef.current?.kind === 'wall' && !dragRef.current.endpoint && currentMouse) {
+      const drag=dragRef.current, wall=project.walls.find(w=>w.id===drag.id);
+      if(wall){
+        let dx=currentMouse.x-drag.x,dy=currentMouse.y-drag.y;
+        let best=gapDistance+6,adjustment:{x:number;y:number}|null=null;
+        if(gapEnabled) {
+          const proposed=[{x:wall.x1+dx,y:wall.y1+dy},{x:wall.x2+dx,y:wall.y2+dy}];
+          project.walls.filter(w=>w.id!==wall.id).forEach(w=>[{x:w.x1,y:w.y1},{x:w.x2,y:w.y2}].forEach(v=>proposed.forEach(p=>{
+            const d=Math.hypot(p.x-v.x,p.y-v.y); if(d<best){best=d;adjustment={x:v.x-p.x,y:v.y-p.y};}
+          })));
+        }
+        if(adjustment){dx+=adjustment.x;dy+=adjustment.y;}
+        ctx.save();ctx.strokeStyle='#34D399';ctx.lineWidth=5;ctx.setLineDash([7,4]);
+        ctx.beginPath();ctx.moveTo(wall.x1+dx,wall.y1+dy);ctx.lineTo(wall.x2+dx,wall.y2+dy);ctx.stroke();ctx.setLineDash([]);
+        if(adjustment){ctx.fillStyle='#34D399';ctx.beginPath();ctx.arc(wall.x1+dx,wall.y1+dy,7,0,Math.PI*2);ctx.arc(wall.x2+dx,wall.y2+dy,7,0,Math.PI*2);ctx.fill();}
+        const label=(Math.hypot(wall.x2-wall.x1,wall.y2-wall.y1)/40).toFixed(2)+' m · '+(Math.atan2(wall.y2-wall.y1,wall.x2-wall.x1)*180/Math.PI).toFixed(1)+'°';
+        ctx.font='10px Roboto, sans-serif';const tw=ctx.measureText(label).width+8;ctx.fillStyle='rgba(15,23,42,.94)';ctx.fillRect((wall.x1+wall.x2)/2+dx-tw/2,(wall.y1+wall.y2)/2+dy-20,tw,16);ctx.fillStyle='#6EE7B7';ctx.textAlign='center';ctx.fillText(label,(wall.x1+wall.x2)/2+dx,(wall.y1+wall.y2)/2+dy-9);ctx.restore();
+      }
+    }
     // Preview only: never mutate the project while the pointer is moving.
     if (isDrawing && startPoint && currentMouse && ['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'].includes(tool)) {
       if (Math.hypot(currentMouse.x - startPoint.x, currentMouse.y - startPoint.y) > 1) {
@@ -508,10 +548,16 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     for (const wall of project.walls) {
       const vx = wall.x2 - wall.x1, vy = wall.y2 - wall.y1;
       const len2 = vx * vx + vy * vy || 1;
-      const t = Math.max(0, Math.min(1, ((x - wall.x1) * vx + (y - wall.y1) * vy) / len2));
+      let t = Math.max(0, Math.min(1, ((x - wall.x1) * vx + (y - wall.y1) * vy) / len2));
+      const rawX = wall.x1 + t * vx, rawY = wall.y1 + t * vy;
+      const distance = Math.hypot(x - rawX, y - rawY);
+      if (gapEnabled && len2 > 1) {
+        const length = Math.sqrt(len2);
+        const stepT = gapDistance / length;
+        t = Math.max(0, Math.min(1, Math.round(t / stepT) * stepT));
+      }
       const px = wall.x1 + t * vx, py = wall.y1 + t * vy;
-      const distance = Math.hypot(x - px, y - py);
-      if (distance < best.distance) best = { x: snap(px), y: snap(py), rotation: Math.round(Math.atan2(vy, vx) * 180 / Math.PI / 90) * 90, distance, wallId: wall.id };
+      if (distance < best.distance) best = { x: px, y: py, rotation: Math.atan2(vy, vx) * 180 / Math.PI, distance, wallId: wall.id };
     }
     return best.distance <= 64 ? best : { x, y, rotation: 0, distance: best.distance, wallId: '' };
   };
@@ -540,7 +586,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     const x = snap((e.clientX - rect.left - canvasPan.x) / zoom);
     const y = snap((e.clientY - rect.top - canvasPan.y) / zoom);
 
-    if (tool === 'select' && showWallVertices) {
+    if ((tool === 'select' || tool === 'wall') && showWallVertices) {
       const vertexHit = project.walls.flatMap(w => [
         { wall: w, endpoint: 1 as const, x: w.x1, y: w.y1 },
         { wall: w, endpoint: 2 as const, x: w.x2, y: w.y2 },
@@ -700,6 +746,16 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
             const t = Math.max(0, Math.min(1, ((x - w.x1) * vx + (y - w.y1) * vy) / len2));
             return Math.hypot(x - (w.x1 + t * vx), y - (w.y1 + t * vy));
           };
+          let wallDx = dx, wallDy = dy;
+          if (movedWall && gapEnabled) {
+            let best = gapDistance + 6, adjustment: {x:number;y:number} | null = null;
+            const proposed = [{x:movedWall.x1+dx,y:movedWall.y1+dy},{x:movedWall.x2+dx,y:movedWall.y2+dy}];
+            project.walls.filter(w=>w.id!==movedWall.id).forEach(w=>[{x:w.x1,y:w.y1},{x:w.x2,y:w.y2}].forEach(v=>proposed.forEach(p=>{
+              const d=Math.hypot(p.x-v.x,p.y-v.y);
+              if(d<best){best=d;adjustment={x:v.x-p.x,y:v.y-p.y};}
+            })));
+            if(adjustment){wallDx+=adjustment.x;wallDy+=adjustment.y;}
+          }
           const attached = movedWall && moveAttachedParts ? {
             openings: project.openings.filter(o => o.wallId === movedWall.id || distanceToWall(o.x, o.y, movedWall) <= 28).map(o => o.id),
             electrical: project.electrical.filter(o => distanceToWall(o.x, o.y, movedWall) <= 28).map(o => o.id),
@@ -707,10 +763,10 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           } : { openings: [], electrical: [], hydraulic: [] };
           updateProjectState({
             ...project,
-            walls: project.walls.map(w => w.id === drag.id ? { ...w, x1: w.x1 + dx, y1: w.y1 + dy, x2: w.x2 + dx, y2: w.y2 + dy } : w),
-            openings: project.openings.map(o => attached.openings.includes(o.id) ? { ...o, x: o.x + dx, y: o.y + dy } : o),
-            electrical: project.electrical.map(o => attached.electrical.includes(o.id) ? { ...o, x: o.x + dx, y: o.y + dy } : o),
-            hydraulic: project.hydraulic.map(o => attached.hydraulic.includes(o.id) ? { ...o, x: o.x + dx, y: o.y + dy } : o),
+            walls: project.walls.map(w => w.id === drag.id ? { ...w, x1: w.x1 + wallDx, y1: w.y1 + wallDy, x2: w.x2 + wallDx, y2: w.y2 + wallDy } : w),
+            openings: project.openings.map(o => attached.openings.includes(o.id) ? { ...o, x: o.x + wallDx, y: o.y + wallDy } : o),
+            electrical: project.electrical.map(o => attached.electrical.includes(o.id) ? { ...o, x: o.x + wallDx, y: o.y + wallDy } : o),
+            hydraulic: project.hydraulic.map(o => attached.hydraulic.includes(o.id) ? { ...o, x: o.x + wallDx, y: o.y + wallDy } : o),
           });
         }
         else if (drag.kind === 'opening') { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, openings: project.openings.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y, rotation: p.rotation, wallId: p.wallId || o.wallId } : o) }); }
@@ -1052,6 +1108,18 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         </div></>}
       </div>
 
+      {selectedObject?.kind === 'opening' && project.openings.some(o => o.id === selectedObject.id && o.type === 'door') && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#2A3A55] bg-[#17243A] p-3">
+          <label className="text-sm text-[#DCE6F5]" htmlFor="door-style">Modelo da porta</label>
+          <select id="door-style" value={project.openings.find(o => o.id === selectedObject.id)?.doorStyle ?? 'wood'}
+            onChange={e => updateProjectState({...project, openings: project.openings.map(o => o.id === selectedObject.id ? {...o, doorStyle: e.target.value as OpeningItem['doorStyle']} : o)})}
+            className="min-h-[42px] rounded-lg border border-[#2A3A55] bg-[#101827] px-3 text-sm text-white">
+            <option value="wood">Madeira tradicional</option><option value="sliding">Deslizante</option>
+            <option value="glass">Vidro</option><option value="double">Duas folhas</option><option value="metal">Metálica</option>
+          </select>
+          <span className="text-xs text-[#9FB0C8]">Modelo exibido na vista 3D.</span>
+        </div>
+      )}
       {selectedObject && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#2A3A55] bg-[#17243A] p-2">
           <span className="px-2 text-xs text-[#9FB0C8]">Elemento selecionado</span>

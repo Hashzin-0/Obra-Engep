@@ -145,9 +145,10 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark }) => {
         grid.position.set(centerX, -0.7, centerZ);
         scene.add(grid);
 
-        // Build walls around door openings instead of drawing an opaque wall through them.
-        const doorAssignments = new Map<string, Array<{x:number;y:number;width:number;rotation:number}>>();
-        project.openings.filter(o => o.type === 'door').forEach(o => {
+        // Assign both doors and windows to their host wall. Openings are real
+        // gaps in the wall mesh, not decorative markers laid over a solid wall.
+        const openingAssignments = new Map<string, Array<{x:number;y:number;width:number;rotation:number;type:'door'|'window';style?:string}>>();
+        project.openings.forEach(o => {
           let bestWall: typeof project.walls[number] | undefined;
           let bestDistance = Infinity;
           project.walls.forEach(w => {
@@ -155,9 +156,9 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark }) => {
             if (len2 < 1) return;
             const t = Math.max(0, Math.min(1, ((o.x-w.x1)*dx+(o.y-w.y1)*dz)/len2));
             const distance = Math.hypot(o.x-(w.x1+t*dx), o.y-(w.y1+t*dz));
-            if ((o.wallId === w.id || distance < bestDistance) && distance < 28) { bestWall=w; bestDistance=distance; }
+            if ((o.wallId === w.id && distance < 40) || (distance < bestDistance && distance < 28)) { bestWall=w; bestDistance=distance; }
           });
-          if (bestWall) doorAssignments.set(bestWall.id, [...(doorAssignments.get(bestWall.id)||[]), o]);
+          if (bestWall) openingAssignments.set(bestWall.id, [...(openingAssignments.get(bestWall.id)||[]), o]);
         });
 
         project.walls.forEach(w => {
@@ -167,52 +168,77 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark }) => {
           if (length < 1) return;
           const thickness = Math.max(4, w.thickness || 8);
           const angle = -Math.atan2(dz, dx);
-          const doors = (doorAssignments.get(w.id) || []).map(o => {
+          const openings = (openingAssignments.get(w.id) || []).map(o => {
             const t = Math.max(0, Math.min(1, ((o.x-w.x1)*dx+(o.y-w.y1)*dz)/(length*length)));
-            const halfWidth = Math.min(length * 0.45, Math.max(12, o.width * 0.25));
-            return { start: Math.max(0, t*length-halfWidth), end: Math.min(length, t*length+halfWidth) };
+            const widthPx = Math.min(length * 0.8, Math.max(16, o.width * 0.5));
+            return { start: Math.max(0, t*length-widthPx/2), end: Math.min(length, t*length+widthPx/2), type:o.type };
           }).sort((a,b)=>a.start-b.start);
           const addWallPart = (start:number, end:number, bottom:number, height:number) => {
             if (end-start < 1 || height < 1) return;
-
-            // Wall coordinates describe centerlines. Extend only the actual wall
-            // endpoints by half their thickness so perpendicular walls overlap
-            // at shared corners instead of leaving a visible notch or nested end.
-            // Do not extend door-jamb cuts: those are interior segment boundaries.
-            const joinsAtStart = start <= 0.001;
-            const joinsAtEnd = end >= length - 0.001;
+            const joinsAtStart = start <= 0.001, joinsAtEnd = end >= length - 0.001;
             const partStart = joinsAtStart ? start - thickness / 2 : start;
             const partEnd = joinsAtEnd ? end + thickness / 2 : end;
-            const partLength = partEnd - partStart;
-            const mid = (partStart + partEnd) / 2;
-            const x = w.x1 + (dx/length)*mid;
-            const z = w.y1 + (dz/length)*mid;
+            const partLength = partEnd - partStart, mid = (partStart + partEnd) / 2;
+            const x = w.x1 + (dx/length)*mid, z = w.y1 + (dz/length)*mid;
             const mesh = addBox(partLength, height, thickness, x, bottom+height/2, z, isDark ? 0x94a3b8 : 0xcbd5e1);
             mesh.rotation.y = angle;
           };
           let cursor = 0;
-          doors.forEach(door => {
-            const start = Math.max(cursor, door.start), end = Math.max(start, door.end);
+          openings.forEach(opening => {
+            const start = Math.max(cursor, opening.start), end = Math.max(start, opening.end);
             addWallPart(cursor, start, 0, 100);
-            // A 2 m doorway leaves the upper lintel intact; wall height is 2.5 m.
-            addWallPart(start, end, 80, 20);
+            if (opening.type === 'door') {
+              addWallPart(start, end, 80, 20);
+            } else {
+              // Window opening: sill at 30 and lintel above 72 (scene units).
+              addWallPart(start, end, 0, 30);
+              addWallPart(start, end, 72, 28);
+            }
             cursor = Math.max(cursor, end);
           });
           addWallPart(cursor, length, 0, 100);
-          // Match the wall-body endpoint overlap so the top edges also meet cleanly.
           const cap = addBox(length + thickness, 2, thickness + 1, (w.x1 + w.x2) / 2, 101, (w.y1 + w.y2) / 2, isDark ? 0xcbd5e1 : 0xf8fafc);
           cap.rotation.y = angle;
         });
 
-        // Door leaves are placed inside their real wall gaps; windows remain visible markers.
+        // Fill shared junctions with a small wall-material core. This closes the
+        // diagonal corner gaps left by intersecting rotated wall boxes.
+        const junctions: Array<{x:number;z:number;count:number}> = [];
+        project.walls.forEach(w => [{x:w.x1,z:w.y1},{x:w.x2,z:w.y2}].forEach(p => {
+          let node=junctions.find(v=>Math.hypot(v.x-p.x,v.z-p.z)<3);
+          if (!node) { node={x:p.x,z:p.z,count:0}; junctions.push(node); }
+          node.count++;
+        }));
+        junctions.filter(p=>p.count>1).forEach(p => {
+          const thickness=Math.max(4,...project.walls.filter(w=>Math.hypot(w.x1-p.x,w.y1-p.z)<3||Math.hypot(w.x2-p.x,w.y2-p.z)<3).map(w=>w.thickness||8));
+          addBox(thickness,100,thickness,p.x,50,p.z,isDark?0x94a3b8:0xcbd5e1);
+          addBox(thickness+1,2,thickness+1,p.x,101,p.z,isDark?0xcbd5e1:0xf8fafc);
+        });
+
+        // Door panels stand vertically in the opening; style is configurable.
+        // Windows receive a thin frame/glazing centered in the actual wall cutout.
         project.openings.forEach(o => {
           const widthPx = Math.max(16, o.width * 0.5);
+          const angle = -((o.rotation ?? 0) * Math.PI / 180);
           if (o.type === 'door') {
-            const leaf = addBox(widthPx * 0.92, 3, 3, o.x, 4, o.y, 0x9a6b3f, 0.9);
-            leaf.rotation.y = -((o.rotation ?? 0) * Math.PI / 180);
+            const style = o.doorStyle ?? 'wood';
+            const material = style === 'glass'
+              ? new THREE.MeshStandardMaterial({ color: 0x93c5fd, transparent: true, opacity: 0.55, metalness: 0.1, roughness: 0.15 })
+              : new THREE.MeshStandardMaterial({ color: style === 'metal' ? 0x94a3b8 : style === 'sliding' ? 0xb08968 : 0x9a6b3f, roughness: 0.72 });
+            const leaf = new THREE.Mesh(new THREE.BoxGeometry(widthPx * (style === 'double' ? 0.46 : 0.92), 78, 3, 1, 1, 1), material);
+            leaf.position.set(o.x, 39, o.y);
+            leaf.rotation.y = angle;
+            scene.add(leaf);
+            if (style === 'double') {
+              const leaf2 = new THREE.Mesh(new THREE.BoxGeometry(widthPx * 0.46, 78, 3), material.clone());
+              leaf2.position.set(o.x, 39, o.y);
+              leaf2.rotation.y = angle;
+              scene.add(leaf2);
+            }
+            const handle = addBox(2, 8, 2, o.x + Math.cos(angle) * widthPx * 0.32, 39, o.y - Math.sin(angle) * widthPx * 0.32, 0xf8fafc);
           } else {
-            const marker = addBox(widthPx, 8, 5, o.x, 52, o.y, 0x38bdf8, 0.65);
-            marker.rotation.y = -((o.rotation ?? 0) * Math.PI / 180);
+            const frame = addBox(widthPx, 42, 3, o.x, 51, o.y, 0x38bdf8, 0.8);
+            frame.rotation.y = angle;
           }
         });
 
