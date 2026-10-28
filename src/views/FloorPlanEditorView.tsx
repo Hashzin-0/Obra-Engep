@@ -276,10 +276,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         ctx.translate(op.x, op.y);
         ctx.rotate(((op.rotation ?? 0) * Math.PI) / 180);
         const openingHalf = Math.max(10, op.width * 0.25);
-        // Erase the wall stroke underneath the opening so the plan shows a real gap.
-        ctx.strokeStyle = isDark ? '#101827' : '#F8FAFC';
-        ctx.lineWidth = 21;
-        ctx.beginPath(); ctx.moveTo(-openingHalf, 0); ctx.lineTo(openingHalf, 0); ctx.stroke();
+        // In 2D, render only the door/window symbol. The 3D renderer handles wall openings.
         if (op.type === 'door') {
           ctx.strokeStyle = '#F5B93A'; ctx.lineWidth = 2.5;
           ctx.beginPath(); ctx.moveTo(-openingHalf, 0); ctx.lineTo(-openingHalf, -openingHalf); ctx.stroke();
@@ -476,39 +473,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         ctx.restore();
       }
     }
-    if (isDrawing && startPoint && currentMouse && ['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'].includes(tool)) {
-      const rect = e?.currentTarget.getBoundingClientRect();
-      const end = e && rect
-        ? { x: snap((e.clientX - rect.left - canvasPan.x) / zoom), y: snap((e.clientY - rect.top - canvasPan.y) / zoom) }
-        : currentMouse;
-      if (Math.hypot(end.x - startPoint.x, end.y - startPoint.y) > 5) {
-        const routeId = ensureUuid(tool);
-        if (tool === 'wire' || tool === 'conduit') {
-          const route: ElectricalItem = {
-            id: routeId, type: tool as ElectricalItem['type'],
-            x: startPoint.x, y: startPoint.y, x2: end.x, y2: end.y,
-            circuit: 'Circuito 1',
-            label: tool === 'wire' ? 'Fiação elétrica' : 'Eletroduto elétrico',
-          };
-          updateProjectState({ ...project, electrical: [...project.electrical, route] });
-          setSelectedObject({ kind: 'electrical', id: routeId });
-        } else {
-          const route: HydraulicItem = {
-            id: routeId, type: tool as HydraulicItem['type'],
-            x: startPoint.x, y: startPoint.y, x2: end.x, y2: end.y,
-            diameterMm: tool === 'sewage_pipe' ? 100 : tool === 'rain_pipe' ? 75 : tool === 'vent_pipe' ? 50 : 25,
-            label: tool === 'sewage_pipe' ? 'Tubulação de esgoto Ø100mm' : tool === 'rain_pipe' ? 'Águas pluviais Ø75mm' : tool === 'vent_pipe' ? 'Ventilação sanitária Ø50mm' : 'Tubulação de água Ø25mm',
-          };
-          updateProjectState({ ...project, hydraulic: [...project.hydraulic, route] });
-          setSelectedObject({ kind: 'hydraulic', id: routeId });
-        }
-      }
-      setIsDrawing(false);
-      setStartPoint(null);
-      setCurrentMouse(null);
-      placementRef.current = false;
-      return;
-    }
+
     if (isDrawing && startPoint && currentMouse && tool === 'wall' && wallDrawMode === 'segment') {
       ctx.strokeStyle = '#3DD68C';
       ctx.lineWidth = 6;
@@ -791,6 +756,48 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         updateProjectState({ ...project, hydraulic: [...project.hydraulic, item] }); setSelectedObject({ kind: 'hydraulic', id: item.id });
       }
       placementRef.current = false; setIsDrawing(false); setStartPoint(null); setCurrentMouse(null); return;
+    }
+    if (isDrawing && startPoint && e && ['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'].includes(tool)) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const end = {
+        x: snap((e.clientX - rect.left - canvasPan.x) / zoom),
+        y: snap((e.clientY - rect.top - canvasPan.y) / zoom),
+      };
+      if (Math.hypot(end.x - startPoint.x, end.y - startPoint.y) > 5) {
+        const routeId = ensureUuid(tool);
+        if (tool === 'wire' || tool === 'conduit') {
+          const route: ElectricalItem = {
+            id: routeId,
+            type: tool as ElectricalItem['type'],
+            x: startPoint.x,
+            y: startPoint.y,
+            x2: end.x,
+            y2: end.y,
+            circuit: 'Circuito 1',
+            label: tool === 'wire' ? 'Fiação elétrica' : 'Eletroduto elétrico',
+          };
+          updateProjectState({ ...project, electrical: [...project.electrical, route] });
+          setSelectedObject({ kind: 'electrical', id: routeId });
+        } else {
+          const route: HydraulicItem = {
+            id: routeId,
+            type: tool as HydraulicItem['type'],
+            x: startPoint.x,
+            y: startPoint.y,
+            x2: end.x,
+            y2: end.y,
+            diameterMm: tool === 'sewage_pipe' ? 100 : tool === 'rain_pipe' ? 75 : tool === 'vent_pipe' ? 50 : 25,
+            label: tool === 'sewage_pipe' ? 'Tubulação de esgoto Ø100mm' : tool === 'rain_pipe' ? 'Águas pluviais Ø75mm' : tool === 'vent_pipe' ? 'Ventilação sanitária Ø50mm' : 'Tubulação de água Ø25mm',
+          };
+          updateProjectState({ ...project, hydraulic: [...project.hydraulic, route] });
+          setSelectedObject({ kind: 'hydraulic', id: routeId });
+        }
+      }
+      setIsDrawing(false);
+      setStartPoint(null);
+      setCurrentMouse(null);
+      placementRef.current = false;
+      return;
     }
     if (isDrawing && startPoint && currentMouse && tool === 'wall' && wallDrawMode === 'segment') {
       if (startPoint.x !== currentMouse.x || startPoint.y !== currentMouse.y) {
