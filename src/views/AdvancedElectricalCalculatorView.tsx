@@ -3,7 +3,7 @@ import { LimitBar } from '../components/LimitBar';
 type Field={key:string;label:string;unit:string;initial?:number};
 type Result={label:string;value:number;unit:string};
 type Calc={title:string;fields:Field[];formula:string;run:(v:Record<string,number>)=>Result[]};
-const f=(key:string,label:string,unit:string,initial=0):Field=>({key,label,unit,initial});
+const f=(key:string,label:string,unit:string,initial=Number.NaN):Field=>({key,label,unit,initial});
 const c=(title:string,fields:Field[],formula:string,run:Calc['run']):Calc=>({title,fields,formula,run});
 const configs:Record<string,Calc>={
  kwh:c('Energia consumida',[f('p','Potência','W'),f('t','Tempo','h')],'E = P × t / 1000',v=>[{label:'Energia',value:v.p*v.t/1000,unit:'kWh'}]),
@@ -59,7 +59,7 @@ export const ADVANCED_ELECTRICAL_TOOLS=Object.entries(configs).map(([id,x])=>({i
 const inputClass='w-full min-w-0 h-12 px-3 rounded-xl bg-[#101827] border border-[#354762] text-white text-sm';
 const fmt=(n:number)=>Number.isFinite(n)?n.toLocaleString('pt-BR',{maximumFractionDigits:3}):'—';
 export const AdvancedElectricalCalculatorView:React.FC<{toolId:string;title?:string}>=({toolId,title})=>{
- const config=configs[toolId]; const [values,setValues]=useState<Record<string,number>>({}); const [submitted,setSubmitted]=useState(false);
+ const config=configs[toolId]??configs.kwh; const [values,setValues]=useState<Record<string,number>>({}); const [submitted,setSubmitted]=useState(false);
  const inputs=useMemo(()=>Object.fromEntries(config.fields.map(x=>[x.key,values[x.key]??x.initial??Number.NaN])),[config,values]);
  const valid=config.fields.every(x=>Number.isFinite(inputs[x.key])&&inputs[x.key]>0);
  const results=useMemo(()=>{if(!valid)return [];try{return config.run(inputs).filter(x=>Number.isFinite(x.value))}catch{return []}},[config,inputs,valid]);
