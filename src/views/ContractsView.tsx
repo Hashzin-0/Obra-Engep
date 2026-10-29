@@ -64,6 +64,7 @@ export const ContractsView: React.FC<Props> = ({ userId, onBack }) => {
   const [fields, setFields] = useState<Record<string, string>>({});
   const [contracts, setContracts] = useState<GeneratedContract[]>([]);
   const [activeContract, setActiveContract] = useState<GeneratedContract | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
   const [editedContent, setEditedContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -97,11 +98,16 @@ export const ContractsView: React.FC<Props> = ({ userId, onBack }) => {
       id: crypto.randomUUID(), modelId: selected.id, title: selected.title,
       content: buildDocument(selected, fields), fields: { ...fields }, createdAt: now, updatedAt: now,
     };
-    setSaving(true); setError('');
+    setError('');
+    if (!userId) {
+      setActiveContract(contract); setEditedContent(contract.content); setIsSaved(false); setScreen('document');
+      return;
+    }
+    setSaving(true);
     try {
       await saveContract(contract);
       setContracts((current) => [contract, ...current.filter((item) => item.id !== contract.id)]);
-      setActiveContract(contract); setEditedContent(contract.content); setScreen('document');
+      setActiveContract(contract); setEditedContent(contract.content); setIsSaved(true); setScreen('document');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível salvar o documento.');
     } finally { setSaving(false); }
@@ -112,15 +118,17 @@ export const ContractsView: React.FC<Props> = ({ userId, onBack }) => {
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível excluir.'); }
   };
 
-  const openSaved = (contract: GeneratedContract) => { setActiveContract(contract); setEditedContent(contract.content); setScreen('document'); };
+  const openSaved = (contract: GeneratedContract) => { setActiveContract(contract); setEditedContent(contract.content); setIsSaved(true); setScreen('document'); };
 
   const saveEditedDocument = async () => {
     if (!activeContract) return;
+    if (!userId) { setError('Entre com sua conta Google para salvar este documento no histórico privado. Você ainda pode exportar o PDF.'); return; }
     const updated = { ...activeContract, content: editedContent, updatedAt: new Date().toISOString() };
     setSaving(true); setError('');
     try {
       await saveContract(updated);
       setActiveContract(updated);
+      setIsSaved(true);
       setContracts((current) => current.map((item) => item.id === updated.id ? updated : item));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível salvar as alterações.');
@@ -193,10 +201,10 @@ export const ContractsView: React.FC<Props> = ({ userId, onBack }) => {
     </>}
 
     {screen === 'document' && activeContract && <>
-      <header className="space-y-2"><h1 className={titleClass}>{activeContract.title}</h1><p className="text-xs text-[#9FB0C8]">Documento salvo · {new Date(activeContract.updatedAt).toLocaleString('pt-BR')}</p></header>
+      <header className="space-y-2"><h1 className={titleClass}>{activeContract.title}</h1><p className="text-xs text-[#9FB0C8]">{isSaved ? 'Documento salvo' : 'Rascunho não salvo — entre com Google para guardar na sua conta'} · {new Date(activeContract.updatedAt).toLocaleString('pt-BR')}</p></header>
       <div className={panelClass + ' flex flex-wrap gap-2'}>
         <button onClick={() => downloadPdf({ ...activeContract, content: editedContent })} className="inline-flex items-center gap-2 rounded-xl bg-[#1F66D6] px-4 py-2.5 text-xs font-bold text-white"><Download size={16} /> Exportar PDF</button>
-        <button disabled={saving} onClick={() => void saveEditedDocument()} className="inline-flex items-center gap-2 rounded-xl border border-[#2A3A55] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-50">{saving ? 'Salvando...' : 'Salvar alterações'}</button>
+        <button disabled={saving} onClick={() => void saveEditedDocument()} className="inline-flex items-center gap-2 rounded-xl border border-[#2A3A55] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-50">{saving ? 'Salvando...' : isSaved ? 'Salvar alterações' : 'Salvar na conta'}</button>
         <button onClick={() => { setSelected(contractModels.find((model) => model.id === activeContract.modelId) ?? null); setFields({ ...activeContract.fields }); setScreen('editor'); }} className="inline-flex items-center gap-2 rounded-xl border border-[#2A3A55] px-4 py-2.5 text-xs font-semibold text-white">Editar dados</button>
       </div>
       <article className={panelClass}><label className="mb-2 block text-xs font-semibold text-[#9FB0C8]">Editor do documento — revise e ajuste o texto antes de exportar ou assinar</label><textarea rows={28} value={editedContent} onChange={(event) => setEditedContent(event.target.value)} className={inputClass + ' min-h-[520px] resize-y font-mono text-[11px] leading-relaxed'} /></article>
