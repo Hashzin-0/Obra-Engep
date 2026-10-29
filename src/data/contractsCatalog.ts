@@ -27,6 +27,11 @@ const commonFields: ContractField[] = [
   { key: 'prazo', label: 'Prazo, duração ou vigência', required: true },
   { key: 'local', label: 'Local de execução / endereço do bem', required: false },
   { key: 'condicoes', label: 'Condições específicas negociadas', required: false, multiline: true },
+  { key: 'representanteLegalA', label: 'Representante legal da parte A e poderes', required: false },
+  { key: 'representanteLegalB', label: 'Representante legal da parte B e poderes', required: false },
+  { key: 'localAssinatura', label: 'Município/UF de assinatura', required: false },
+  { key: 'dataAssinatura', label: 'Data de assinatura', required: false },
+  { key: 'foro', label: 'Foro/solução de controvérsias, se legalmente admissível', required: false },
 ];
 
 const sources = {
