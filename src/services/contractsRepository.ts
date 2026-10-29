@@ -1,5 +1,5 @@
 import type { GeneratedContract } from '../types';
-import { ensureAnonymousSession, supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 
 function client() {
   if (!supabase) throw new Error('Sincronização indisponível: configure o Supabase para salvar documentos na conta.');
@@ -28,11 +28,11 @@ function mapRow(row: ContractRow): GeneratedContract {
 
 export async function listContracts(): Promise<GeneratedContract[]> {
   const db = client();
-  await ensureAnonymousSession();
   const { data: sessionData, error: sessionError } = await db.auth.getSession();
   if (sessionError) throw new Error(sessionError.message);
-  const userId = sessionData.session?.user.id;
-  if (!userId) return [];
+  const sessionUser = sessionData.session?.user;
+  if (!sessionUser || sessionUser.is_anonymous) return [];
+  const userId = sessionUser.id;
   const { data, error } = await db.from('legal_contracts').select('*').eq('user_id', userId).order('updated_at', { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []).map(mapRow);
@@ -43,8 +43,9 @@ export async function saveContract(contract: GeneratedContract): Promise<void> {
   await ensureAnonymousSession();
   const { data: sessionData, error: sessionError } = await db.auth.getSession();
   if (sessionError) throw new Error(sessionError.message);
-  const userId = sessionData.session?.user.id;
-  if (!userId) throw new Error('Entre na sua conta para salvar documentos jurídicos.');
+  const sessionUser = sessionData.session?.user;
+  if (!sessionUser || sessionUser.is_anonymous) throw new Error('Entre com sua conta Google para salvar documentos jurídicos com segurança.');
+  const userId = sessionUser.id;
   const { error } = await db.from('legal_contracts').upsert({
     id: contract.id, user_id: userId, model_id: contract.modelId, title: contract.title,
     content: contract.content, fields: contract.fields, updated_at: contract.updatedAt,
@@ -57,8 +58,9 @@ export async function deleteContract(id: string): Promise<void> {
   await ensureAnonymousSession();
   const { data: sessionData, error: sessionError } = await db.auth.getSession();
   if (sessionError) throw new Error(sessionError.message);
-  const userId = sessionData.session?.user.id;
-  if (!userId) throw new Error('Sessão não encontrada.');
+  const sessionUser = sessionData.session?.user;
+  if (!sessionUser || sessionUser.is_anonymous) throw new Error('Entre com sua conta Google para excluir documentos salvos.');
+  const userId = sessionUser.id;
   const { error } = await db.from('legal_contracts').delete().eq('id', id).eq('user_id', userId);
   if (error) throw new Error(error.message);
 }
