@@ -8,13 +8,16 @@ export type ThemeMode = 'dark' | 'light' | 'system';
 
 export type MainTab = 'inicio' | 'biblioteca' | 'favoritos' | 'mais';
 
+export * from './contracts';
+
 export type ModuleId =
   | 'calculadoras'
   | 'manuais'
   | 'projetos'
   | 'ia'
   | 'estetica'
-  | 'legislacao';
+  | 'legislacao'
+  | 'contratos';
 
 export type AlertLevel = 'info' | 'warning' | 'danger';
 
