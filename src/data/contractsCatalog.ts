@@ -358,9 +358,41 @@ const models: ContractModel[] = [
     fields: commonFields, clauses: ['Finalidade específica e contexto', 'Meios, canais e território', 'Prazo e possibilidade de revogação quando aplicável', 'Remuneração ou gratuidade', 'Tratamento e armazenamento dos arquivos', 'Limites de edição e vedação de uso vexatório'],
     warnings: ['Consentimento deve ser específico, destacado e informado quando utilizado como base legal.', 'Em contexto laboral, evitar consentimento compulsório e observar assimetria entre as partes.'],
   },
+  {
+    id: 'clt-aprendizagem', title: 'Contrato especial de aprendizagem profissional', category: 'trabalhista', regime: 'Trabalhista — CLT e legislação de aprendizagem',
+    description: 'Contrato especial, escrito e por prazo determinado, com formação técnico-profissional metódica.',
+    when: 'Contratação de aprendiz dentro dos requisitos etários, escolares e de programa de aprendizagem legalmente válido.',
+    parties: [{ party: 'Empregador', duties: 'Registrar o contrato, matricular/manter o aprendiz no programa, assegurar formação prática, jornada compatível, salário e direitos.' }, { party: 'Aprendiz', duties: 'Executar atividades formativas, frequentar escola e programa, cumprir jornada e zelar pela segurança.' }, { party: 'Entidade formadora', duties: 'Oferecer programa registrado, conteúdo teórico, acompanhamento e avaliação, quando atuar como entidade qualificadora.' }],
+    sources: [clt('arts. 428 a 433', 'Conceito, requisitos, idade, prazo, jornada, salário, FGTS diferenciado e extinção do contrato de aprendizagem.'), law('Lei nº 10.097/2000 — Aprendizagem', 'https://www.planalto.gov.br/ccivil_03/leis/l10097.htm', 'alterações nos arts. 428 a 433 da CLT', 'Institui e disciplina a aprendizagem profissional.'), law('Decreto nº 9.579/2018', 'https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/decreto/d9579.htm', 'disposições sobre aprendizagem profissional', 'Regulamenta a contratação de aprendizes e programas de aprendizagem.')],
+    fields: commonFields, clauses: ['Identificação do programa e entidade formadora', 'Atividades teóricas e práticas', 'Matrícula, frequência escolar e acompanhamento', 'Jornada compatível com escola e programa', 'Remuneração, FGTS e direitos', 'Saúde, segurança e acompanhamento pedagógico', 'Prazo e hipóteses legais de extinção'],
+    warnings: ['Regra geral: aprendiz entre 14 e 24 anos; não há limite máximo de idade para pessoa com deficiência.', 'O contrato é escrito, especial e por prazo determinado, em regra limitado a dois anos, observadas as exceções legais.', 'Não utilizar o aprendiz em tarefas incompatíveis com a formação ou perigosas/insalubres fora das hipóteses legais.'],
+  },
+  {
+    id: 'clt-safra', title: 'Contrato de trabalho por safra', category: 'trabalhista', regime: 'Trabalhista rural — Lei 5.889/1973 e CLT subsidiária',
+    description: 'Contrato rural por prazo determinado vinculado às variações sazonais da atividade agrária.',
+    when: 'Quando o término do vínculo depende das variações estacionais da atividade agrária e da safra identificada.',
+    parties: [{ party: 'Empregador rural', duties: 'Identificar a safra e atividade, registrar o vínculo, pagar direitos, garantir condições de segurança e comunicar o término conforme a lei.' }, { party: 'Trabalhador safrista', duties: 'Executar atividades rurais pactuadas, cumprir orientações lícitas e observar segurança e uso de EPIs.' }],
+    sources: [law('Lei nº 5.889/1973 — Trabalho Rural', 'https://www.planalto.gov.br/ccivil_03/leis/l5889.htm', 'art. 14 e parágrafo único', 'Define contrato de safra e disciplina indenização específica ao término, conforme a hipótese.'), law('Decreto nº 73.626/1974', 'https://www.planalto.gov.br/ccivil_03/decreto/1970-1979/d73626.htm', 'regulamentação do trabalho rural', 'Regras complementares para o trabalho rural.'), clt('arts. 443, 445 e 451, subsidiariamente quando compatíveis', 'Regras gerais de contrato por prazo determinado, sem afastar a norma especial rural.')],
+    fields: commonFields, clauses: ['Identificação da cultura e safra', 'Atividade e etapas de trabalho', 'Marco inicial e critério objetivo de encerramento da safra', 'Jornada, remuneração e repousos', 'Segurança rural, máquinas e defensivos', 'Verbas de término e indenização legal aplicável'],
+    warnings: ['Não usar prazo artificial: o termo final deve estar ligado às variações estacionais da atividade agrária.', 'Distinguir contrato de safra de parceria ou arrendamento rural.', 'Observar convenção coletiva e NR-31 conforme a atividade.'],
+  },
 ];
 
 const extraFieldsByModel: Record<string, ContractField[]> = {
+  'clt-aprendizagem': [
+    { key: 'dataNascimento', label: 'Data de nascimento e idade na admissão', required: true },
+    { key: 'entidadeFormadora', label: 'Entidade formadora e identificação do programa', required: true },
+    { key: 'cursoAprendiz', label: 'Curso, conteúdo teórico e atividades práticas', required: true, multiline: true },
+    { key: 'matriculaEscolar', label: 'Matrícula e frequência escolar, quando exigidas', required: true },
+    { key: 'jornadaAprendiz', label: 'Jornada e compatibilidade com escola/programa', required: true },
+    { key: 'supervisorAprendiz', label: 'Responsável pela orientação prática', required: true },
+  ],
+  'clt-safra': [
+    { key: 'culturaSafra', label: 'Cultura, safra e atividade agrária', required: true },
+    { key: 'marcoSafra', label: 'Critério objetivo de encerramento da safra', required: true, multiline: true },
+    { key: 'areaSafra', label: 'Propriedade/estabelecimento rural e área de trabalho', required: true },
+    { key: 'segurancaSafra', label: 'Riscos, EPIs, máquinas e treinamentos', required: true, multiline: true },
+  ],
   'clt-indeterminado': [
     { key: 'cargoCbo', label: 'Cargo, função e CBO', required: true },
     { key: 'jornada', label: 'Jornada semanal e distribuição dos horários', required: true },
