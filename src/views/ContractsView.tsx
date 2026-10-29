@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BookOpen, Download, FilePlus2, FileText, Search, ShieldAlert, Trash2, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, Download, FilePlus2, FileText, Search, ShieldAlert, Trash2 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { contractCategories, contractModels } from '../data/contractsCatalog';
 import type { ContractModel, GeneratedContract } from '../types';
@@ -10,9 +10,29 @@ type Screen = 'catalog' | 'editor' | 'document';
 
 const emptyFields = (model: ContractModel) => Object.fromEntries(model.fields.map((field) => [field.key, ''])) as Record<string, string>;
 
+function clauseBody(model: ContractModel, clause: string, fields: Record<string, string>): string {
+  const v = (key: string) => fields[key]?.trim() || '[PREENCHER]';
+  const name = clause.toLocaleLowerCase('pt-BR');
+  if (/objeto|escopo|função|atividade|serviço|obra|destinação/.test(name)) return `O objeto deste instrumento é ${v('objeto')}. A execução ficará limitada ao escopo descrito, e qualquer alteração material dependerá de formalização escrita pelas partes.`;
+  if (/salário|remuneração|preço|comissão|bolsa|aluguel|valor|pagamento/.test(name)) return `A contraprestação será ${v('valor')}, com vencimentos, documentos e critérios de apuração compatíveis com o regime jurídico deste contrato. Tributos, encargos e retenções serão tratados conforme a legislação aplicável, sem transferência de obrigação legal indisponível.`;
+  if (/prazo|vigência|término|prorrogação/.test(name)) return `A vigência inicia em ${v('inicio')} e observará ${v('prazo')}. Prorrogações, renovações e término antecipado dependerão das hipóteses, formas e limites previstos na legislação específica indicada neste instrumento.`;
+  if (/jornada|horário|convocação|intervalo|descanso/.test(name)) {
+    if (model.id === 'clt-intermitente') return 'A convocação será realizada por meio de comunicação eficaz, com antecedência mínima de três dias corridos, indicando jornada e período de prestação. O trabalhador terá um dia útil para responder; o silêncio será considerado recusa. A recusa não descaracteriza a subordinação. Ao final de cada período de prestação serão discriminadas e pagas as parcelas previstas no art. 452-A da CLT.';
+    if (model.category === 'trabalhista') return 'A jornada, os intervalos, os descansos e o controle de horário observarão os limites constitucionais, a CLT, a legislação especial e a norma coletiva aplicável. Horas extraordinárias e compensações somente serão adotadas nos regimes e limites legalmente admitidos.';
+    return 'Os horários de execução e acesso serão definidos por ordem de serviço ou cronograma, sem criar subordinação trabalhista quando a relação for efetivamente civil ou empresarial.';
+  }
+  if (/garantia|vício|defeito|qualidade/.test(name)) return 'A parte responsável responderá por desconformidades e vícios nos prazos e limites previstos na legislação aplicável, sem prejuízo de garantias legais obrigatórias. A vistoria, o aceite e a comunicação de defeitos deverão ser documentados.';
+  if (/entrega|restituição|devolução|vistoria|recebimento/.test(name)) return `A entrega ou restituição será realizada em ${v('local')}, mediante conferência do estado, acessórios e documentos do bem/serviço. As condições verificadas deverão constar de termo ou registro assinado pelas partes.`;
+  if (/confidencial|dados|segurança da informação/.test(name)) return 'As partes utilizarão informações e dados pessoais somente para as finalidades legítimas e autorizadas, limitarão o acesso a pessoas que necessitem conhecê-los e adotarão medidas técnicas e administrativas adequadas. Permanecem ressalvados deveres legais de comunicação, fiscalização, exercício de direitos e cooperação com autoridades.';
+  if (/rescisão|extinção|resolução|encerramento/.test(name)) return 'A extinção observará aviso, prazos, causas, formalidades, indenizações e verbas previstos no regime jurídico aplicável. Permanecem exigíveis obrigações vencidas, prestação de contas, devolução de bens e deveres que, por sua natureza ou previsão válida, sobrevivam ao término.';
+  if (/material|equipamento|ferramenta|conservação|manutenção/.test(name)) return `A parte que receber materiais ou equipamentos deverá utilizá-los exclusivamente na finalidade ajustada, conservar e devolver conforme o estado de recebimento, ressalvado o desgaste normal e as responsabilidades legais de cada parte. Condições específicas: ${v('condicoes')}.`;
+  if (/responsabilidade|obrigações|deveres|segurança|licenças|art|normas/.test(name)) return model.parties.map((party) => `${party.party}: ${party.duties}`).join(' ');
+  return `As partes executarão esta disposição conforme o objeto (${v('objeto')}), o valor pactuado (${v('valor')}) e as condições específicas (${v('condicoes')}), respeitando as obrigações de cada parte e as normas cogentes do regime ${model.regime}.`;
+}
+
 function buildDocument(model: ContractModel, fields: Record<string, string>): string {
   const value = (key: string) => fields[key]?.trim() || '[PREENCHER]';
-  const clauses = model.clauses.map((clause, index) => `CLÁUSULA ${index + 1} — ${clause.toUpperCase()}\nAs partes ajustam que: ${value('condicoes')}. As condições específicas deste instrumento são interpretadas em conjunto com a legislação indicada, sem afastar direitos indisponíveis ou normas cogentes.\n`).join('\n');
+  const clauses = model.clauses.map((clause, index) => `CLÁUSULA ${index + 1} — ${clause.toUpperCase()}\n${clauseBody(model, clause, fields)}\n`).join('\n');
   const legal = model.sources.map((source) => `• ${source.name}, ${source.articles}. Aplicação: ${source.note}\n  Fonte oficial: ${source.url}`).join('\n');
   const duties = model.parties.map((party) => `${party.party}: ${party.duties}`).join('\n\n');
   return `${model.title.toUpperCase()}\n\nREGIME JURÍDICO: ${model.regime}\n\n1. IDENTIFICAÇÃO DAS PARTES\nPARTE A: ${value('contratante')} — CPF/CNPJ: ${value('documentoContratante')} — Endereço: ${value('enderecoContratante')}\nPARTE B: ${value('contratado')} — CPF/CNPJ: ${value('documentoContratado')} — Endereço: ${value('enderecoContratado')}\n\n2. OBJETO\n${value('objeto')}\nLocal: ${value('local')}\n\n3. PREÇO / REMUNERAÇÃO\n${value('valor')}\n\n4. PRAZO E VIGÊNCIA\nInício: ${value('inicio')}\nPrazo: ${value('prazo')}\n\n5. OBRIGAÇÕES E RESPONSABILIDADES DAS PARTES\n${duties}\n\n6. CLÁUSULAS E CONDIÇÕES\n${clauses}\n\n7. CONDIÇÕES ESPECÍFICAS\n${value('condicoes')}\n\n8. LEGISLAÇÃO APLICÁVEL E FONTES PARA CONFERÊNCIA\n${legal}\n\n9. DISPOSIÇÕES GERAIS\nEste instrumento deve ser interpretado conforme o regime jurídico indicado, a boa-fé e as normas cogentes aplicáveis. A nulidade de disposição específica não implica renúncia a direitos indisponíveis. Alterações deverão ser formalizadas por escrito, respeitadas as exigências legais de forma e registro.\n\n10. ASSINATURAS\nLocal e data: ${value('local')} — ${value('inicio')}\n\nPARTE A: __________________________________________\nPARTE B: __________________________________________\n\nTESTEMUNHA 1: __________________ CPF: __________________\nTESTEMUNHA 2: __________________ CPF: __________________\n\nALERTA: minuta orientativa gerada a partir de modelo geral. Confirme os fatos, a convenção coletiva, legislação especial, documentos e formalidades do caso concreto antes da assinatura. A geração não substitui análise jurídica profissional.\n`;
