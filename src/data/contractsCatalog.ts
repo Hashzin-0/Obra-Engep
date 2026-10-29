@@ -130,7 +130,7 @@ const models: ContractModel[] = [
     description: 'Contrato entre pessoas jurídicas para execução de serviços determinados e específicos.',
     when: 'Quando uma empresa contrata outra para executar serviços permitidos, com estrutura e requisitos legais.',
     parties: [{ party: 'Contratante/tomadora', duties: 'Definir escopo, assegurar condições de segurança no local e responder subsidiariamente nos limites legais.' }, { party: 'Prestadora', duties: 'Contratar, remunerar e dirigir seus trabalhadores, cumprir encargos e comprovar regularidade.' }],
-    sources: [law('Lei nº 6.019/1974', 'https://www.planalto.gov.br/ccivil_03/leis/l6019.htm', 'arts. 4º-A, 4º-B, 5º-A, 5º-B, 5º-C e 5º-D', 'Requisitos da prestadora, conteúdo mínimo, responsabilidade e quarentena legal.'), law('STF — ADPF 324 e Tema 725', 'https://portal.stf.jus.br/', 'precedentes sobre terceirização', 'Reconhecimento da licitude da terceirização em qualquer etapa, observados os limites legais e a análise de fraude.')],
+    sources: [law('Lei nº 6.019/1974', 'https://www.planalto.gov.br/ccivil_03/leis/l6019.htm', 'arts. 4º-A, 4º-B, 5º-A, 5º-B, 5º-C e 5º-D', 'Requisitos da prestadora, conteúdo mínimo, responsabilidade e quarentena legal.'), law('STF — ADPF 324 e Tema 725', 'https://portal.stf.jus.br/jurisprudenciaRepercussao/tema.asp?num=725', 'tese de repercussão geral do RE 958252', 'A terceirização é lícita entre pessoas jurídicas distintas, mantida a responsabilidade subsidiária da contratante; a ADPF 324 também assentou parâmetros de idoneidade e responsabilidade.')],
     fields: commonFields, clauses: ['Escopo determinado e entregáveis', 'Qualificação e capacidade da prestadora', 'Preço, medição e pagamento', 'Prazo e níveis de serviço', 'Obrigações trabalhistas, previdenciárias e fiscais', 'Saúde e segurança no estabelecimento', 'Fiscalização documental e proteção de dados'],
     warnings: ['Não transferir à tomadora a direção cotidiana dos empregados da prestadora como expediente de fraude.', 'Cláusulas não afastam responsabilidade subsidiária prevista em lei.', 'Verificar os requisitos dos arts. 4º-B e 5º-B.'],
   },
@@ -220,7 +220,7 @@ const models: ContractModel[] = [
     description: 'Promessa/compromisso de compra e venda com condições para futura escritura e registro.',
     when: 'Negociação de imóvel antes da escritura definitiva ou em parcelamento.',
     parties: [{ party: 'Promitente vendedor', duties: 'Comprovar titularidade e situação do imóvel, entregar documentos e outorgar escritura após cumprimento.' }, { party: 'Promitente comprador', duties: 'Pagar preço, cumprir condições, tributos e providenciar registro quando cabível.' }],
-    sources: [cc('arts. 108, 389, 421, 422, 463 a 466, 1.227 e 1.245', 'Forma pública conforme valor e exceções, promessa, adjudicação e transferência registral.'), law('Lei nº 6.015/1973 — Registros Públicos', 'https://www.planalto.gov.br/ccivil_03/leis/l6015compilada.htm', 'arts. 167 e seguintes', 'Registro do compromisso e dos atos imobiliários.'), law('Lei nº 13.786/2018 — Distrato imobiliário', 'https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13786.htm', 'aplicável a incorporações/loteamentos', 'Regras especiais de resolução em incorporação e loteamento.')],
+    sources: [cc('arts. 108, 389, 421, 422, 463 a 466, 1.227 e 1.245', 'Forma pública conforme valor e exceções, promessa, adjudicação e transferência registral.'), law('Lei nº 6.015/1973 — Registros Públicos', 'https://www.planalto.gov.br/ccivil_03/leis/l6015consolidado.htm', 'arts. 167 e seguintes', 'Registro do compromisso e dos atos imobiliários.'), law('Lei nº 13.786/2018 — Distrato imobiliário', 'https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13786.htm', 'aplicável a incorporações/loteamentos', 'Regras especiais de resolução em incorporação e loteamento.')],
     fields: commonFields, clauses: ['Matrícula, descrição e situação registral', 'Preço, sinal, parcelas e índice', 'Certidões e ônus', 'Posse, escritura e registro', 'Tributos, condomínio e despesas', 'Condições suspensivas e financiamento', 'Inadimplemento e distrato'],
     warnings: ['Este modelo é promessa/compromisso, não substitui escritura pública quando exigida pelo art. 108.', 'A propriedade imobiliária se transfere com registro do título (art. 1.245).', 'Empreendimentos imobiliários podem ter regime legal especial.'],
   },
@@ -343,6 +343,214 @@ const models: ContractModel[] = [
   },
 ];
 
+const extraFieldsByModel: Record<string, ContractField[]> = {
+  'clt-indeterminado': [
+    { key: 'cargoCbo', label: 'Cargo, função e CBO', required: true },
+    { key: 'jornada', label: 'Jornada semanal e distribuição dos horários', required: true },
+    { key: 'intervalos', label: 'Intervalos e descanso semanal', required: true },
+    { key: 'beneficios', label: 'Benefícios, vale-transporte e adicionais', required: false, multiline: true },
+    { key: 'normaColetiva', label: 'Convenção/acordo coletivo e sindicato aplicável', required: false },
+  ],
+  'clt-experiencia': [
+    { key: 'cargoCbo', label: 'Cargo, função e CBO', required: true },
+    { key: 'dataTermino', label: 'Data final expressa da experiência', required: true },
+    { key: 'jornada', label: 'Jornada e intervalos', required: true },
+  ],
+  'clt-prazo-determinado': [
+    { key: 'hipoteseLegal', label: 'Hipótese legal que autoriza o prazo determinado', required: true, multiline: true },
+    { key: 'eventoFinal', label: 'Termo/evento objetivo de encerramento', required: true },
+    { key: 'cargoCbo', label: 'Cargo, função e CBO', required: true },
+  ],
+  'clt-intermitente': [
+    { key: 'valorHora', label: 'Valor da hora de trabalho', required: true },
+    { key: 'meioConvocacao', label: 'Meio de convocação e confirmação', required: true },
+    { key: 'localConvocacao', label: 'Local/canais de prestação', required: false },
+    { key: 'periodosInatividade', label: 'Regras operacionais para períodos de inatividade', required: false, multiline: true },
+  ],
+  'clt-parcial': [
+    { key: 'modalidadeJornada', label: 'Modalidade: até 30h sem extras ou até 26h com até 6 extras', required: true },
+    { key: 'distribuicaoJornada', label: 'Distribuição semanal dos horários', required: true },
+  ],
+  'clt-teletrabalho': [
+    { key: 'modalidadeRemota', label: 'Teletrabalho integral, híbrido ou por tarefa/produção', required: true },
+    { key: 'equipamentos', label: 'Equipamentos e responsável por aquisição/manutenção', required: true, multiline: true },
+    { key: 'reembolso', label: 'Despesas reembolsáveis, limites e comprovantes', required: false, multiline: true },
+    { key: 'controleJornada', label: 'Forma de controle de jornada, quando aplicável', required: true },
+  ],
+  'clt-rural': [
+    { key: 'atividadeRural', label: 'Atividade, cultura, criação e função', required: true },
+    { key: 'safra', label: 'Safra/ciclo produtivo ou prazo', required: false },
+    { key: 'alojamento', label: 'Alojamento, alimentação e descontos, se houver', required: false, multiline: true },
+    { key: 'segurancaRural', label: 'EPIs, máquinas, defensivos e treinamentos', required: true, multiline: true },
+  ],
+  'clt-domestico': [
+    { key: 'atividadesDomesticas', label: 'Atividades domésticas específicas', required: true, multiline: true },
+    { key: 'jornadaDomestica', label: 'Jornada, escala e intervalo', required: true },
+    { key: 'moradia', label: 'Moradia no local e condições, se houver', required: false },
+  ],
+  temporario: [
+    { key: 'motivoTemporario', label: 'Motivo justificador da demanda temporária', required: true, multiline: true },
+    { key: 'empresaTemporaria', label: 'Empresa de trabalho temporário e registro', required: true },
+    { key: 'tomadora', label: 'Empresa tomadora e CNPJ', required: true },
+  ],
+  estagio: [
+    { key: 'instituicaoEnsino', label: 'Instituição de ensino — nome, CNPJ e endereço', required: true },
+    { key: 'cursoMatricula', label: 'Curso, nível e matrícula do estudante', required: true },
+    { key: 'planoAtividades', label: 'Plano de atividades e compatibilidade curricular', required: true, multiline: true },
+    { key: 'professorOrientador', label: 'Professor orientador', required: true },
+    { key: 'supervisorConcedente', label: 'Supervisor da parte concedente e formação/experiência', required: true },
+    { key: 'seguroEstagio', label: 'Seguradora e número da apólice de acidentes pessoais', required: true },
+    { key: 'jornadaEstagio', label: 'Jornada diária/semanal e calendário acadêmico', required: true },
+    { key: 'bolsaEstagio', label: 'Bolsa e auxílio-transporte (quando aplicáveis)', required: false },
+  ],
+  terceirizacao: [
+    { key: 'cnpjPrestadora', label: 'CNPJ e qualificação da prestadora', required: true },
+    { key: 'capacidadeEconomica', label: 'Comprovação de capacidade econômica compatível', required: true },
+    { key: 'gestorContrato', label: 'Gestores/fiscais do contrato e canais de contato', required: true },
+    { key: 'documentosTrabalhistas', label: 'Documentos de regularidade e periodicidade de comprovação', required: true, multiline: true },
+  ],
+  autonomo: [
+    { key: 'entregaveis', label: 'Entregáveis, critérios de aceite e marcos', required: true, multiline: true },
+    { key: 'autonomia', label: 'Como será preservada a autonomia real de execução', required: true, multiline: true },
+    { key: 'notaFiscal', label: 'Documento fiscal e enquadramento tributário', required: true },
+    { key: 'despesas', label: 'Despesas, ferramentas e reembolsos', required: false, multiline: true },
+  ],
+  'servicos-geral': [
+    { key: 'entregaveis', label: 'Entregáveis e critérios objetivos de aceite', required: true, multiline: true },
+    { key: 'cronograma', label: 'Etapas, marcos e cronograma', required: true, multiline: true },
+    { key: 'despesas', label: 'Despesas e materiais incluídos/excluídos', required: false, multiline: true },
+  ],
+  empreitada: [
+    { key: 'memorial', label: 'Memorial descritivo, projetos e especificações', required: true, multiline: true },
+    { key: 'materiais', label: 'Materiais fornecidos pelo dono da obra e pelo empreiteiro', required: true, multiline: true },
+    { key: 'medicao', label: 'Critério de medição e cronograma físico-financeiro', required: true, multiline: true },
+    { key: 'artRrt', label: 'ART/RRT e responsável técnico, quando exigidos', required: false },
+    { key: 'licencasObra', label: 'Alvarás, licenças e aprovações necessárias', required: false, multiline: true },
+  ],
+  manutencao: [
+    { key: 'ativosManutencao', label: 'Instalações, equipamentos e ativos abrangidos', required: true, multiline: true },
+    { key: 'sla', label: 'SLA, prioridades e prazos de atendimento', required: true, multiline: true },
+    { key: 'habilitacoes', label: 'Habilitações, ART/RRT e treinamentos exigidos', required: true, multiline: true },
+    { key: 'materiaisPecas', label: 'Peças, insumos e aprovação de orçamento', required: false, multiline: true },
+  ],
+  'locacao-residencial': [
+    { key: 'matriculaImovel', label: 'Matrícula, cartório e descrição do imóvel', required: true },
+    { key: 'garantiaLocaticia', label: 'Garantia escolhida (apenas uma modalidade legal)', required: true },
+    { key: 'reajuste', label: 'Índice e periodicidade de reajuste', required: true },
+    { key: 'encargos', label: 'IPTU, condomínio, água, energia e demais encargos', required: true, multiline: true },
+    { key: 'vistoria', label: 'Laudo de vistoria e inventário de chaves/acessórios', required: false },
+  ],
+  'locacao-comercial': [
+    { key: 'matriculaImovel', label: 'Matrícula, cartório e descrição do imóvel', required: true },
+    { key: 'atividadeComercial', label: 'Atividade empresarial autorizada', required: true },
+    { key: 'garantiaLocaticia', label: 'Garantia escolhida (apenas uma modalidade legal)', required: true },
+    { key: 'licencasComerciais', label: 'Licenças, alvarás, AVCB e adequações de responsabilidade', required: false, multiline: true },
+    { key: 'reajuste', label: 'Índice e periodicidade de reajuste', required: true },
+  ],
+  'arrendamento-rural': [
+    { key: 'matriculaRural', label: 'Matrícula, CCIR, CAR e identificação da área', required: true },
+    { key: 'areaRural', label: 'Área arrendada, limites e benfeitorias', required: true },
+    { key: 'exploracaoRural', label: 'Exploração e destinação rural', required: true },
+    { key: 'precoRural', label: 'Preço, forma de pagamento e memória de cálculo legal', required: true },
+    { key: 'prazoMinimo', label: 'Prazo mínimo aplicável à exploração', required: true },
+  ],
+  'parceria-rural': [
+    { key: 'matriculaRural', label: 'Matrícula, CCIR, CAR e identificação da área', required: true },
+    { key: 'contribuicoes', label: 'Contribuição de cada parceiro (terra, bens, trabalho, estrutura)', required: true, multiline: true },
+    { key: 'partilha', label: 'Percentuais e forma de partilha de frutos/produtos/lucros', required: true },
+    { key: 'riscos', label: 'Divisão efetiva de riscos, perdas e custos', required: true, multiline: true },
+  ],
+  'compra-venda-movel': [
+    { key: 'identificacaoBem', label: 'Marca, modelo, série, quantidade e estado do bem', required: true, multiline: true },
+    { key: 'entregaBem', label: 'Data, local, frete e responsável pela entrega', required: true },
+    { key: 'garantiaBem', label: 'Garantia contratual, sem afastar garantia legal', required: false },
+  ],
+  'compra-venda-imovel': [
+    { key: 'matriculaImovel', label: 'Matrícula, cartório, inscrição municipal e descrição', required: true },
+    { key: 'onusImovel', label: 'Ônus, gravames, débitos e certidões', required: true, multiline: true },
+    { key: 'escritura', label: 'Prazo/condições para escritura pública e registro', required: true, multiline: true },
+    { key: 'posse', label: 'Data e condições de imissão na posse', required: true },
+    { key: 'corretagem', label: 'Corretagem e responsável pelo pagamento, se houver', required: false },
+  ],
+  comodato: [
+    { key: 'identificacaoBem', label: 'Identificação, número de série e estado do bem', required: true, multiline: true },
+    { key: 'finalidadeUso', label: 'Finalidade e limites de uso', required: true },
+    { key: 'vistoriaComodato', label: 'Termo de entrega/vistoria e acessórios', required: true, multiline: true },
+  ],
+  confidencialidade: [
+    { key: 'informacoesProtegidas', label: 'Informações, materiais e segredos abrangidos', required: true, multiline: true },
+    { key: 'excecoesSigilo', label: 'Exceções (domínio público, posse prévia, ordem legal etc.)', required: true, multiline: true },
+    { key: 'finalidadeSigilo', label: 'Finalidade autorizada de uso', required: true },
+    { key: 'prazoSigilo', label: 'Prazo de confidencialidade e sobrevivência', required: true },
+  ],
+  'lgpd-operador': [
+    { key: 'papelLGPD', label: 'Papel factual de cada parte (controlador/operador)', required: true },
+    { key: 'dadosTratados', label: 'Categorias de dados e titulares', required: true, multiline: true },
+    { key: 'finalidadeLGPD', label: 'Finalidades, bases legais e instruções documentadas', required: true, multiline: true },
+    { key: 'suboperadores', label: 'Suboperadores e transferências internacionais', required: false, multiline: true },
+    { key: 'incidentes', label: 'Canal e prazo operacional para comunicar incidentes', required: true },
+    { key: 'retencaoDados', label: 'Retenção, devolução e eliminação dos dados', required: true },
+  ],
+  'representacao-comercial': [
+    { key: 'registroCore', label: 'Número de registro no CORE', required: true },
+    { key: 'territorio', label: 'Zona/território e produtos representados', required: true },
+    { key: 'exclusividade', label: 'Exclusividade ou não exclusividade', required: true },
+    { key: 'comissaoRepresentacao', label: 'Percentual, base, apuração e vencimento das comissões', required: true, multiline: true },
+  ],
+  franquia: [
+    { key: 'cofEntrega', label: 'Data e comprovante de entrega da COF (mínimo legal de antecedência)', required: true },
+    { key: 'marcaFranquia', label: 'Marca, titularidade e direitos licenciados', required: true },
+    { key: 'taxasFranquia', label: 'Taxa inicial, royalties, publicidade e demais cobranças', required: true, multiline: true },
+    { key: 'territorioFranquia', label: 'Território, exclusividade e canais de venda', required: true },
+    { key: 'suporteFranquia', label: 'Treinamento, suporte e manuais oferecidos', required: true, multiline: true },
+  ],
+  mandato: [
+    { key: 'poderesMandato', label: 'Poderes específicos conferidos', required: true, multiline: true },
+    { key: 'poderesEspeciais', label: 'Poderes especiais (alienar, transigir, receber etc.), se houver', required: false, multiline: true },
+    { key: 'substabelecimento', label: 'Permissão/vedação de substabelecimento', required: true },
+    { key: 'prestacaoContas', label: 'Forma e periodicidade da prestação de contas', required: true },
+  ],
+  deposito: [
+    { key: 'identificacaoBem', label: 'Descrição, quantidade, valor e estado dos bens', required: true, multiline: true },
+    { key: 'localGuarda', label: 'Local e condições de guarda', required: true },
+    { key: 'remuneracaoDeposito', label: 'Gratuidade ou remuneração e despesas', required: true },
+  ],
+  corretagem: [
+    { key: 'registroCorretor', label: 'Registro profissional (CRECI ou conselho aplicável)', required: false },
+    { key: 'negocioIntermediado', label: 'Negócio e resultado cuja intermediação foi contratada', required: true },
+    { key: 'comissaoCorretor', label: 'Comissão, fato gerador e vencimento', required: true },
+    { key: 'exclusividadeCorretagem', label: 'Exclusividade e prazo', required: true },
+  ],
+  'locacao-equipamento': [
+    { key: 'identificacaoEquipamento', label: 'Equipamento, série, acessórios e estado', required: true, multiline: true },
+    { key: 'operador', label: 'Locação sem operador ou com operador (reclassificar se serviço)', required: true },
+    { key: 'manutencaoEquipamento', label: 'Manutenção, combustível, transporte e seguro', required: true, multiline: true },
+  ],
+  'confissao-divida': [
+    { key: 'origemDivida', label: 'Origem, documentos e memória de cálculo da dívida', required: true, multiline: true },
+    { key: 'saldoDivida', label: 'Principal, encargos e saldo reconhecido', required: true },
+    { key: 'parcelamento', label: 'Número de parcelas, valores e vencimentos', required: true, multiline: true },
+    { key: 'garantiasDivida', label: 'Garantias e vencimento antecipado', required: false, multiline: true },
+  ],
+  'cessao-direitos': [
+    { key: 'direitoCedido', label: 'Direito cedido, origem e documentos', required: true, multiline: true },
+    { key: 'consentimentoCessao', label: 'Consentimentos/notificações necessários', required: true },
+    { key: 'garantiasCessao', label: 'Garantias prestadas pelo cedente', required: true },
+  ],
+  'licenca-uso': [
+    { key: 'ativoIntelectual', label: 'Software/obra, versão e titularidade', required: true },
+    { key: 'escopoLicenca', label: 'Escopo, usuários, instalações e limitações', required: true, multiline: true },
+    { key: 'territorioLicenca', label: 'Território, prazo e exclusividade', required: true },
+    { key: 'suporteLicenca', label: 'Suporte, atualizações e nível de serviço', required: false, multiline: true },
+  ],
+  'autorizacao-imagem': [
+    { key: 'finalidadeImagem', label: 'Finalidade, campanha e contexto do uso', required: true, multiline: true },
+    { key: 'canaisImagem', label: 'Canais, mídias, território e prazo', required: true, multiline: true },
+    { key: 'remuneracaoImagem', label: 'Remuneração ou gratuidade', required: true },
+    { key: 'revogacaoImagem', label: 'Canal e efeitos da revogação quando aplicável', required: true },
+  ],
+};
+
 export const contractCategories: { id: ContractCategory | 'todos'; label: string }[] = [
   { id: 'todos', label: 'Todos' }, { id: 'trabalhista', label: 'Trabalhistas' },
   { id: 'servicos', label: 'Serviços' }, { id: 'construcao', label: 'Construção' },
@@ -352,4 +560,7 @@ export const contractCategories: { id: ContractCategory | 'todos'; label: string
   { id: 'civil', label: 'Civis' }, { id: 'educacional', label: 'Educacionais' },
 ];
 
-export const contractModels = models;
+export const contractModels: ContractModel[] = models.map((model) => ({
+  ...model,
+  fields: [...model.fields, ...(extraFieldsByModel[model.id] ?? [])],
+}));
