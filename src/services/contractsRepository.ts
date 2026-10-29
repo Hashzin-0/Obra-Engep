@@ -40,7 +40,6 @@ export async function listContracts(): Promise<GeneratedContract[]> {
 
 export async function saveContract(contract: GeneratedContract): Promise<void> {
   const db = client();
-  await ensureAnonymousSession();
   const { data: sessionData, error: sessionError } = await db.auth.getSession();
   if (sessionError) throw new Error(sessionError.message);
   const sessionUser = sessionData.session?.user;
@@ -55,7 +54,6 @@ export async function saveContract(contract: GeneratedContract): Promise<void> {
 
 export async function deleteContract(id: string): Promise<void> {
   const db = client();
-  await ensureAnonymousSession();
   const { data: sessionData, error: sessionError } = await db.auth.getSession();
   if (sessionError) throw new Error(sessionError.message);
   const sessionUser = sessionData.session?.user;
