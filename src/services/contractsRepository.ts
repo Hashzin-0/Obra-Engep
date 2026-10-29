@@ -47,7 +47,7 @@ export async function saveContract(contract: GeneratedContract): Promise<void> {
   const userId = sessionUser.id;
   const { error } = await db.from('legal_contracts').upsert({
     id: contract.id, user_id: userId, model_id: contract.modelId, title: contract.title,
-    content: contract.content, fields: contract.fields, updated_at: contract.updatedAt,
+    content: contract.content, fields: contract.fields, created_at: contract.createdAt, updated_at: contract.updatedAt,
   }, { onConflict: 'id' });
   if (error) throw new Error(error.message);
 }
