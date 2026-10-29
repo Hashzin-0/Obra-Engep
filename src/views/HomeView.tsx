@@ -11,6 +11,7 @@ import {
   Sparkles,
   Car,
   Scale,
+  FileText,
   ArrowRight,
   Search,
   Clock,
@@ -110,6 +111,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
       color: '#06B6D4',
       icon: Car,
       badge: 'Rótulo',
+    },
+    {
+      id: 'contratos' as ModuleId,
+      name: 'Contratos e Documentos',
+      desc: 'Modelos jurídicos com fundamentação legal',
+      color: '#38BDF8',
+      icon: FileText,
+      badge: 'Jurídico',
     },
     {
       id: 'legislacao' as ModuleId,
