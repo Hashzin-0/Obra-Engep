@@ -150,6 +150,7 @@ export const ContractsView: React.FC<Props> = ({ userId, onBack }) => {
         <h1 className={titleClass}>Contratos e documentos</h1>
         <p className="text-sm text-[#9FB0C8]">Modelos orientados por regime jurídico, com fontes oficiais, deveres de cada parte e alertas de aplicação.</p>
       </header>
+      {!userId && <div className={panelClass + ' flex items-start gap-3'}><ShieldAlert className="mt-0.5 shrink-0 text-[#5B9BFF]" size={18} /><p className="text-xs leading-relaxed text-[#C6D2E2]">Você pode gerar e exportar minutas sem entrar. Para salvar documentos e acessar seu histórico privado em outros dispositivos, entre com sua conta Google.</p></div>}
       <div className={panelClass + ' flex items-start gap-3'}>
         <ShieldAlert className="mt-0.5 shrink-0 text-amber-400" size={20} />
         <p className="text-xs leading-relaxed text-[#C6D2E2]">As minutas são pontos de partida. A classificação depende da realidade dos fatos. Nenhum modelo afasta direitos indisponíveis, normas coletivas, exigências de registro ou formalidades legais.</p>
@@ -172,7 +173,7 @@ export const ContractsView: React.FC<Props> = ({ userId, onBack }) => {
       </div>
       <section className="space-y-3">
         <h2 className="text-sm font-bold text-white">Meus documentos</h2>
-        {loading ? <p className="text-xs text-[#9FB0C8]">Carregando documentos...</p> : contracts.length === 0 ? <p className="text-xs text-[#9FB0C8]">Nenhum documento salvo.</p> : contracts.map((contract) => <div key={contract.id} className={panelClass + ' flex items-center gap-3'}>
+        {loading ? <p className="text-xs text-[#9FB0C8]">Carregando documentos...</p> : !userId ? <p className="text-xs text-[#9FB0C8]">Entre com Google para acessar os documentos salvos na sua conta.</p> : contracts.length === 0 ? <p className="text-xs text-[#9FB0C8]">Nenhum documento salvo.</p> : contracts.map((contract) => <div key={contract.id} className={panelClass + ' flex items-center gap-3'}>
           <FileText className="shrink-0 text-[#5B9BFF]" size={19} /><button onClick={() => openSaved(contract)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-semibold text-white">{contract.title}</span><span className="text-xs text-[#9FB0C8]">{new Date(contract.updatedAt).toLocaleString('pt-BR')}</span></button><button onClick={() => void remove(contract.id)} aria-label="Excluir documento" className="rounded-lg p-2 text-[#9FB0C8] hover:bg-red-500/10 hover:text-red-400"><Trash2 size={17} /></button>
         </div>)}
       </section>
