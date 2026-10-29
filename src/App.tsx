@@ -19,6 +19,7 @@ import { FloorPlanEditorView } from './views/FloorPlanEditorView';
 import { AIStudiesView } from './views/AIStudiesView';
 import { FavoritesView } from './views/FavoritesView';
 import { MoreView } from './views/MoreView';
+import { ContractsView } from './views/ContractsView';
 
 import { DeadlinesCalendarModal } from './components/DeadlinesCalendarModal';
 import { VoiceAgentOrbModal } from './components/VoiceAgentOrbModal';
@@ -448,7 +449,10 @@ function AppShell() {
   };
 
   const handleNavigateModule = (moduleId: ModuleId, subItem?: string) => {
-    if (moduleId === 'calculadoras') {
+    if (moduleId === 'contratos') {
+      setActiveModuleView('contratos');
+      setCurrentTab('inicio');
+    } else if (moduleId === 'calculadoras') {
       setActiveModuleView('calculadoras');
       setCurrentTab('inicio');
     } else if (moduleId === 'projetos') {
@@ -601,7 +605,9 @@ function AppShell() {
         </div>
       </section>
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 pt-2">
-        {activeModuleView === 'calculadoras' ? (
+        {activeModuleView === 'contratos' ? (
+          <ContractsView userId={authenticatedUser?.id ?? null} onBack={() => setActiveModuleView(null)} />
+        ) : activeModuleView === 'calculadoras' ? (
           <div>
             <BackButton onClick={() => setActiveModuleView(null)} />
             <CalculatorsView onSaveToHistory={handleSaveCalculation} initialCategory="eletrica" />
