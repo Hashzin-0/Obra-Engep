@@ -39,6 +39,18 @@ const sources = {
   cc: cc('arts. 104, 107, 113, 187, 389, 393, 421, 421-A, 422, 423, 424, 425 e 427', 'Requisitos de validade, interpretação, boa-fé, função social e responsabilidade contratual.'),
 };
 
+const employmentSupportSources: LegalSource[] = [
+  law('Lei nº 8.036/1990 — FGTS', 'https://www.planalto.gov.br/ccivil_03/leis/l8036consol.htm', 'arts. 15 e 18', 'Depósitos do FGTS, conta vinculada e consequências rescisórias, conforme a modalidade de vínculo.'),
+  law('Lei nº 8.212/1991 — Custeio da Seguridade Social', 'https://www.planalto.gov.br/ccivil_03/leis/l8212cons.htm', 'arts. 20 a 22 e 30', 'Contribuições previdenciárias do segurado e do empregador e obrigações de arrecadação/recolhimento.'),
+  law('Lei nº 8.213/1991 — Benefícios da Previdência Social', 'https://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm', 'arts. 19 a 23 e 18', 'Acidente do trabalho, comunicação, benefícios e proteção previdenciária, conforme o caso.'),
+  law('Lei nº 4.090/1962 — Gratificação de Natal', 'https://www.planalto.gov.br/ccivil_03/leis/l4090.htm', 'arts. 1º a 3º', 'Institui o 13º salário e disciplina a gratificação natalina.'),
+  law('Lei nº 4.749/1965 — Pagamento da Gratificação de Natal', 'https://www.planalto.gov.br/ccivil_03/leis/l4749.htm', 'arts. 1º a 3º', 'Prazos e forma de pagamento do 13º salário.'),
+  law('Lei nº 605/1949 — Repouso Semanal Remunerado', 'https://www.planalto.gov.br/ccivil_03/leis/l0605.htm', 'arts. 1º a 9º', 'Repouso semanal remunerado e feriados, observadas as regras especiais aplicáveis.'),
+  law('Lei nº 12.506/2011 — Aviso-prévio proporcional', 'https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2011/lei/l12506.htm', 'art. 1º', 'Aviso-prévio proporcional ao tempo de serviço, quando aplicável à extinção do vínculo.'),
+  law('Lei nº 7.418/1985 — Vale-transporte', 'https://www.planalto.gov.br/ccivil_03/leis/l7418.htm', 'arts. 1º, 2º e 4º', 'Antecipação para deslocamento residência-trabalho e limites de participação do empregado.'),
+  law('Normas Regulamentadoras de Segurança e Saúde no Trabalho — MTE', 'https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes', 'NR-01, NR-06, NR-07, NR-10, NR-12, NR-17, NR-31 e NR-35, conforme risco e atividade', 'Aplicar somente as NRs pertinentes ao ambiente, atividade, riscos e enquadramento do estabelecimento; não são cláusulas universais.'),
+];
+
 const models: ContractModel[] = [
   {
     id: 'clt-indeterminado', title: 'Contrato de trabalho por prazo indeterminado', category: 'trabalhista', regime: 'Trabalhista — CLT',
@@ -568,4 +580,9 @@ export const contractCategories: { id: ContractCategory | 'todos'; label: string
 export const contractModels: ContractModel[] = models.map((model) => ({
   ...model,
   fields: [...model.fields, ...(extraFieldsByModel[model.id] ?? [])],
+  sources: model.category === 'trabalhista' || model.id === 'terceirizacao'
+    ? [...model.sources, ...employmentSupportSources]
+    : model.category === 'construcao'
+      ? [...model.sources, employmentSupportSources[8]]
+      : model.sources,
 }));
