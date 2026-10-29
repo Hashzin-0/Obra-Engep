@@ -6,10 +6,23 @@ function client() {
   return supabase;
 }
 
-function mapRow(row: Record<string, any>): GeneratedContract {
+interface ContractRow {
+  id: string;
+  model_id: string;
+  title: string;
+  content: string;
+  fields: unknown;
+  created_at: string;
+  updated_at: string;
+}
+
+function mapRow(row: ContractRow): GeneratedContract {
+  const fields = row.fields && typeof row.fields === 'object' && !Array.isArray(row.fields)
+    ? row.fields as Record<string, string>
+    : {};
   return {
     id: row.id, modelId: row.model_id, title: row.title, content: row.content,
-    fields: row.fields ?? {}, createdAt: row.created_at, updatedAt: row.updated_at,
+    fields, createdAt: row.created_at, updatedAt: row.updated_at,
   };
 }
 
