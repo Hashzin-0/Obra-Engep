@@ -1,5 +1,5 @@
 import type { GeneratedContract } from '../types';
-import { supabase } from '../lib/supabase';
+import { ensureAnonymousSession, supabase } from '../lib/supabase';
 
 function client() {
   if (!supabase) throw new Error('Sincronização indisponível: configure o Supabase para salvar documentos na conta.');
@@ -28,6 +28,7 @@ function mapRow(row: ContractRow): GeneratedContract {
 
 export async function listContracts(): Promise<GeneratedContract[]> {
   const db = client();
+  await ensureAnonymousSession();
   const { data: sessionData, error: sessionError } = await db.auth.getSession();
   if (sessionError) throw new Error(sessionError.message);
   const userId = sessionData.session?.user.id;
