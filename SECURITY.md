@@ -10,7 +10,8 @@ This document describes the controls implemented for the application and the rem
 - Every admin API request validates the access token with Supabase Auth and re-checks the server-issued `app_metadata.is_admin` claim.
 - Mutating requests require a same-origin HTTPS Origin and JSON content type. Admin API responses are non-cacheable.
 - Admin reads and writes run with the caller's JWT and remain subject to Supabase RLS. No service-role key is used in the browser or admin API.
-- Admin request limits are enforced in PostgreSQL per authenticated admin: 90 reads/minute, 20 writes/minute and 5 session operations/minute. The rate-limit table has RLS and the RPC is SECURITY INVOKER.
+- Admin request limits are enforced in PostgreSQL per authenticated admin: 90 reads/minute, 20 writes/minute and 5 session operations/minute. Counter tables live in a non-PostgREST `private` schema, have RLS, and are updated through SECURITY INVOKER functions.
+- Private media uploads are limited in PostgreSQL to 10 uploads/minute per authenticated user; the counter is also stored in the non-exposed `private` schema.
 - The session endpoint also applies a best-effort per-IP limit of 20 requests/minute per serverless instance. This is not a substitute for a distributed edge limit.
 
 ## Input and upload controls
