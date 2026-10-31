@@ -29,13 +29,13 @@ const chatModel = env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash';
 const liveModel = env.GEMINI_LIVE_MODEL || 'gemini-2.5-flash-native-audio-preview-12-2025';
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
-const SYSTEM_INSTRUCTION = \`Você é o Assistente Técnico do OBra ENGEP (obras, instalações prediais, segurança e estética automotiva).
+const SYSTEM_INSTRUCTION = `Você é o Assistente Técnico do OBra ENGEP (obras, instalações prediais, segurança e estética automotiva).
 Diretrizes:
 1. Responda em português do Brasil, com rigor técnico e linguagem de campo.
 2. Cite as normas aplicáveis (NBR 5410, NBR 5626, NBR 6118, NBR 15575, NR-06, NR-10, NR-12, NR-18, NR-33, NR-35) sem reproduzir textos protegidos.
 3. Mostre premissas, fórmula e limitações do cálculo.
 4. Em risco elétrico, trabalho em altura ou espaço confinado, reforce desenergização, LOTO, AR/PT, EPI/EPC e resgate.
-5. Não invente valores de norma, laudos, produtos ou contatos. Quando faltar dado, declare a lacuna.\`;
+5. Não invente valores de norma, laudos, produtos ou contatos. Quando faltar dado, declare a lacuna.`;
 
 type RateBucket = { count: number; resetAt: number };
 const requestBuckets = new Map<string, RateBucket>();
@@ -68,7 +68,7 @@ function allowRate(key: string, max: number, windowMs = 60_000): boolean {
 
 function rateLimit(max: number, label: string) {
   return (req: any, res: any, next: any) => {
-    if (!allowRate(\`\${label}:\${clientIp(req)}\`, max)) {
+    if (!allowRate(`${label}:${clientIp(req)}`, max)) {
       res.setHeader('Retry-After', '60');
       return res.status(429).json({ error: 'Muitas requisições. Aguarde um minuto.' });
     }
@@ -113,7 +113,7 @@ app.post('/api/gemini/realtime-chat', async (req, res) => {
   const timeout = setTimeout(() => {
     disconnected = true;
     if (!res.writableEnded) {
-      res.write(\`data: \${JSON.stringify({ type: 'error', error: 'Tempo máximo de resposta excedido.' })}\\n\\n\`);
+      res.write(`data: ${JSON.stringify({ type: 'error', error: 'Tempo máximo de resposta excedido.' })}\n\n`);
       res.end();
     }
   }, 120_000);
@@ -139,21 +139,21 @@ app.post('/api/gemini/realtime-chat', async (req, res) => {
       for (const part of parts) {
         if (disconnected || res.writableEnded) break;
         if ((part as any).thought) {
-          res.write(\`data: \${JSON.stringify({ type: 'thought', text: part.text || '' })}\\n\\n\`);
+          res.write(`data: ${JSON.stringify({ type: 'thought', text: part.text || '' })}\n\n`);
         } else if (part.text) {
-          res.write(\`data: \${JSON.stringify({ type: 'text', text: part.text })}\\n\\n\`);
+          res.write(`data: ${JSON.stringify({ type: 'text', text: part.text })}\n\n`);
         }
       }
     }
 
     if (!disconnected && !res.writableEnded) {
-      res.write(\`data: \${JSON.stringify({ type: 'done' })}\\n\\n\`);
+      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
       res.end();
     }
   } catch (error) {
     console.error('[Server] Gemini chat failed:', error instanceof Error ? error.name : 'unknown');
     if (!disconnected && !res.writableEnded) {
-      res.write(\`data: \${JSON.stringify({ type: 'error', error: 'Falha temporária no processamento da IA.' })}\\n\\n\`);
+      res.write(`data: ${JSON.stringify({ type: 'error', error: 'Falha temporária no processamento da IA.' })}\n\n`);
       res.end();
     }
   } finally {
@@ -186,7 +186,7 @@ const wss = new WebSocketServer({
   verifyClient: (info, done) => {
     const ip = info.req.socket.remoteAddress || 'unknown';
     if (!sameOrigin(info)) return done(false, 403, 'Origin not allowed');
-    if (!allowRate(\`live-handshake:\${ip}\`, 10)) return done(false, 429, 'Rate limit exceeded');
+    if (!allowRate(`live-handshake:${ip}`, 10)) return done(false, 429, 'Rate limit exceeded');
     if ((liveConnectionsByIp.get(ip) ?? 0) >= 2 || activeLiveConnections >= MAX_ACTIVE_LIVE_CONNECTIONS) return done(false, 429, 'Too many live connections');
     done(true);
   },
@@ -309,7 +309,7 @@ wss.on('connection', async (clientWs: WebSocket, req) => {
         const mimeType = typeof data.mimeType === 'string' ? data.mimeType : 'audio/pcm;rate=16000';
         if (typeof data.audio !== 'string' || data.audio.length > 96_000
           || !/^[A-Za-z0-9+/]+={0,2}$/.test(data.audio)
-          || !/^audio\\/(pcm|webm|wav)(;|$)/i.test(mimeType)) {
+          || !/^audio\/(pcm|webm|wav)(;|$)/i.test(mimeType)) {
           clientWs.close(1008, 'Áudio inválido');
           return;
         }
@@ -373,7 +373,7 @@ async function startServer() {
   }
 
   server.listen(port, '0.0.0.0', () => {
-    console.log(\`[Server] OBra ENGEP running on port \${port}\`);
+    console.log(`[Server] OBra ENGEP running on port ${port}`);
   });
 }
 
