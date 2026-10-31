@@ -11,6 +11,8 @@ import { supabase } from '../lib/supabase';
 type Tab = 'overview' | 'feedback' | 'products';
 type FeedbackStatus = 'aberto' | 'em_analise' | 'resolvido';
 
+type AdminProfile = { id: string; display_name: string; profession: string | null; company: string | null; created_at: string };
+
 type FeedbackItem = {
   id: string;
   user_id: string;
@@ -105,6 +107,7 @@ export default function AdminApp() {
   const [tab, setTab] = useState<Tab>('overview');
   const [stats, setStats] = useState<DashboardStats>({});
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
+  const [recentUsers, setRecentUsers] = useState<AdminProfile[]>([]);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -149,7 +152,7 @@ export default function AdminApp() {
     if (!supabase || !isAdmin) return;
     setLoading(true);
     setError('');
-    const [statsResult, feedbackResult, productResult] = await Promise.all([
+    const [statsResult, feedbackResult, productResult, usersResult] = await Promise.all([
       supabase.rpc('admin_dashboard_stats'),
       supabase.from('feedback')
         .select('id,user_id,message,contact_email,page,status,created_at')
@@ -159,14 +162,16 @@ export default function AdminApp() {
         .select('*')
         .order('sort_order', { ascending: true })
         .order('name', { ascending: true }),
+      supabase.from('profiles').select('id,display_name,profession,company,created_at').order('created_at', { ascending: false }).limit(12),
     ]);
-    const firstError = statsResult.error || feedbackResult.error || productResult.error;
+    const firstError = statsResult.error || feedbackResult.error || productResult.error || usersResult.error;
     if (firstError) {
       setError(firstError.message);
     } else {
       setStats((statsResult.data ?? {}) as DashboardStats);
       setFeedbacks((feedbackResult.data ?? []) as FeedbackItem[]);
       setProducts((productResult.data ?? []) as CatalogProduct[]);
+      setRecentUsers((usersResult.data ?? []) as AdminProfile[]);
     }
     setLoading(false);
   }, [isAdmin]);
@@ -372,6 +377,13 @@ export default function AdminApp() {
                   <div className="flex items-center justify-between text-xs"><span className="text-slate-400">Total de feedbacks</span><span className="font-semibold">{stats.feedback_total ?? 0}</span></div>
                   <button onClick={() => setTab('products')} className="w-full rounded-xl border border-slate-700 px-3 py-2.5 text-xs font-semibold text-slate-200 hover:bg-slate-800">Gerenciar catálogo</button>
                 </div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-800 bg-[#17243A] p-5">
+              <div className="flex items-center justify-between gap-3"><h2 className="font-bold">Usuários recentes</h2><span className="text-[11px] text-slate-500">Últimos 12 perfis</span></div>
+              <div className="mt-3 divide-y divide-slate-800">
+                {recentUsers.map((profile) => <div key={profile.id} className="flex flex-wrap items-center justify-between gap-2 py-3"><div><p className="text-sm font-semibold text-slate-200">{profile.display_name || 'Usuário'}</p><p className="text-[11px] text-slate-500">{[profile.profession, profile.company].filter(Boolean).join(' · ') || 'Perfil sem detalhes adicionais'}</p></div><span className="text-[11px] text-slate-500">{new Date(profile.created_at).toLocaleDateString('pt-BR')}</span></div>)}
+                {recentUsers.length === 0 && <p className="py-5 text-sm text-slate-500">Nenhum perfil encontrado.</p>}
               </div>
             </div>
           </section>
