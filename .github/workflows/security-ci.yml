@@ -7,21 +7,24 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: security-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  verify:
+  sync-lockfile:
+    if: github.event_name == 'pull_request' && github.actor == 'Hashzin-0'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Checkout
+      - name: Checkout pull request branch
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -29,11 +32,10 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Normalize and export the npm lockfile
+      - name: Normalize npm lockfile without running package scripts
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
 
-      - name: Commit normalized lockfile for the repository owner
-        if: github.event_name == 'pull_request' && github.actor == 'Hashzin-0'
+      - name: Commit synchronized lockfile
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
@@ -47,12 +49,31 @@ jobs:
           git commit -m "chore: synchronize npm lockfile"
           git push origin "HEAD:${HEAD_REF}"
 
-      - name: Upload normalized lockfile
+      - name: Upload synchronized lockfile
         uses: actions/upload-artifact@v4
         with:
           name: normalized-package-lock
           path: package-lock.json
           if-no-files-found: error
+
+  verify:
+    needs: sync-lockfile
+    if: ${{ always() && (needs.sync-lockfile.result == 'success' || needs.sync-lockfile.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout current pull request branch
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
 
       - name: Install locked dependencies
         run: npm ci
