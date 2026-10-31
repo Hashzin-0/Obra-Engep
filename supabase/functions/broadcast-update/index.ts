@@ -13,9 +13,19 @@ Deno.serve(async (req) => {
   try {
     const user = await requireAdmin(req);
     const admin = adminClient();
+    const forwardedIp = req.headers.get('cf-connecting-ip')
+      ?? req.headers.get('x-forwarded-for')?.split(',')[0].trim()
+      ?? null;
+    const userAgent = req.headers.get('user-agent');
+    if (!forwardedIp || !userAgent || userAgent.length > 512) {
+      return json({ error: 'Não foi possível validar a origem da sessão.' }, 401, req);
+    }
+
     const { data: sessionActive, error: sessionError } = await admin.rpc('admin_session_is_active', {
       p_user_id: user.id,
       p_session_id: user.sessionId,
+      p_client_ip: forwardedIp,
+      p_user_agent: userAgent,
     });
     if (sessionError || sessionActive !== true) {
       return json({ error: 'Sessão administrativa inválida ou revogada.' }, 401, req);
