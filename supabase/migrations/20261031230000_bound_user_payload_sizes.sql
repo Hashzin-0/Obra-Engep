@@ -5,9 +5,7 @@ alter table public.feedback
   add constraint feedback_email_length_check
     check (contact_email is null or char_length(contact_email) <= 254),
   add constraint feedback_page_length_check
-    check (page is null or char_length(page) <= 255),
-  add constraint feedback_status_check
-    check (status in ('aberto', 'em_analise', 'resolvido'));
+    check (page is null or char_length(page) <= 255);
 
 alter table public.notes
   add constraint notes_title_length_check
@@ -46,14 +44,8 @@ alter table public.profiles
     check (company is null or char_length(company) <= 160);
 
 alter table public.automotive_catalog
-  add constraint automotive_catalog_name_length_check
-    check (name is not null and char_length(name) between 1 and 180),
-  add constraint automotive_catalog_category_length_check
-    check (category is null or char_length(category) <= 80),
   add constraint automotive_catalog_manufacturer_length_check
     check (manufacturer is null or char_length(manufacturer) <= 120),
-  add constraint automotive_catalog_ph_type_check
-    check (ph_type in ('Neutro', 'Ácido', 'Alcalino', 'Não informado')),
   add constraint automotive_catalog_surfaces_count_check
     check (coalesce(cardinality(target_surfaces), 0) <= 30),
   add constraint automotive_catalog_cautions_count_check
@@ -70,9 +62,9 @@ alter table public.automotive_catalog
     check (instructions is null or char_length(instructions) <= 10000),
   add constraint automotive_catalog_source_label_length_check
     check (source_label is null or char_length(source_label) <= 240),
-  add constraint automotive_catalog_source_url_check
-    check (source_url is null or (char_length(source_url) <= 2048 and source_url ~* '^https://')),
-  add constraint automotive_catalog_image_url_check
-    check (image_url is null or (char_length(image_url) <= 2048 and image_url ~* '^https://')),
+  add constraint automotive_catalog_source_url_length_check
+    check (source_url is null or char_length(source_url) <= 2048),
+  add constraint automotive_catalog_image_url_length_check
+    check (image_url is null or char_length(image_url) <= 2048),
   add constraint automotive_catalog_sort_order_check
     check (sort_order between -10000 and 10000);
