@@ -80,9 +80,9 @@ app.use((req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   next();
 });
-app.use(express.json({ limit: '256kb', strict: true, type: 'application/json' }));
 app.use('/api/health', rateLimit(30, 'health'));
 app.use('/api/gemini/realtime-chat', rateLimit(12, 'gemini-chat'));
+app.use(express.json({ limit: '256kb', strict: true, type: 'application/json' }));
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
@@ -261,7 +261,12 @@ wss.on('connection', async (clientWs: WebSocket, req) => {
   }
 
   clientWs.on('message', (rawData, isBinary) => {
-    if (isBinary || rawData.byteLength > 350 * 1024) {
+    const messageBuffer = Buffer.isBuffer(rawData)
+      ? rawData
+      : Array.isArray(rawData)
+        ? Buffer.concat(rawData)
+        : Buffer.from(rawData as ArrayBuffer);
+    if (isBinary || messageBuffer.byteLength > 350 * 1024) {
       clientWs.close(1009, 'Mensagem muito grande ou formato inválido');
       return;
     }
@@ -277,17 +282,17 @@ wss.on('connection', async (clientWs: WebSocket, req) => {
     }
 
     try {
-      const data = JSON.parse(rawData.toString());
+      const data = JSON.parse(messageBuffer.toString('utf8'));
       if (data?.type === 'audio') {
+        const mimeType = typeof data.mimeType === 'string' ? data.mimeType : 'audio/pcm;rate=16000';
         if (typeof data.audio !== 'string' || data.audio.length > 300_000
           || !/^[A-Za-z0-9+/]+={0,2}$/.test(data.audio)
-          || typeof data.mimeType !== 'string'
-          || !/^audio\\/(pcm|webm|wav)(;|$)/i.test(data.mimeType)) {
+          || !/^audio\\/(pcm|webm|wav)(;|$)/i.test(mimeType)) {
           clientWs.close(1008, 'Áudio inválido');
           return;
         }
         liveSession?.sendRealtimeInput({
-          audio: { data: data.audio, mimeType: data.mimeType },
+          audio: { data: data.audio, mimeType },
         });
       } else if (data?.type === 'text') {
         if (typeof data.text !== 'string' || !data.text.trim() || data.text.length > 4000) {
