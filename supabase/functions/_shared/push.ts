@@ -25,6 +25,38 @@ export interface PushPayload {
 
 let cachedServer: ApplicationServer | null = null;
 
+const ALLOWED_PUSH_HOSTS = new Set([
+  'fcm.googleapis.com',
+  'push.services.mozilla.com',
+  'web.push.apple.com',
+]);
+
+function isAllowedPushEndpoint(value: string): boolean {
+  if (typeof value !== 'string' || value.length > 2048) return false;
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    const trustedHost = ALLOWED_PUSH_HOSTS.has(host)
+      || host.endsWith('.push.services.mozilla.com')
+      || host.endsWith('.notify.windows.com');
+    return url.protocol === 'https:'
+      && trustedHost
+      && !url.username
+      && !url.password
+      && !url.port
+      && !url.hash;
+  } catch {
+    return false;
+  }
+}
+
+function isValidSubscriptionKey(value: string, minLength: number, maxLength: number): boolean {
+  return typeof value === 'string'
+    && value.length >= minLength
+    && value.length <= maxLength
+    && /^[A-Za-z0-9+/_=-]+$/.test(value);
+}
+
 function readKeys(): ExportedVapidKeys {
   const raw = Deno.env.get('VAPID_KEYS');
   if (!raw) throw new Error('VAPID_KEYS não configurado nas Edge Functions.');
@@ -53,6 +85,14 @@ export async function sendPush(
   subscription: StoredSubscription,
   payload: PushPayload
 ): Promise<{ ok: true } | { ok: false; gone: boolean; error: string }> {
+  if (
+    !isAllowedPushEndpoint(subscription.endpoint)
+    || !isValidSubscriptionKey(subscription.p256dh, 40, 200)
+    || !isValidSubscriptionKey(subscription.auth, 16, 100)
+  ) {
+    return { ok: false, gone: false, error: 'Invalid push subscription.' };
+  }
+
   try {
     const server = await applicationServer();
     const subscriber = server.subscribe({
@@ -67,12 +107,12 @@ export async function sendPush(
     return { ok: true };
   } catch (error) {
     if (error instanceof PushMessageError) {
-      return { ok: false, gone: error.isGone(), error: error.toString() };
+      return { ok: false, gone: error.isGone(), error: 'Push delivery failed.' };
     }
     return {
       ok: false,
       gone: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: 'Push delivery failed.',
     };
   }
 }
