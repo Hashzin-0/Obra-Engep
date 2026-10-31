@@ -264,5 +264,23 @@ export interface FloorPlanProject {
   hydraulic: HydraulicItem[];
   furniture?: PlacedFurnitureItem[];
   deadlines?: ProjectDeadline[];
+  /** Independent editable building levels; top-level geometry mirrors the active level for backwards compatibility. */
+  levels?: FloorPlanLevel[];
+  activeLevelId?: string;
+  isNightMode?: boolean;
+}
+
+export interface FloorPlanLevel {
+  id: string;
+  name: string;
+  kind: 'subsolo' | 'terreo' | 'superior';
+  level: number;
+  elevation: number;
+  walls: WallSegment[];
+  rooms?: FloorPlanRoom[];
+  openings: OpeningItem[];
+  electrical: ElectricalItem[];
+  hydraulic: HydraulicItem[];
+  furniture?: PlacedFurnitureItem[];
 }
 

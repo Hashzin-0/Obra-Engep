@@ -25,9 +25,12 @@ import {
   CheckCircle,
   Lock,
   Unlock,
+  Sun,
+  Moon,
+  Building2,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
-import { FloorPlanProject, FloorPlanRoom, FloorMaterial, WallSegment, OpeningItem, ElectricalItem, HydraulicItem, ProjectDeadline } from '../types';
+import { FloorPlanProject, FloorPlanLevel, FloorPlanRoom, FloorMaterial, WallSegment, OpeningItem, ElectricalItem, HydraulicItem, ProjectDeadline } from '../types';
 import { createEmptyProject } from '../data/referenceData';
 import { ensureUuid } from '../utils/uuid';
 import { LimitBar } from '../components/LimitBar';
@@ -47,6 +50,19 @@ interface FloorPlanEditorViewProps {
   onDeleteProject?: (id: string) => void;
 }
 
+
+const ensureProjectLevels = (project: FloorPlanProject): FloorPlanProject => {
+  const levels = project.levels?.length ? project.levels : [{ id: 'ground-floor', name: 'Térreo', kind: 'terreo' as const, level: 0, elevation: 0, walls: project.walls ?? [], rooms: project.rooms ?? [], openings: project.openings ?? [], electrical: project.electrical ?? [], hydraulic: project.hydraulic ?? [], furniture: project.furniture ?? [] }];
+  const activeLevelId = project.activeLevelId && levels.some(level => level.id === project.activeLevelId) ? project.activeLevelId : levels[0].id;
+  const active = levels.find(level => level.id === activeLevelId)!;
+  return { ...project, levels, activeLevelId, walls: active.walls, rooms: active.rooms ?? [], openings: active.openings, electrical: active.electrical, hydraulic: active.hydraulic, furniture: active.furniture ?? [], isNightMode: project.isNightMode ?? false };
+};
+const captureActiveLevel = (project: FloorPlanProject, activeLevelId: string): FloorPlanLevel[] => {
+  const current = project.levels?.find(level => level.id === activeLevelId);
+  const snapshot: FloorPlanLevel = { ...(current ?? { id: activeLevelId, name: 'Térreo', kind: 'terreo', level: 0, elevation: 0 }), id: activeLevelId, walls: project.walls, rooms: project.rooms ?? [], openings: project.openings, electrical: project.electrical, hydraulic: project.hydraulic, furniture: project.furniture ?? [] };
+  return [...(project.levels ?? []).filter(level => level.id !== activeLevelId), snapshot];
+};
+
 export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   onOpenCalendarModal,
   deadlines = [],
@@ -61,11 +77,13 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     const saved = localStorage.getItem('obra_engep_active_project');
     if (saved) {
       const parsed = JSON.parse(saved) as FloorPlanProject;
-      return { ...parsed, id: ensureUuid(parsed.id) };
+      return ensureProjectLevels({ ...parsed, id: ensureUuid(parsed.id) });
     }
-    return projects[0] ?? createEmptyProject();
+    return ensureProjectLevels(projects[0] ?? createEmptyProject());
   });
 
+  const [activeLevelId, setActiveLevelId] = useState(project.activeLevelId ?? 'ground-floor');
+  const [isNightMode, setIsNightMode] = useState(project.isNightMode ?? false);
   const [history, setHistory] = useState<FloorPlanProject[]>([project]);
   const [historyIndex, setHistoryIndex] = useState<number>(0);
 
@@ -101,11 +119,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
 
   useEffect(() => {
     if (projects.length > 0 && !projects.some((item) => item.id === project.id)) {
-      const next = projects[0];
-      setProject(next);
-      setHistory([next]);
-      setHistoryIndex(0);
-      setStage(next.stage);
+      const next = ensureProjectLevels(projects[0]);
+      setProject(next); setActiveLevelId(next.activeLevelId ?? 'ground-floor'); setIsNightMode(next.isNightMode ?? false);
+      setHistory([next]); setHistoryIndex(0); setStage(next.stage);
       localStorage.setItem('obra_engep_active_project', JSON.stringify(next));
     }
   }, [projects, project.id]);
@@ -121,26 +137,56 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
 
   // Push state to undo history
   const updateProjectState = (newProject: FloorPlanProject) => {
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(newProject);
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-    setProject(newProject);
-    localStorage.setItem('obra_engep_active_project', JSON.stringify(newProject));
-    onSaveProject?.(newProject);
+    const levelId = newProject.activeLevelId ?? activeLevelId;
+    const normalized = ensureProjectLevels({ ...newProject, activeLevelId: levelId, isNightMode });
+    normalized.levels = captureActiveLevel(normalized, levelId);
+    const newHistory = history.slice(0, historyIndex + 1); newHistory.push(normalized);
+    setHistory(newHistory); setHistoryIndex(newHistory.length - 1); setProject(normalized); setActiveLevelId(levelId);
+    localStorage.setItem('obra_engep_active_project', JSON.stringify(normalized)); onSaveProject?.(normalized);
   };
+  const handleCreateLevel = () => {
+    const kindInput = window.prompt('Tipo de pavimento: subsolo, terreo ou superior', 'superior');
+    if (!kindInput || !['subsolo','terreo','superior'].includes(kindInput.trim().toLowerCase())) return;
+    const kind = kindInput.trim().toLowerCase() as FloorPlanLevel['kind']; const levels = captureActiveLevel(project, activeLevelId);
+    if (kind === 'terreo' && levels.some(level => level.kind === 'terreo')) { window.alert('O projeto já possui um térreo.'); return; }
+    const levelNumber = kind === 'terreo' ? 0 : kind === 'subsolo' ? Math.min(-1, ...levels.filter(item=>item.kind==='subsolo').map(item=>item.level-1)) : Math.max(1, ...levels.filter(item=>item.kind==='superior').map(item=>item.level+1));
+    const suggested = kind === 'terreo' ? 'Térreo' : kind === 'subsolo' ? 'Subsolo ' + Math.abs(levelNumber) : levelNumber + 'º Pavimento';
+    const name = window.prompt('Nome do pavimento:', suggested); if (!name?.trim()) return;
+    if (levels.some(item=>item.name.toLocaleLowerCase()===name.trim().toLocaleLowerCase())) { window.alert('Já existe um pavimento com esse nome.'); return; }
+    const created: FloorPlanLevel = { id: crypto.randomUUID(), name: name.trim(), kind, level: levelNumber, elevation: levelNumber*110, walls: [], rooms: [], openings: [], electrical: [], hydraulic: [], furniture: [] };
+    setActiveLevelId(created.id); updateProjectState({ ...project, activeLevelId: created.id, levels: [...levels, created], walls: [], rooms: [], openings: [], electrical: [], hydraulic: [], furniture: [] });
+  };
+  const handleSelectLevel = (levelId: string) => {
+    if (levelId === activeLevelId) return; const levels = captureActiveLevel(project, activeLevelId); const target = levels.find(level=>level.id===levelId); if (!target) return;
+    const next = { ...project, levels, activeLevelId: levelId, walls: target.walls, rooms: target.rooms ?? [], openings: target.openings, electrical: target.electrical, hydraulic: target.hydraulic, furniture: target.furniture ?? [] };
+    setActiveLevelId(levelId); setProject(next); setHistory(current=>[...current.slice(0,historyIndex+1),next]); setHistoryIndex(index=>index+1);
+    localStorage.setItem('obra_engep_active_project',JSON.stringify(next)); onSaveProject?.(next); setSelectedObject(null); setSelectedObjects([]); setTool('select'); setWallSequencePoints([]); setRouteSequencePoints([]);
+  };
+  const handleRenameLevel = () => {
+    const current=project.levels?.find(level=>level.id===activeLevelId); if(!current) return; const name=window.prompt('Novo nome do pavimento:',current.name); if(!name?.trim()) return;
+    updateProjectState({ ...project, levels:captureActiveLevel(project,activeLevelId).map(level=>level.id===activeLevelId?{...level,name:name.trim()}:level) });
+  };
+  const handleDeleteLevel = () => {
+    const levels=captureActiveLevel(project,activeLevelId); if(levels.length<=1){window.alert('O projeto precisa manter pelo menos um pavimento.');return;}
+    const current=levels.find(level=>level.id===activeLevelId); if(!current||!window.confirm('Excluir o pavimento "'+current.name+'" e todos os elementos contidos nele?')) return;
+    const remaining=levels.filter(level=>level.id!==activeLevelId); const target=remaining.find(level=>level.kind==='terreo')??remaining[0];
+    setActiveLevelId(target.id); updateProjectState({...project,levels:remaining,activeLevelId:target.id,walls:target.walls,rooms:target.rooms??[],openings:target.openings,electrical:target.electrical,hydraulic:target.hydraulic,furniture:target.furniture??[]});
+  };
+  const toggleNightMode = () => { const next=!isNightMode; setIsNightMode(next); const updated={...project,isNightMode:next}; setProject(updated); localStorage.setItem('obra_engep_active_project',JSON.stringify(updated)); onSaveProject?.(updated); };
 
   const handleUndo = () => {
     if (historyIndex > 0) {
       setHistoryIndex(historyIndex - 1);
-      setProject(history[historyIndex - 1]);
+      const previous = ensureProjectLevels(history[historyIndex - 1]);
+      setProject(previous); setActiveLevelId(previous.activeLevelId ?? 'ground-floor'); setIsNightMode(previous.isNightMode ?? false);
     }
   };
 
   const handleRedo = () => {
     if (historyIndex < history.length - 1) {
       setHistoryIndex(historyIndex + 1);
-      setProject(history[historyIndex + 1]);
+      const next = ensureProjectLevels(history[historyIndex + 1]);
+      setProject(next); setActiveLevelId(next.activeLevelId ?? 'ground-floor'); setIsNightMode(next.isNightMode ?? false);
     }
   };
 
@@ -164,12 +210,12 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     ctx.translate(canvasPan.x / zoom, canvasPan.y / zoom);
 
     // Background
-    ctx.fillStyle = isDark ? '#101827' : '#F8FAFC';
+    ctx.fillStyle = isNightMode ? '#070B16' : isDark ? '#101827' : '#F8FAFC';
     ctx.fillRect(0, 0, width / zoom, height / zoom);
 
     // Grid (1 grid cell = 20px = 0.5m in 1:50 scale)
     if (showGrid) {
-      ctx.strokeStyle = isDark ? '#1e293b' : '#E2E8F0';
+      ctx.strokeStyle = isNightMode ? '#172033' : isDark ? '#1e293b' : '#E2E8F0';
       ctx.lineWidth = 1;
       const step = 20;
       for (let x = 0; x < width / zoom; x += step) {
@@ -308,7 +354,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         if ((el.type === 'wire' || el.type === 'conduit') && el.x2 !== undefined && el.y2 !== undefined) { ctx.save(); ctx.strokeStyle=el.type==='conduit'?'#A78BFA':'#FACC15'; ctx.lineWidth=el.type==='conduit'?5:3; ctx.setLineDash(el.type==='conduit'?[]:[7,4]); ctx.beginPath(); ctx.moveTo(el.x,el.y); ctx.lineTo(el.x2,el.y2); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle='#FACC15'; ctx.beginPath(); ctx.arc(el.x,el.y,3,0,Math.PI*2); ctx.arc(el.x2,el.y2,3,0,Math.PI*2); ctx.fill(); ctx.restore();
         } else if (el.type === 'light') {
           ctx.save(); ctx.translate(el.x, el.y); ctx.rotate(((el.rotation ?? 0) * Math.PI) / 180);
-          ctx.fillStyle = '#EAB308';
+          if (isNightMode) { const glow=ctx.createRadialGradient(0,0,3,0,0,72); glow.addColorStop(0,'rgba(255,221,145,.48)'); glow.addColorStop(.45,'rgba(255,190,90,.16)'); glow.addColorStop(1,'rgba(255,190,90,0)'); ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(0,0,72,0,Math.PI*2); ctx.fill(); }
+          ctx.fillStyle = isNightMode ? '#FFF1B8' : '#EAB308';
           ctx.strokeStyle = '#CA8A04';
           ctx.lineWidth = 2;
           ctx.beginPath();
@@ -511,6 +558,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     wallDrawMode,
     wallSequencePoints,
     showWallVertices,
+    isNightMode,
   ]);
 
   const snap = (coord: number) => gapEnabled ? Math.round(coord / gapDistance) * gapDistance : coord;
@@ -901,11 +949,10 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
               onChange={(event) => {
                 const selected = projects.find((item) => item.id === event.target.value);
                 if (selected) {
-                  setProject(selected);
-                  setHistory([selected]);
-                  setHistoryIndex(0);
-                  setStage(selected.stage);
-                  localStorage.setItem('obra_engep_active_project', JSON.stringify(selected));
+                  const normalized = ensureProjectLevels(selected);
+                  setProject(normalized); setActiveLevelId(normalized.activeLevelId ?? 'ground-floor'); setIsNightMode(normalized.isNightMode ?? false);
+                  setHistory([normalized]); setHistoryIndex(0); setStage(normalized.stage);
+                  localStorage.setItem('obra_engep_active_project', JSON.stringify(normalized));
                 }
               }}
               className="bg-transparent text-sm font-bold text-white outline-none border border-[#2A3A55] rounded-lg px-2 py-1"
@@ -959,8 +1006,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
             onClick={() => {
               const name = window.prompt('Nome do novo projeto:', 'Novo projeto');
               if (!name?.trim()) return;
-              const created = { ...createEmptyProject(), name: name.trim() };
-              setProject(created);
+              const created = ensureProjectLevels({ ...createEmptyProject(), name: name.trim() });
+              setProject(created); setActiveLevelId(created.activeLevelId ?? 'ground-floor'); setIsNightMode(created.isNightMode ?? false);
               setHistory([created]);
               setHistoryIndex(0);
               setStage(created.stage);
@@ -987,8 +1034,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
               onClick={() => {
                 if (!window.confirm(`Excluir o projeto "${project.name}"?`)) return;
                 onDeleteProject(project.id);
-                const next = projects.find((item) => item.id !== project.id) ?? createEmptyProject();
-                setProject(next);
+                const next = ensureProjectLevels(projects.find((item) => item.id !== project.id) ?? createEmptyProject());
+                setProject(next); setActiveLevelId(next.activeLevelId ?? 'ground-floor'); setIsNightMode(next.isNightMode ?? false);
                 setHistory([next]);
                 setHistoryIndex(0);
                 setStage(next.stage);
@@ -1009,6 +1056,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           </button>
         </div>
       </div>
+
+      <div className="rounded-xl bg-[#17243A] border border-[#2A3A55] p-2.5 space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 text-xs font-bold text-white"><Building2 className="w-4 h-4 text-[#5B9BFF]"/> Pavimentos</div><div className="flex flex-wrap gap-1.5"><button type="button" onClick={handleCreateLevel} className="rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white flex items-center gap-1"><Plus className="w-3.5 h-3.5"/> Novo piso</button><button type="button" onClick={handleRenameLevel} className="rounded-lg border border-[#2A3A55] px-2.5 py-1.5 text-xs text-[#CBD5E1]">Renomear</button><button type="button" onClick={handleDeleteLevel} disabled={(project.levels?.length??1)<=1} className="rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs text-red-300 disabled:opacity-30">Excluir piso</button></div></div><div className="flex gap-1.5 overflow-x-auto no-scrollbar">{(project.levels??[]).slice().sort((a,b)=>a.level-b.level).map(level=><button key={level.id} type="button" onClick={()=>handleSelectLevel(level.id)} aria-pressed={activeLevelId===level.id} className={'shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold '+(activeLevelId===level.id?'bg-blue-600 border-blue-500 text-white':'border-[#2A3A55] text-[#9FB0C8] hover:text-white')}>{level.kind==='subsolo'?'−'+Math.abs(level.level)+' · ':level.kind==='superior'?'+'+level.level+' · ':''}{level.name}</button>)}</div><p className="text-[10px] text-[#9FB0C8]">Editando: {project.levels?.find(level=>level.id===activeLevelId)?.name??'Térreo'} · Os demais pavimentos permanecem preservados.</p></div>
 
       {/* Layer Toggles Bar (Page 7: Camadas liga/desliga) */}
       <div className="flex items-center gap-2 p-2 rounded-xl bg-[#17243A] border border-[#2A3A55] overflow-x-auto no-scrollbar text-xs">
@@ -1073,8 +1122,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
 
       {/* Real Interactive Canvas (Page 6: "Canvas com grade, escala, paredes, portas, janelas, cotas...") */}
       <div className="relative w-full min-w-0 rounded-2xl border border-[#2A3A55] overflow-hidden shadow-inner bg-[#101827]">
-        <div className="absolute z-10 left-3 top-3 flex gap-2"><button type="button" onClick={()=>setShow3D(false)} className={'rounded-lg px-3 py-2 text-xs font-semibold '+(!show3D?'bg-blue-600 text-white':'bg-slate-900/80 text-slate-200')}>Planta 2D</button><button type="button" onClick={()=>setShow3D(true)} className={'rounded-lg px-3 py-2 text-xs font-semibold '+(show3D?'bg-blue-600 text-white':'bg-slate-900/80 text-slate-200')}>Vista 3D</button></div>
-        {show3D ? <div className="h-[min(68vh,680px)] min-h-[320px]"><FloorPlan3DView project={project} isDark={isDark} /></div> : <canvas
+        <div className="absolute z-10 left-3 top-3 flex flex-wrap gap-2"><button type="button" onClick={()=>setShow3D(false)} className={'rounded-lg px-3 py-2 text-xs font-semibold '+(!show3D?'bg-blue-600 text-white':'bg-slate-900/80 text-slate-200')}>Planta 2D</button><button type="button" onClick={()=>setShow3D(true)} className={'rounded-lg px-3 py-2 text-xs font-semibold '+(show3D?'bg-blue-600 text-white':'bg-slate-900/80 text-slate-200')}>Vista 3D</button><button type="button" onClick={toggleNightMode} aria-pressed={isNightMode} className={'rounded-lg px-3 py-2 text-xs font-semibold flex items-center gap-1.5 '+(isNightMode?'bg-indigo-600 text-white':'bg-slate-900/80 text-slate-200')}>{isNightMode?<Moon className="w-3.5 h-3.5"/>:<Sun className="w-3.5 h-3.5"/>}{isNightMode?'Noite':'Dia'}</button></div>
+        {show3D ? <div className="h-[min(68vh,680px)] min-h-[320px]"><FloorPlan3DView project={project} isDark={isDark} isNightMode={isNightMode} /></div> : <canvas
           ref={canvasRef}
           onPointerDown={handleMouseDown}
           onPointerMove={handleMouseMove}
