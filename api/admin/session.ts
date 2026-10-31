@@ -4,6 +4,8 @@ import { env } from 'node:process';
 import { createClient } from '@supabase/supabase-js';
 
 type AdminRequest = IncomingMessage & { body?: unknown; query?: Record<string, string | string[] | undefined> };
+export const config = { api: { bodyParser: { sizeLimit: '1kb' } } };
+
 const COOKIE_NAME = '__Host-obra-admin';
 const COOKIE_MAX_AGE_SECONDS = 600;
 
