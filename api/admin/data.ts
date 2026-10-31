@@ -1,11 +1,15 @@
+import { Buffer } from 'node:buffer';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { env } from 'node:process';
 import { createClient, type User } from '@supabase/supabase-js';
 
+type AdminRequest = IncomingMessage & { body?: unknown; query?: Record<string, string | string[] | undefined> };
 const COOKIE_NAME = '__Host-obra-admin';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_BODY_BYTES = 32 * 1024;
 type FeedbackStatus = 'aberto' | 'em_analise' | 'resolvido';
 
-function json(res: any, status: number, body: Record<string, unknown>) {
+function json(res: ServerResponse, status: number, body: Record<string, unknown>) {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store, private, max-age=0');
@@ -14,17 +18,17 @@ function json(res: any, status: number, body: Record<string, unknown>) {
   res.end(JSON.stringify(body));
 }
 
-function getCookie(req: any): string | null {
+function getCookie(req: AdminRequest): string | null {
   const header = typeof req.headers.cookie === 'string' ? req.headers.cookie : '';
   const item = header.split(';').map((part: string) => part.trim()).find((part: string) => part.startsWith(`${COOKIE_NAME}=`));
   if (!item) return null;
   try { return decodeURIComponent(item.slice(COOKIE_NAME.length + 1)); } catch { return null; }
 }
 
-function sameOrigin(req: any): boolean {
+function sameOrigin(req: AdminRequest): boolean {
   const origin = req.headers.origin;
-  const hostHeader = req.headers['x-forwarded-host'] || req.headers.host;
-  const host = typeof hostHeader === 'string' ? hostHeader.split(',')[0].trim().toLowerCase() : '';
+  const hostHeader = req.headers['x-forwarded-host'];
+  const host = (typeof hostHeader === 'string' ? hostHeader : req.headers.host || '').split(',')[0].trim().toLowerCase();
   if (typeof origin !== 'string' || !host) return false;
   try {
     const parsed = new URL(origin);
@@ -33,8 +37,8 @@ function sameOrigin(req: any): boolean {
 }
 
 function getClient(token: string) {
-  const url = process.env.VITE_SUPABASE_URL;
-  const key = process.env.VITE_SUPABASE_ANON_KEY;
+  const url = env.VITE_SUPABASE_URL;
+  const key = env.VITE_SUPABASE_ANON_KEY;
   if (!url || !key) throw new Error('Supabase server configuration is missing.');
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -42,7 +46,7 @@ function getClient(token: string) {
   });
 }
 
-async function verifyAdmin(req: any): Promise<{ client: ReturnType<typeof getClient>; user: User } | null> {
+async function verifyAdmin(req: AdminRequest): Promise<{ client: ReturnType<typeof getClient>; user: User } | null> {
   const token = getCookie(req);
   if (!token || token.length > 4096 || token.split('.').length !== 3) return null;
   const client = getClient(token);
@@ -57,11 +61,12 @@ async function consumeLimit(client: ReturnType<typeof getClient>, action: 'read'
   return data === true;
 }
 
-function readBody(req: any): Record<string, any> | null {
+function readBody(req: AdminRequest): Record<string, unknown> | null {
   const body = req.body;
   if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
-  if (Buffer.byteLength(JSON.stringify(body), 'utf8') > MAX_BODY_BYTES) return null;
-  return body as Record<string, any>;
+  const serialized = JSON.stringify(body);
+  if (!serialized || Buffer.byteLength(serialized, 'utf8') > MAX_BODY_BYTES) return null;
+  return body as Record<string, unknown>;
 }
 
 function cleanText(value: unknown, max: number, required = false): string | null {
@@ -101,9 +106,10 @@ function validDate(value: unknown): string | null {
   return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value ? null : value;
 }
 
-function productPayload(body: Record<string, any>, userId: string) {
+function productPayload(body: Record<string, unknown>) {
   const name = cleanText(body.name, 180, true);
-  const category = cleanText(body.category, 80) || 'Geral';
+  const categoryValue = cleanText(body.category, 80);
+  const category = categoryValue || 'Geral';
   const manufacturer = cleanText(body.manufacturer, 120);
   const ph = body.ph_type;
   const dilutionRatio = cleanText(body.dilution_ratio, 120);
@@ -118,7 +124,7 @@ function productPayload(body: Record<string, any>, userId: string) {
   const verifiedDate = body.verified_date === null || body.verified_date === '' ? null : validDate(body.verified_date);
   const dilutionNumber = Number(body.dilution_number);
   const sortOrder = Number(body.sort_order ?? 0);
-  if (!name || category === null || manufacturer === null || !['Neutro', 'Ácido', 'Alcalino', 'Não informado'].includes(ph)) return null;
+  if (!name || categoryValue === null || manufacturer === null || typeof ph !== 'string' || !['Neutro', 'Ácido', 'Alcalino', 'Não informado'].includes(ph)) return null;
   if (dilutionRatio === null || actionTime === null || yieldInfo === null || instructions === null || !cautions || !surfaces || sourceLabel === null) return null;
   if (body.source_url && !sourceUrl) return null;
   if (body.image_url && !imageUrl) return null;
@@ -133,19 +139,21 @@ function productPayload(body: Record<string, any>, userId: string) {
     action_time_minutes: actionTime, yield_info: yieldInfo, instructions,
     cautions, source_label: sourceLabel, source_url: sourceUrl, image_url: imageUrl,
     verified_date: verifiedDate, is_published: body.is_published,
-    sort_order: sortOrder, created_by: userId, updated_at: new Date().toISOString(),
+    sort_order: sortOrder, updated_at: new Date().toISOString(),
   };
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: AdminRequest, res: ServerResponse) {
+  const method = req.method ?? '';
   res.setHeader('Cache-Control', 'no-store, private, max-age=0');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Allow', 'GET, POST');
 
-  if (!['GET', 'POST'].includes(req.method)) return json(res, 405, { error: 'Método não permitido.' });
-  if (req.method === 'POST' && !sameOrigin(req)) return json(res, 403, { error: 'Origem não autorizada.' });
-  if (req.method === 'POST') {
-    const length = Number(req.headers['content-length'] || 0);
+  if (!['GET', 'POST'].includes(method)) return json(res, 405, { error: 'Método não permitido.' });
+  if (method === 'POST' && !sameOrigin(req)) return json(res, 403, { error: 'Origem não autorizada.' });
+  if (method === 'POST') {
+    const lengthHeader = req.headers['content-length'];
+    const length = typeof lengthHeader === 'string' ? Number(lengthHeader) : 0;
     if (length > MAX_BODY_BYTES) return json(res, 413, { error: 'Requisição muito grande.' });
   }
 
@@ -153,11 +161,11 @@ export default async function handler(req: any, res: any) {
     const verified = await verifyAdmin(req);
     if (!verified) return json(res, 401, { error: 'Sessão administrativa ausente, inválida ou expirada.' });
 
-    if (!(await consumeLimit(verified.client, req.method === 'GET' ? 'read' : 'write'))) {
+    if (!(await consumeLimit(verified.client, method === 'GET' ? 'read' : 'write'))) {
       return json(res, 429, { error: 'Limite de requisições atingido. Aguarde um minuto.' });
     }
 
-    if (req.method === 'GET') {
+    if (method === 'GET') {
       const resource = typeof req.query?.resource === 'string' ? req.query.resource : '';
       if (resource === 'stats') {
         const { data, error } = await verified.client.rpc('admin_dashboard_stats');
@@ -211,13 +219,16 @@ export default async function handler(req: any, res: any) {
     }
 
     if (body.action === 'save_product') {
-      const payload = productPayload(body.product ?? {}, verified.user.id);
+      const product = body.product;
+      if (!product || typeof product !== 'object' || Array.isArray(product)) return json(res, 400, { error: 'Ficha de produto inválida.' });
+      const productData = product as Record<string, unknown>;
+      const payload = productPayload(productData);
       if (!payload) return json(res, 400, { error: 'Ficha de produto inválida. Revise os campos e URLs HTTPS.' });
-      const id = body.product?.id;
+      const id = productData.id;
       if (id !== undefined && (typeof id !== 'string' || !UUID_PATTERN.test(id))) return json(res, 400, { error: 'Identificador do produto inválido.' });
       const query = id
         ? verified.client.from('automotive_catalog').update(payload).eq('id', id).select('id').maybeSingle()
-        : verified.client.from('automotive_catalog').insert(payload).select('id').single();
+        : verified.client.from('automotive_catalog').insert({ ...payload, created_by: verified.user.id }).select('id').single();
       const { data, error } = await query;
       if (error) throw error;
       if (!data) return json(res, 404, { error: 'Produto não encontrado.' });
