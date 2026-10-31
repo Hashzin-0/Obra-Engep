@@ -18,12 +18,18 @@ export function userClient(req: Request): SupabaseClient {
   });
 }
 
-export async function requireUser(req: Request): Promise<{ id: string }> {
+export async function requireUser(req: Request): Promise<{ id: string; isAdmin: boolean }> {
   const authorization = req.headers.get('Authorization') ?? '';
   const token = authorization.replace(/^Bearer\s+/i, '').trim();
   if (!token) throw new Error('Sessão inválida.');
   const client = userClient(req);
   const { data, error } = await client.auth.getUser(token);
   if (error || !data.user) throw new Error('Sessão inválida.');
-  return { id: data.user.id };
+  return { id: data.user.id, isAdmin: data.user.app_metadata?.is_admin === true };
+}
+
+export async function requireAdmin(req: Request): Promise<{ id: string }> {
+  const user = await requireUser(req);
+  if (!user.isAdmin) throw new Error('Acesso administrativo necessário.');
+  return { id: user.id };
 }
