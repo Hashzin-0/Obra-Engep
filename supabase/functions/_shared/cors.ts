@@ -3,15 +3,20 @@ const allowedOrigins = new Set([
   'http://localhost:3000',
 ]);
 
+function isApprovedOrigin(origin: string): boolean {
+  if (allowedOrigins.has(origin)) return true;
+  return /^https:\/\/obra-engep-[a-z0-9-]+-aymatsu00-2333s-projects\.vercel\.app$/.test(origin);
+}
+
 export function isAllowedOrigin(req: Request): boolean {
   const origin = req.headers.get('origin');
-  return !origin || allowedOrigins.has(origin);
+  return !origin || isApprovedOrigin(origin);
 }
 
 export function corsHeaders(req?: Request): Record<string, string> {
   const origin = req?.headers.get('origin');
   return {
-    'Access-Control-Allow-Origin': origin && allowedOrigins.has(origin)
+    'Access-Control-Allow-Origin': origin && isApprovedOrigin(origin)
       ? origin
       : 'https://obra-engep.vercel.app',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
