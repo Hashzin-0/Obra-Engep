@@ -414,25 +414,6 @@ export async function sanitizeProductLabel(file: File): Promise<File> {
   }
 }
 
-export async function uploadProductLabel(
-  userId: string,
-  productId: string,
-  file: File
-): Promise<string> {
-  if (!/^[0-9a-f-]{36}$/i.test(userId) || !/^[0-9a-f-]{36}$/i.test(productId)) {
-    throw new Error('Identificador de usuário ou produto inválido.');
-  }
-  const safeFile = await sanitizeProductLabel(file);
-  const clientInstance = client();
-  const path = `${userId}/products/${productId}/${crypto.randomUUID()}.webp`;
-  const { error } = await clientInstance.storage.from('user-media').upload(path, safeFile, {
-    contentType: 'image/webp',
-    upsert: false,
-  });
-  if (error) throw new Error('Não foi possível enviar a foto do rótulo.');
-  return path;
-}
-
 export async function saveProduct(userId: string, product: AutomotiveProductItem) {
   const { error } = await client().from('products').upsert(
     {
