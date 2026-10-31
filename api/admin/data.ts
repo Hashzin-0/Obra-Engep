@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { env } from 'node:process';
 import { createClient, type User } from '@supabase/supabase-js';
 import { getAdminSessionId, validateAdminSession } from './sessionSecurity';
+import { safeHttpsUrl } from './urlSafety';
 
 type AdminRequest = IncomingMessage & { body?: unknown; query?: Record<string, string | string[] | undefined> };
 export const config = { api: { bodyParser: { sizeLimit: '32kb' } } };
@@ -85,17 +86,6 @@ function cleanText(value: unknown, max: number, required = false): string | null
   return result;
 }
 
-function safeHttpsUrl(value: unknown): string | null {
-  if (value === null || value === '' || value === undefined) return null;
-  if (typeof value !== 'string' || value.length > 2048) return null;
-  try {
-    const url = new URL(value);
-    if (url.protocol !== 'https:' || !url.hostname || url.username || url.password) return null;
-    const host = url.hostname.toLowerCase();
-    if (host === 'localhost' || host.endsWith('.local') || host === '127.0.0.1' || host === '::1') return null;
-    return url.toString();
-  } catch { return null; }
-}
 
 function cleanStringArray(value: unknown, itemMax: number, maxItems: number): string[] | null {
   if (!Array.isArray(value) || value.length > maxItems) return null;
