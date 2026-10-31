@@ -152,7 +152,7 @@ export default function AdminApp() {
         const exchange = await fetch('/api/admin/session', {
           method: 'POST',
           credentials: 'same-origin',
-          headers: { Authorization: \`Bearer \${session.access_token}\` },
+          headers: { Authorization: `Bearer ${session.access_token}` },
         });
         const payload = await exchange.json().catch(() => ({}));
         await adminAuthClient.auth.signOut({ scope: 'local' });
