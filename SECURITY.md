@@ -12,7 +12,6 @@ This document describes the controls implemented for the application and the rem
 - Mutating requests require a same-origin HTTPS Origin and JSON content type. Admin API responses are non-cacheable.
 - Admin reads and writes run with the caller's JWT and remain subject to Supabase RLS. No service-role key is used in the browser or admin API.
 - Admin request limits are enforced in PostgreSQL per authenticated admin: 90 reads/minute, 20 writes/minute and 5 session operations/minute. Counter tables live in a non-PostgREST `private` schema, have RLS with no client policies or table privileges, and are updated through public SECURITY INVOKER wrappers that call narrowly scoped private SECURITY DEFINER functions. Admin authorization is rechecked against `auth.users.raw_app_meta_data` in the database.
-- Private media uploads are limited in PostgreSQL to 10 uploads/minute per authenticated user; the counter is also stored in the non-exposed `private` schema.
 - The session endpoint also applies a best-effort per-IP limit of 20 requests/minute per serverless instance. This is not a substitute for a distributed edge limit.
 
 ## Input and upload controls
@@ -20,16 +19,16 @@ This document describes the controls implemented for the application and the rem
 - Admin mutations use an allowlist of actions, UUID validation, bounded text/array fields, HTTPS-only source/image URLs, and a 32 KB JSON body ceiling. PostgreSQL also enforces size/length constraints for feedback, profiles, notes, projects, checklists and automotive catalog rows (including a 10 MB project JSONB ceiling and 1 MB checklist JSONB ceiling).
 - The application uses Supabase/PostgREST parameterized queries; no user-controlled SQL is assembled.
 - Push subscription endpoints are constrained in PostgreSQL to HTTPS Web Push provider hosts, with bounded endpoint/key/user-agent lengths. The Edge Function send path repeats the host and key validation before making outbound requests, preventing user-controlled subscription rows from becoming an SSRF primitive.
-- Global push broadcasts require a live Supabase admin session and have a separate database limit of three broadcasts per administrator per hour; the internal session-check RPC is executable only by `service_role`.
-- The private `user-media` bucket accepts only WebP, is limited to 5 MB, and has owner-folder RLS policies that check the extension, MIME metadata and size. Direct SVG/PDF/JPEG/PNG uploads are rejected by the bucket policy.
-- The normal product-label upload flow accepts JPEG/PNG/WebP, checks file signatures and dimensions, then decodes/re-encodes to WebP (removing metadata) before storage. This browser-side transform is defense in depth; Storage RLS validates declared MIME/extension/size, not the binary image decoder output itself.
+- Global push broadcasts require a live Supabase admin session, matching the original Supabase Auth IP and user-agent, and have a separate database limit of three broadcasts per administrator per hour; the internal session-check RPC is executable only by `service_role`.
+- The private `user-media` bucket is empty and has no application upload path. All client Storage policies for that bucket have been removed, so authenticated users cannot upload arbitrary bytes directly. The bucket remains private and limited to WebP/5 MB for a future server-side upload pipeline.
+- There is currently no product-label upload flow in the repository: product images are HTTPS URLs, while editor media is stored locally in IndexedDB. If uploads are added later, they must pass server-side magic-byte validation, decoding/re-encoding, dimension/pixel limits and malware scanning before Storage writes; client MIME metadata is not trusted.
 - The Express runtime limits JSON bodies to 256 KB, chat prompts to 24,000 characters, chat streams to 12 requests/minute per IP, 8 concurrent streams globally and 2 per IP. Gemini stream duration is capped at 120 seconds.
 - Gemini Live WebSockets require same-origin HTTPS (localhost HTTP only in local development), have a 128 KB frame ceiling, 600 messages/minute per connection, 2 connections/IP and 50 concurrent connections globally. Slow consumers are closed when buffered output exceeds 2 MB.
 - Express in-memory limits are per process, not globally distributed. The Vercel project is configured as a Vite static app; `server.ts` is the local/self-hosted Express runtime, not the Vercel serverless runtime.
 
 ## Session anomaly controls
 
-- The admin cookie is bound to the trusted Vercel client IP and user-agent using HMAC-SHA-256. A fingerprint change revokes the underlying Supabase Auth session; rapid VPN/Tor exit changes therefore cannot reset user-level database rate limits and will force reauthentication. A stable VPN or proxy cannot be classified reliably without an external IP-reputation feed; the system does not falsely claim to detect every VPN/Tor exit.
+- The admin cookie is bound to the trusted Vercel client IP and user-agent using HMAC-SHA-256. A fingerprint change revokes the underlying Supabase Auth session; rapid VPN/Tor exit changes therefore cannot reset user-level database rate limits and will force reauthentication. The broadcast Edge Function independently checks the original IP/user-agent recorded in `auth.sessions`. A stable VPN or proxy cannot be classified reliably without an external IP-reputation feed; the system does not falsely claim to detect every VPN/Tor exit.
 - Session fingerprints contain keyed hashes only, not raw IP addresses or user-agent values. Logout deletes the corresponding Supabase Auth session, and the server enforces an absolute 10-minute lifetime.
 
 ## Browser and transport protections
@@ -51,7 +50,7 @@ This document describes the controls implemented for the application and the rem
 - Vercel's automatic DDoS mitigation is enabled by default on all plans. The project's current Vercel state reports `live=false` and its latest deployment is canceled; the WAF configuration API therefore returned “config not found” and no custom edge rate-limit rule could be staged against a live deployment. If the team is on Hobby, WAF rate limiting allows one rule per project; Pro allows 40.
 - After the first successful deployment, stage a WAF rule for `/api/admin/*` at 60 requests per 60 seconds keyed by IP in Log mode, observe live traffic for at least 10 minutes, then publish a Challenge or 429 action if the observed traffic is compatible with normal use. JA4 Digest can be reviewed as an additional signal; using JA4 alone as a rate-limit key can group unrelated users with the same TLS fingerprint.
 - Vercel documents 1,000,000 included allowed requests for WAF rate limiting on Hobby and Pro, then $0.50 per additional 1,000,000 allowed requests. Review usage before enabling it.
-- VPN/Tor use is not a reliable proof of malicious intent. IP changes do not reset the database per-admin rate limit. JA4 can help correlate clients across changing IPs at the WAF, but it is not a unique identity and can group unrelated users. The database per-admin counter is the control that remains effective when a valid account changes IP. No third-party VPN/Tor reputation feed is configured; avoid blanket blocking of VPNs or Tor exits.
+- VPN/Tor use is not a reliable proof of malicious intent. IP changes do not reset the database per-admin rate limit. JA4 can help correlate clients across changing IPs at the WAF, but it is not a unique identity and can group unrelated users. The database per-admin counter is the control that remains effective when a valid account changes IP, while session fingerprint mismatch forces reauthentication. No third-party VPN/Tor reputation feed is configured; avoid blanket blocking of VPNs or Tor exits.
 
 ## Important limitation
 
@@ -64,4 +63,5 @@ Before enabling the admin console in production:
 2. Merge and deploy through the existing production-only Vercel workflow; do not disable the configured Preview skip step just to test.
 3. After the first live deployment, configure and observe the `/api/admin/*` WAF rate-limit rule before switching it from Log to Challenge/429.
 4. Review the CI dependency-audit artifact and remediate any high/critical production advisories.
-5. Upgrade the Supabase project if leaked-password protection is required, then enable it in Auth settings.
+5. Deploy the updated Supabase Edge Functions from this PR after merge; the database migrations are already applied to the connected project.
+6. Upgrade the Supabase project if leaked-password protection is required, then enable it in Auth settings.
