@@ -1,5 +1,6 @@
 const allowedOrigins = new Set([
   'https://obra-engep.vercel.app',
+  'https://obra-engep-aymatsu00-2333s-projects.vercel.app',
   'http://localhost:3000',
 ]);
 
