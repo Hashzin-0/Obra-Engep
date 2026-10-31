@@ -56,7 +56,7 @@ export default defineConfig(() => {
       rollupOptions: {
         input: {
           app: path.resolve(import.meta.dirname, 'index.html'),
-          admin: path.resolve(import.meta.dirname, 'admin.html'),
+          admin: path.resolve(import.meta.dirname, 'console-9f3a71c2.html'),
         },
       },
     },
