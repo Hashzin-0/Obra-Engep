@@ -7,7 +7,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: security-ci-${{ github.ref }}
@@ -19,6 +19,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -28,6 +31,21 @@ jobs:
 
       - name: Normalize and export the npm lockfile
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Commit normalized lockfile for the repository owner
+        if: github.event_name == 'pull_request' && github.actor == 'Hashzin-0'
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "The committed lockfile is already synchronized."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "chore: synchronize npm lockfile"
+          git push origin "HEAD:${HEAD_REF}"
 
       - name: Upload normalized lockfile
         uses: actions/upload-artifact@v4
