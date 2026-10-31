@@ -39,14 +39,24 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Generate full dependency audit report
+        run: npm audit --json > npm-audit.json || true
+
+      - name: Upload dependency audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: npm-audit.json
+          if-no-files-found: error
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
       - name: TypeScript validation
         run: npm run lint
 
       - name: Production build
         run: npm run build
-
-      - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
 
       - name: Run unit tests when present
         shell: bash
