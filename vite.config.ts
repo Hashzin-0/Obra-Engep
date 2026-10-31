@@ -52,6 +52,14 @@ export default defineConfig(() => {
         },
       }),
     ],
+    build: {
+      rollupOptions: {
+        input: {
+          app: path.resolve(import.meta.dirname, 'index.html'),
+          admin: path.resolve(import.meta.dirname, 'admin.html'),
+        },
+      },
+    },
     resolve: {
       alias: {
         '@': path.resolve(import.meta.dirname, '.'),
