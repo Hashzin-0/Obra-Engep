@@ -149,13 +149,18 @@ export default function AdminApp() {
         }
         const { data: { session } } = await adminAuthClient.auth.getSession();
         if (!session?.access_token) return;
-        const exchange = await fetch('/api/admin/session', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-        const payload = await exchange.json().catch(() => ({}));
-        await adminAuthClient.auth.signOut({ scope: 'local' });
+        let exchange: Response;
+        let payload: Record<string, unknown> = {};
+        try {
+          exchange = await fetch('/api/admin/session', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { Authorization: \`Bearer \${session.access_token}\` },
+          });
+          payload = await exchange.json().catch(() => ({}));
+        } finally {
+          await adminAuthClient.auth.signOut({ scope: 'local' });
+        }
         if (!exchange.ok) {
           if (active) setError(typeof payload.error === 'string' ? payload.error : 'Esta conta não possui autorização administrativa.');
           return;
