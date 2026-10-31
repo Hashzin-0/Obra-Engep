@@ -15,7 +15,7 @@ export default defineConfig(() => {
         workbox: {
           importScripts: ['push-sw.js'],
           globIgnores: ['bd710978848ee759c9b7f24858aac90607361e767bda6c33.html', 'assets/bd710978848ee759c9b7f24858aac90607361e767bda6c33-*.js', 'assets/bd710978848ee759c9b7f24858aac90607361e767bda6c33-*.css'],
-          navigateFallbackDenylist: [/^\/28013dc6981a886775923406c8dbfd9265a1d71201c3682f69c8dcd6d332989a$/],
+          navigateFallbackDenylist: [/^\/[a-f0-9]{128}$/],
         },
         manifest: {
           id: '/',
