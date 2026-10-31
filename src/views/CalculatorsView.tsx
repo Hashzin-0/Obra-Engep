@@ -50,6 +50,7 @@ import { FuelCalculatorView } from './FuelCalculatorView';
 import { ElectricalCalculatorsView } from './ElectricalCalculatorsView';
 import { ElectricalReferenceToolsView, ELECTRICAL_REFERENCE_TOOLS } from './ElectricalReferenceToolsView';
 import { AdvancedElectricalCalculatorView, ADVANCED_ELECTRICAL_TOOLS } from './AdvancedElectricalCalculatorView';
+import { ElectricalFormulasView } from './ElectricalFormulasView';
 import { LimitBar } from '../components/LimitBar';
 import { AlertBanner } from '../components/AlertBanner';
 import { CalculationHistoryItem } from '../types';
@@ -111,6 +112,15 @@ const TOOLS_DIRECTORY: ToolDef[] = [
     title: 'Conversão de unidades elétricas',
     subtitle: 'W, kW, kVA, CV, HP e fatores de conversão',
     icon: ArrowLeftRight,
+  },
+
+  {
+    id: 'formulas_eletricas',
+    category: 'eletrica',
+    title: 'Fórmulas Elétricas',
+    subtitle: 'Biblioteca de fórmulas, conversões e relações elétricas',
+    icon: Grid,
+    tag: 'Referência',
   },
 
   {
@@ -1697,6 +1707,7 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
           {currentTool.id === 'calculadora_fita_led' && <ElectricalCalculatorsView mode="led-strip" />}
           {currentTool.id.startsWith('ref_') && <ElectricalReferenceToolsView toolId={currentTool.id.slice(4)} title={currentTool.title} />}
           {currentTool.id.startsWith('calc_') && <AdvancedElectricalCalculatorView toolId={currentTool.id.slice(5)} title={currentTool.title} />}
+          {currentTool.id === 'formulas_eletricas' && <ElectricalFormulasView />}
 
           {currentTool.id === 'calculadora_combustivel' && <FuelCalculatorView />}
 
