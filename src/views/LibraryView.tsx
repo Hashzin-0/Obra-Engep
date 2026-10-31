@@ -744,6 +744,7 @@ const ProductFormModal: React.FC<{
   onSave: (product: AutomotiveProductItem) => void;
 }> = ({ initial, onClose, onSave }) => {
   const [form, setForm] = useState(initial);
+  const [uploadMessage, setUploadMessage] = useState('');
 
   const update = <K extends keyof AutomotiveProductItem>(key: K, value: AutomotiveProductItem[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
@@ -857,13 +858,14 @@ const ProductFormModal: React.FC<{
                     update('labelPhotoStoragePath', storagePath);
                   }
                 }
-                setFeedback('Foto validada e salva.');
+                setUploadMessage('Foto validada e salva.');
               } catch (error) {
-                setFeedback(error instanceof Error ? error.message : 'Não foi possível processar a imagem.');
+                setUploadMessage(error instanceof Error ? error.message : 'Não foi possível processar a imagem.');
               }
             }}
             className="text-[11px] text-[#9FB0C8] file:mr-2 file:rounded-lg file:border-0 file:bg-[#1F66D6] file:px-3 file:py-1.5 file:text-white"
           />
+          {uploadMessage && <p role="status" className="mt-2 text-[11px] text-[#F5B93A]">{uploadMessage}</p>}
           {form.labelPhotoUrl && (
             <img src={form.labelPhotoUrl} alt="Prévia do rótulo" className="mt-2 h-28 rounded-xl object-cover" />
           )}
