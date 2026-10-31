@@ -13,7 +13,7 @@ const labelClass = 'block text-xs text-[#9FB0C8] mb-1.5';
 const panelClass = 'p-4 rounded-2xl bg-[#17243A] border border-[#2A3A55] space-y-3';
 const resultClass = 'p-3 rounded-xl bg-black/25 border border-[#2A3A55]';
 
-function NumberField({ label, value, onChange, min = 0, step = 'any' }: {
+function NumberField({ label, value, onChange, min = 0, max, step = 'any' }: {
   label: string; value: number; onChange: (value: number) => void; min?: number; max?: number; step?: number | string;
 }) {
   return <label className="block min-w-0"><span className={labelClass}>{label}</span><input className={fieldClass} type="number" min={min} max={max} step={step} value={Number.isFinite(value) ? value : ''} onChange={(e) => onChange(e.target.value === '' ? Number.NaN : Number(e.target.value))} /></label>;
