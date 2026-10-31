@@ -6,6 +6,7 @@ import {
   getTrustedClientIp,
   matchesAdminEntryPath,
 } from '../../api/admin/sessionSecurity';
+import { safeHttpsUrl } from '../../api/admin/urlSafety';
 import {
   isAllowedPushEndpoint,
   isValidSubscriptionKey,
@@ -80,4 +81,19 @@ test('validates bounded Web Push key encodings', () => {
   assert.equal(isValidSubscriptionKey('short', 40, 200), false);
   assert.equal(isValidSubscriptionKey('A'.repeat(201), 40, 200), false);
   assert.equal(isValidSubscriptionKey('A'.repeat(87) + '<', 40, 200), false);
+});
+
+test('accepts HTTPS domains but rejects local, private-IP and unsafe URL targets', () => {
+  assert.equal(safeHttpsUrl('https://images.example-cdn.com/photo.webp'), 'https://images.example-cdn.com/photo.webp');
+  assert.equal(safeHttpsUrl('http://images.example-cdn.com/photo.webp'), null);
+  assert.equal(safeHttpsUrl('https://127.0.0.1/image.webp'), null);
+  assert.equal(safeHttpsUrl('https://192.168.1.1/image.webp'), null);
+  assert.equal(safeHttpsUrl('https://[::1]/image.webp'), null);
+  assert.equal(safeHttpsUrl('https://metadata.internal/latest'), null);
+  assert.equal(safeHttpsUrl('https://printer.local/image.webp'), null);
+  assert.equal(safeHttpsUrl('https://service.onion/image.webp'), null);
+  assert.equal(safeHttpsUrl('https://user:pass@images.example-cdn.com/photo.webp'), null);
+  assert.equal(safeHttpsUrl('https://images.example-cdn.com:8443/photo.webp'), null);
+  assert.equal(safeHttpsUrl('https://images.example-cdn.com/photo.webp#fragment'), null);
+  assert.equal(safeHttpsUrl('x'.repeat(2049)), null);
 });
