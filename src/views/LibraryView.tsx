@@ -33,6 +33,7 @@ import { AutomotiveCatalog } from '../components/AutomotiveCatalog';
 import { AlertBanner } from '../components/AlertBanner';
 import { LimitBar } from '../components/LimitBar';
 import { loadMediaUrl, saveMedia } from '../services/mediaStore';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { loadLibraryItems, sanitizeProductLabel } from '../services/remoteRepository';
 import {
   AutomotiveProductItem,
