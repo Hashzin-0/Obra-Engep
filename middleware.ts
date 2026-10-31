@@ -22,7 +22,7 @@ export default function middleware(request: Request): Response {
   // The internal HTML document is never a public entry point.
   if (pathname === ADMIN_DOCUMENT_PATH) return notFound();
 
-  const configuredPath = process.env.ADMIN_ENTRY_PATH ?? '';
+  const configuredPath = process.env.ADMIN_ENTRY_PATH_V2 ?? '';
   if (!matchesAdminEntryPath(pathname, configuredPath)) return notFound();
 
   return rewrite(new URL(ADMIN_DOCUMENT_PATH, request.url));
