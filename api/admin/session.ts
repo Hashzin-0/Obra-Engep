@@ -1,9 +1,13 @@
+import { Buffer } from 'node:buffer';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { env } from 'node:process';
 import { createClient } from '@supabase/supabase-js';
 
+type AdminRequest = IncomingMessage & { body?: unknown; query?: Record<string, string | string[] | undefined> };
 const COOKIE_NAME = '__Host-obra-admin';
 const COOKIE_MAX_AGE_SECONDS = 600;
 
-function json(res: any, status: number, body: Record<string, unknown>) {
+function json(res: ServerResponse, status: number, body: Record<string, unknown>) {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store, private, max-age=0');
@@ -12,15 +16,15 @@ function json(res: any, status: number, body: Record<string, unknown>) {
   res.end(JSON.stringify(body));
 }
 
-function clearCookie(res: any) {
+function clearCookie(res: ServerResponse) {
   res.setHeader('Set-Cookie', `${COOKIE_NAME}=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; SameSite=Strict`);
 }
 
-function setCookie(res: any, token: string, maxAge: number) {
+function setCookie(res: ServerResponse, token: string, maxAge: number) {
   res.setHeader('Set-Cookie', `${COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Strict`);
 }
 
-function getCookie(req: any): string | null {
+function getCookie(req: AdminRequest): string | null {
   const header = typeof req.headers.cookie === 'string' ? req.headers.cookie : '';
   const item = header.split(';').map((part: string) => part.trim()).find((part: string) => part.startsWith(`${COOKIE_NAME}=`));
   if (!item) return null;
@@ -31,10 +35,10 @@ function getCookie(req: any): string | null {
   }
 }
 
-function sameOrigin(req: any): boolean {
+function sameOrigin(req: AdminRequest): boolean {
   const origin = req.headers.origin;
-  const hostHeader = req.headers['x-forwarded-host'] || req.headers.host;
-  const host = typeof hostHeader === 'string' ? hostHeader.split(',')[0].trim().toLowerCase() : '';
+  const hostHeader = req.headers['x-forwarded-host'];
+  const host = (typeof hostHeader === 'string' ? hostHeader : req.headers.host || '').split(',')[0].trim().toLowerCase();
   if (typeof origin !== 'string' || !host) return false;
   try {
     const parsed = new URL(origin);
@@ -45,8 +49,8 @@ function sameOrigin(req: any): boolean {
 }
 
 function getClient(token?: string) {
-  const url = process.env.VITE_SUPABASE_URL;
-  const key = process.env.VITE_SUPABASE_ANON_KEY;
+  const url = env.VITE_SUPABASE_URL;
+  const key = env.VITE_SUPABASE_ANON_KEY;
   if (!url || !key) throw new Error('Supabase server configuration is missing.');
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -78,24 +82,26 @@ async function consumeSessionLimit(client: ReturnType<typeof getClient>): Promis
   return data === true;
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: AdminRequest, res: ServerResponse) {
+  const method = req.method ?? '';
   res.setHeader('Allow', 'GET, POST, DELETE');
   res.setHeader('Cache-Control', 'no-store, private, max-age=0');
   res.setHeader('X-Content-Type-Options', 'nosniff');
 
-  if (!['GET', 'POST', 'DELETE'].includes(req.method)) return json(res, 405, { error: 'Método não permitido.' });
+  if (!['GET', 'POST', 'DELETE'].includes(method)) return json(res, 405, { error: 'Método não permitido.' });
 
-  if (req.method !== 'GET' && !sameOrigin(req)) return json(res, 403, { error: 'Origem não autorizada.' });
+  if (method !== 'GET' && !sameOrigin(req)) return json(res, 403, { error: 'Origem não autorizada.' });
 
   try {
-    if (req.method === 'DELETE') {
+    if (method === 'DELETE') {
       clearCookie(res);
       return json(res, 200, { ok: true });
     }
 
     let token: string | null = null;
-    if (req.method === 'POST') {
-      const length = Number(req.headers['content-length'] || 0);
+    if (method === 'POST') {
+      const lengthHeader = req.headers['content-length'];
+      const length = typeof lengthHeader === 'string' ? Number(lengthHeader) : 0;
       if (length > 1024) return json(res, 413, { error: 'Requisição muito grande.' });
       const authorization = typeof req.headers.authorization === 'string' ? req.headers.authorization : '';
       const match = authorization.match(/^Bearer\s+(.+)$/i);
@@ -105,7 +111,7 @@ export default async function handler(req: any, res: any) {
     }
 
     if (!token) {
-      if (req.method === 'GET') clearCookie(res);
+      if (method === 'GET') clearCookie(res);
       return json(res, 401, { error: 'Sessão administrativa ausente ou expirada.' });
     }
 
@@ -125,7 +131,7 @@ export default async function handler(req: any, res: any) {
       return json(res, 429, { error: 'Muitas tentativas. Aguarde antes de continuar.' });
     }
 
-    if (req.method === 'POST') setCookie(res, token, maxAge);
+    if (method === 'POST') setCookie(res, token, maxAge);
 
     return json(res, 200, {
       ok: true,
