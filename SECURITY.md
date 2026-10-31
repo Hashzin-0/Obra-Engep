@@ -29,7 +29,7 @@ This document describes the controls implemented for the application and the rem
 
 ## Session anomaly controls
 
-- The admin cookie is bound to the trusted Vercel client IP and user-agent using HMAC-SHA-256. A fingerprint change revokes the underlying Supabase Auth session; rapid VPN/Tor exit changes therefore cannot reset user-level database rate limits and will force reauthentication. The broadcast Edge Function independently checks the original IP/user-agent recorded in `auth.sessions`. A stable VPN or proxy cannot be classified reliably without an external IP-reputation feed; the system does not falsely claim to detect every VPN/Tor exit.
+- The admin cookie is bound to the trusted Vercel client IP and user-agent using HMAC-SHA-256. Before recording the first fingerprint, PostgreSQL compares the request against the original IP and user-agent in `auth.sessions`, preventing a stolen cookie from winning a first-use race. A fingerprint change revokes the underlying Supabase Auth session; rapid VPN/Tor exit changes therefore cannot reset user-level database rate limits and will force reauthentication. The broadcast Edge Function independently checks the original IP/user-agent recorded in `auth.sessions`. A stable VPN or proxy cannot be classified reliably without an external IP-reputation feed; the system does not falsely claim to detect every VPN/Tor exit.
 - Session fingerprints contain keyed hashes only, not raw IP addresses or user-agent values. Logout deletes the corresponding Supabase Auth session, and the server enforces an absolute 10-minute lifetime.
 
 ## Browser and transport protections
