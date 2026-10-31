@@ -113,14 +113,19 @@ app.post('/api/gemini/realtime-chat', async (req, res) => {
   activeGeminiStreams += 1;
   activeGeminiByIp.set(ip, perIp + 1);
   let disconnected = false;
+  const abortController = new AbortController();
   const timeout = setTimeout(() => {
     disconnected = true;
+    abortController.abort();
     if (!res.writableEnded) {
       res.write(`data: ${JSON.stringify({ type: 'error', error: 'Tempo máximo de resposta excedido.' })}\n\n`);
       res.end();
     }
   }, 120_000);
-  res.on('close', () => { disconnected = true; });
+  res.on('close', () => {
+    disconnected = true;
+    abortController.abort();
+  });
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store, no-transform');
   res.setHeader('Connection', 'keep-alive');
@@ -133,7 +138,10 @@ app.post('/api/gemini/realtime-chat', async (req, res) => {
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
         thinkingConfig: { thinkingBudget: 2048 },
-      } as any,
+        maxOutputTokens: 2048,
+        automaticContinuation: false,
+        abortSignal: abortController.signal,
+      },
     });
 
     for await (const chunk of responseStream) {
