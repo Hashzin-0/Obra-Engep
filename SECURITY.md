@@ -36,6 +36,7 @@ This document describes the controls implemented for the application and the rem
 - `pg_net` was moved from the `public` schema to `extensions`; its `net.http_post` function remains available.
 - The admin rate-limit table is protected by RLS. The admin stats function remains SECURITY INVOKER.
 - Vercel runtime secrets (`GEMINI_API_KEY`, `CRON_SECRET`, `ADMIN_SECRET` and `VAPID_KEYS`) use the Secret/Sensitive visibility type; their values are not stored in source control.
+- The full npm audit currently reports 10 low/moderate findings in the development/build dependency tree (2 low, 8 moderate; 0 high/critical). The production-only audit passes. npm's suggested automatic fix downgrades `vite-plugin-pwa` to 1.1.0, which predates Vite 8 peer support; the project uses 2.0.0. Do not force that downgrade without a compatible Workbox dependency update. The complete audit report is uploaded by CI.
 - Supabase's leaked-password protection warning remains because this feature is not included in the connected Free plan. Enable it after upgrading to a plan that includes the feature.
 
 ## Vercel WAF and VPN/Tor handling
