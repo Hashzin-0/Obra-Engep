@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/zJucaXs1113@cAdminDomingos",
+      "destination": "/admin.html"
+    }
+  ]
+}
