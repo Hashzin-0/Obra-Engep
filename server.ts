@@ -41,6 +41,8 @@ type RateBucket = { count: number; resetAt: number };
 const requestBuckets = new Map<string, RateBucket>();
 const liveConnectionsByIp = new Map<string, number>();
 const MAX_ACTIVE_GEMINI_STREAMS = 8;
+const MAX_ACTIVE_LIVE_CONNECTIONS = 50;
+let activeLiveConnections = 0;
 const activeGeminiByIp = new Map<string, number>();
 let activeGeminiStreams = 0;
 
@@ -185,16 +187,18 @@ const wss = new WebSocketServer({
     const ip = info.req.socket.remoteAddress || 'unknown';
     if (!sameOrigin(info)) return done(false, 403, 'Origin not allowed');
     if (!allowRate(\`live-handshake:\${ip}\`, 10)) return done(false, 429, 'Rate limit exceeded');
-    if ((liveConnectionsByIp.get(ip) ?? 0) >= 2) return done(false, 429, 'Too many live connections');
+    if ((liveConnectionsByIp.get(ip) ?? 0) >= 2 || activeLiveConnections >= MAX_ACTIVE_LIVE_CONNECTIONS) return done(false, 429, 'Too many live connections');
     done(true);
   },
 });
 
 wss.on('connection', async (clientWs: WebSocket, req) => {
   const ip = req.socket.remoteAddress || 'unknown';
+  activeLiveConnections += 1;
   liveConnectionsByIp.set(ip, (liveConnectionsByIp.get(ip) ?? 0) + 1);
 
   const releaseConnection = () => {
+    activeLiveConnections = Math.max(0, activeLiveConnections - 1);
     const remaining = Math.max(0, (liveConnectionsByIp.get(ip) ?? 1) - 1);
     if (remaining) liveConnectionsByIp.set(ip, remaining);
     else liveConnectionsByIp.delete(ip);
@@ -224,6 +228,10 @@ wss.on('connection', async (clientWs: WebSocket, req) => {
       callbacks: {
         onmessage: (message: any) => {
           if (clientWs.readyState !== WebSocket.OPEN) return;
+          if (clientWs.bufferedAmount > 2 * 1024 * 1024) {
+            clientWs.close(1013, 'Cliente não está recebendo os dados com velocidade suficiente');
+            return;
+          }
           const parts = message.serverContent?.modelTurn?.parts || [];
           for (const part of parts) {
             if (part.inlineData?.data) {
