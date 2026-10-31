@@ -8,6 +8,7 @@ This document describes the controls implemented for the application and the rem
 - Admin OAuth uses an isolated Supabase client/storage key. The temporary browser OAuth session is cleared after exchanging it for a server-set cookie.
 - The admin cookie is `HttpOnly; Secure; SameSite=Strict; Path=/`, has no `Domain` attribute, is not readable by application JavaScript, and expires after at most 10 minutes.
 - Every admin API request validates the access token with Supabase Auth and re-checks the server-issued `app_metadata.is_admin` claim.
+- The repository's Supabase local config now allows the production origin path pattern for OAuth return. The connected Auth redirect allowlist is managed outside SQL and could not be read or changed through the available Supabase connection; verify the production wildcard in Auth URL Configuration before enabling admin login.
 - Mutating requests require a same-origin HTTPS Origin and JSON content type. Admin API responses are non-cacheable.
 - Admin reads and writes run with the caller's JWT and remain subject to Supabase RLS. No service-role key is used in the browser or admin API.
 - Admin request limits are enforced in PostgreSQL per authenticated admin: 90 reads/minute, 20 writes/minute and 5 session operations/minute. Counter tables live in a non-PostgREST `private` schema, have RLS, and are updated through SECURITY INVOKER functions.
