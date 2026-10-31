@@ -27,9 +27,7 @@ function getCookie(req: AdminRequest): string | null {
 
 function sameOrigin(req: AdminRequest): boolean {
   const origin = req.headers.origin;
-  const hostHeader = req.headers['x-forwarded-host'];
-  const hostValue = typeof hostHeader === 'string' ? hostHeader : typeof req.headers.host === 'string' ? req.headers.host : '';
-  const host = hostValue.split(',')[0].trim().toLowerCase();
+  const host = typeof req.headers.host === 'string' ? req.headers.host.split(',')[0].trim().toLowerCase() : '';
   if (typeof origin !== 'string' || !host) return false;
   try {
     const parsed = new URL(origin);
@@ -153,6 +151,7 @@ export default async function handler(req: AdminRequest, res: ServerResponse) {
 
   if (!['GET', 'POST'].includes(method)) return json(res, 405, { error: 'Método não permitido.' });
   if (method === 'POST' && !sameOrigin(req)) return json(res, 403, { error: 'Origem não autorizada.' });
+  if (method === 'POST' && !String(req.headers['content-type'] || '').toLowerCase().startsWith('application/json')) return json(res, 415, { error: 'Tipo de conteúdo não permitido.' });
   if (method === 'POST') {
     const lengthHeader = req.headers['content-length'];
     const length = typeof lengthHeader === 'string' ? Number(lengthHeader) : 0;
