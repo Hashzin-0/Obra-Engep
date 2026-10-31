@@ -197,6 +197,7 @@ wss.on('connection', async (clientWs: WebSocket, req) => {
   activeLiveConnections += 1;
   liveConnectionsByIp.set(ip, (liveConnectionsByIp.get(ip) ?? 0) + 1);
 
+  let liveSession: any = null;
   let released = false;
   const releaseConnection = () => {
     if (released) return;
@@ -220,7 +221,6 @@ wss.on('connection', async (clientWs: WebSocket, req) => {
     return;
   }
 
-  let liveSession: any = null;
   let messageCount = 0;
   let messageWindow = Date.now();
 
