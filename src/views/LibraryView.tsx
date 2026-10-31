@@ -34,7 +34,7 @@ import { AlertBanner } from '../components/AlertBanner';
 import { LimitBar } from '../components/LimitBar';
 import { loadMediaUrl, saveMedia } from '../services/mediaStore';
 import { ensureAnonymousSession, isSupabaseConfigured, supabase } from '../lib/supabase';
-import { loadLibraryItems, uploadProductLabel } from '../services/remoteRepository';
+import { loadLibraryItems, sanitizeProductLabel, uploadProductLabel } from '../services/remoteRepository';
 import {
   AutomotiveProductItem,
   FavoriteItem,
@@ -838,26 +838,28 @@ const ProductFormModal: React.FC<{
         <Field label="Foto do rótulo (opcional)">
           <input
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp"
             capture="environment"
             onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
-              const key = `product-label-${form.id}`;
-              await saveMedia(key, file);
-              update('labelPhotoReference', key);
-              update('labelPhotoUrl', URL.createObjectURL(file));
+              try {
+                const safeFile = await sanitizeProductLabel(file);
+                const key = \`product-label-\${form.id}\`;
+                await saveMedia(key, safeFile);
+                update('labelPhotoReference', key);
+                update('labelPhotoUrl', URL.createObjectURL(safeFile));
 
-              if (isSupabaseConfigured) {
-                try {
+                if (isSupabaseConfigured) {
                   const session = await ensureAnonymousSession();
                   if (session) {
-                    const storagePath = await uploadProductLabel(session.userId, form.id, file);
+                    const storagePath = await uploadProductLabel(session.userId, form.id, safeFile);
                     update('labelPhotoStoragePath', storagePath);
                   }
-                } catch (error) {
-                  console.warn('Falha ao enviar foto do rótulo para o Supabase:', error);
                 }
+                setFeedback('Foto validada e salva.');
+              } catch (error) {
+                setFeedback(error instanceof Error ? error.message : 'Não foi possível processar a imagem.');
               }
             }}
             className="text-[11px] text-[#9FB0C8] file:mr-2 file:rounded-lg file:border-0 file:bg-[#1F66D6] file:px-3 file:py-1.5 file:text-white"
