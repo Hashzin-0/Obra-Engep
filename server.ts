@@ -278,7 +278,12 @@ wss.on('connection', async (clientWs: WebSocket, req) => {
             clientWs.send(JSON.stringify({ type: 'error', error: 'Falha temporária na sessão de voz.' }));
           }
         },
-        onclose: () => {},
+        onclose: () => {
+          if (clientWs.readyState === WebSocket.OPEN) {
+            clientWs.close(1011, 'Sessão Gemini Live encerrada');
+          }
+          releaseConnection();
+        },
       },
     }).then((session) => {
       if (connectTimedOut || clientWs.readyState !== WebSocket.OPEN) {
