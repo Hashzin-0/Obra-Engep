@@ -394,7 +394,7 @@ export async function sanitizeProductLabel(file: File): Promise<File> {
   try {
     bitmap = await createImageBitmap(file);
     const pixels = bitmap.width * bitmap.height;
-    if (!bitmap.width || !bitmap.height || bitmap.width > 10000 || bitmap.height > 10000 || pixels > 30000000) {
+    if (!bitmap.width || !bitmap.height || bitmap.width > 6000 || bitmap.height > 6000 || pixels > 12000000) {
       throw new Error('A imagem excede as dimensões permitidas.');
     }
 
