@@ -421,7 +421,33 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     }
     // Highlight selected objects for clear visual feedback.
     if(selectionRect){ctx.save();ctx.fillStyle='rgba(91,155,255,.15)';ctx.strokeStyle='#5B9BFF';ctx.setLineDash([5,3]);ctx.fillRect(selectionRect.x1,selectionRect.y1,selectionRect.x2-selectionRect.x1,selectionRect.y2-selectionRect.y1);ctx.strokeRect(selectionRect.x1,selectionRect.y1,selectionRect.x2-selectionRect.x1,selectionRect.y2-selectionRect.y1);ctx.restore();}
-    if(selectedObjects.length){ctx.save();ctx.strokeStyle='#5B9BFF';ctx.lineWidth=3;ctx.setLineDash([5,3]);selectedObjects.forEach(s=>{const o=s.kind==='wall'?project.walls.find(v=>v.id===s.id):s.kind==='opening'?project.openings.find(v=>v.id===s.id):s.kind==='electrical'?project.electrical.find(v=>v.id===s.id):project.hydraulic.find(v=>v.id===s.id);if(!o)return;if(s.kind==='wall'){ctx.beginPath();ctx.moveTo(o.x1,o.y1);ctx.lineTo(o.x2,o.y2);ctx.stroke();}else{ctx.beginPath();ctx.arc(o.x,o.y,15,0,Math.PI*2);ctx.stroke();}});ctx.restore();}
+    if (selectedObjects.length) {
+      ctx.save();
+      ctx.strokeStyle = '#5B9BFF';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([5, 3]);
+      selectedObjects.forEach((selection) => {
+        if (selection.kind === 'wall') {
+          const wall = project.walls.find(item => item.id === selection.id);
+          if (!wall) return;
+          ctx.beginPath();
+          ctx.moveTo(wall.x1, wall.y1);
+          ctx.lineTo(wall.x2, wall.y2);
+          ctx.stroke();
+          return;
+        }
+        const item = selection.kind === 'opening'
+          ? project.openings.find(value => value.id === selection.id)
+          : selection.kind === 'electrical'
+            ? project.electrical.find(value => value.id === selection.id)
+            : project.hydraulic.find(value => value.id === selection.id);
+        if (!item) return;
+        ctx.beginPath();
+        ctx.arc(item.x, item.y, 15, 0, Math.PI * 2);
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
     if (selectedObject) {
       ctx.save(); ctx.strokeStyle = '#5B9BFF'; ctx.lineWidth = 3; ctx.setLineDash([5, 3]);
       if (selectedObject.kind === 'wall') { const w = project.walls.find(item => item.id === selectedObject.id); if (w) { ctx.beginPath(); ctx.moveTo(w.x1, w.y1); ctx.lineTo(w.x2, w.y2); ctx.stroke(); } }
@@ -503,9 +529,19 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         let best=gapDistance+6,adjustment:{x:number;y:number}|null=null;
         if(gapEnabled) {
           const proposed=[{x:wall.x1+dx,y:wall.y1+dy},{x:wall.x2+dx,y:wall.y2+dy}];
-          project.walls.filter(w=>w.id!==wall.id).forEach(w=>[{x:w.x1,y:w.y1},{x:w.x2,y:w.y2}].forEach(v=>proposed.forEach(p=>{
-            const d=Math.hypot(p.x-v.x,p.y-v.y); if(d<best){best=d;adjustment={x:v.x-p.x,y:v.y-p.y};}
-          })));
+          for (const otherWall of project.walls) {
+            if (otherWall.id === wall.id) continue;
+            const vertices = [{ x: otherWall.x1, y: otherWall.y1 }, { x: otherWall.x2, y: otherWall.y2 }];
+            for (const vertex of vertices) {
+              for (const point of proposed) {
+                const distance = Math.hypot(point.x - vertex.x, point.y - vertex.y);
+                if (distance < best) {
+                  best = distance;
+                  adjustment = { x: vertex.x - point.x, y: vertex.y - point.y };
+                }
+              }
+            }
+          }
         }
         if(adjustment){dx+=adjustment.x;dy+=adjustment.y;}
         ctx.save();ctx.strokeStyle='#34D399';ctx.lineWidth=5;ctx.setLineDash([7,4]);
@@ -626,7 +662,10 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       const existingVertices = project.walls.flatMap(w => [{ x: w.x1, y: w.y1 }, { x: w.x2, y: w.y2 }]);
       const nearestVertex = (p: {x:number;y:number}) => {
         let best: {x:number;y:number;distance:number} | null = null;
-        existingVertices.forEach(v => { const distance = Math.hypot(v.x-p.x, v.y-p.y); if (distance <= 18 && (!best || distance < best.distance)) best = { ...v, distance }; });
+        for (const vertex of existingVertices) {
+          const distance = Math.hypot(vertex.x - p.x, vertex.y - p.y);
+          if (distance <= 18 && (!best || distance < best.distance)) best = { ...vertex, distance };
+        }
         return best ? { x: best.x, y: best.y } : p;
       };
       const clicked = nearestVertex({ x, y });
@@ -791,10 +830,19 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           if (movedWall && gapEnabled) {
             let best = gapDistance + 6, adjustment: {x:number;y:number} | null = null;
             const proposed = [{x:movedWall.x1+dx,y:movedWall.y1+dy},{x:movedWall.x2+dx,y:movedWall.y2+dy}];
-            project.walls.filter(w=>w.id!==movedWall.id).forEach(w=>[{x:w.x1,y:w.y1},{x:w.x2,y:w.y2}].forEach(v=>proposed.forEach(p=>{
-              const d=Math.hypot(p.x-v.x,p.y-v.y);
-              if(d<best){best=d;adjustment={x:v.x-p.x,y:v.y-p.y};}
-            })));
+            for (const otherWall of project.walls) {
+              if (otherWall.id === movedWall.id) continue;
+              const vertices = [{ x: otherWall.x1, y: otherWall.y1 }, { x: otherWall.x2, y: otherWall.y2 }];
+              for (const vertex of vertices) {
+                for (const point of proposed) {
+                  const distance = Math.hypot(point.x - vertex.x, point.y - vertex.y);
+                  if (distance < best) {
+                    best = distance;
+                    adjustment = { x: vertex.x - point.x, y: vertex.y - point.y };
+                  }
+                }
+              }
+            }
             if(adjustment){wallDx+=adjustment.x;wallDy+=adjustment.y;}
           }
           const attached = movedWall && moveAttachedParts ? {
