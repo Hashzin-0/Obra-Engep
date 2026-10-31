@@ -33,8 +33,7 @@ import { AutomotiveCatalog } from '../components/AutomotiveCatalog';
 import { AlertBanner } from '../components/AlertBanner';
 import { LimitBar } from '../components/LimitBar';
 import { loadMediaUrl, saveMedia } from '../services/mediaStore';
-import { ensureAnonymousSession, isSupabaseConfigured, supabase } from '../lib/supabase';
-import { loadLibraryItems, sanitizeProductLabel, uploadProductLabel } from '../services/remoteRepository';
+import { loadLibraryItems, sanitizeProductLabel } from '../services/remoteRepository';
 import {
   AutomotiveProductItem,
   FavoriteItem,
@@ -523,11 +522,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                         <span className="text-[11px] font-mono">{currentProduct.verifiedDate}</span>
                       </div>
 
-                      {(currentProduct.labelPhotoReference || currentProduct.labelPhotoStoragePath) && (
-                        <ProductLabelPhoto
-                          reference={currentProduct.labelPhotoReference}
-                          storagePath={currentProduct.labelPhotoStoragePath}
-                        />
+                      {currentProduct.labelPhotoReference && (
+                        <ProductLabelPhoto reference={currentProduct.labelPhotoReference} />
                       )}
 
                       {currentProduct.instructions && (
@@ -851,14 +847,7 @@ const ProductFormModal: React.FC<{
                 update('labelPhotoReference', key);
                 update('labelPhotoUrl', URL.createObjectURL(safeFile));
 
-                if (isSupabaseConfigured) {
-                  const session = await ensureAnonymousSession();
-                  if (session) {
-                    const storagePath = await uploadProductLabel(session.userId, form.id, safeFile);
-                    update('labelPhotoStoragePath', storagePath);
-                  }
-                }
-                setUploadMessage('Foto validada e salva.');
+                setUploadMessage('Foto validada e salva neste dispositivo. O envio para a nuvem está temporariamente desativado por segurança.');
               } catch (error) {
                 setUploadMessage(error instanceof Error ? error.message : 'Não foi possível processar a imagem.');
               }
@@ -887,10 +876,7 @@ const ProductFormModal: React.FC<{
   );
 };
 
-const ProductLabelPhoto: React.FC<{ reference?: string; storagePath?: string }> = ({
-  reference,
-  storagePath,
-}) => {
+const ProductLabelPhoto: React.FC<{ reference?: string }> = ({ reference }) => {
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -898,30 +884,11 @@ const ProductLabelPhoto: React.FC<{ reference?: string; storagePath?: string }> 
     let objectUrl: string | null = null;
 
     const load = async () => {
-      if (reference) {
-        const localUrl = await loadMediaUrl(reference);
-        if (!active) return;
-        if (localUrl) {
-          objectUrl = localUrl;
-          setUrl(localUrl);
-          return;
-        }
-      }
-
-      if (storagePath && isSupabaseConfigured) {
-        const session = await ensureAnonymousSession();
-        if (!active || !session || !supabase) return;
-        const client = supabase;
-        const { data, error } = await client.storage.from('user-media').createSignedUrl(storagePath, 3600);
-        if (!active || error || !data?.signedUrl) return;
-        const response = await fetch(data.signedUrl);
-        if (!response.ok) return;
-        const blob = await response.blob();
-        await saveMedia(storagePath, blob);
-        if (!active) return;
-        objectUrl = URL.createObjectURL(blob);
-        setUrl(objectUrl);
-      }
+      if (!reference) return;
+      const localUrl = await loadMediaUrl(reference);
+      if (!active || !localUrl) return;
+      objectUrl = localUrl;
+      setUrl(localUrl);
     };
 
     void load();
@@ -929,7 +896,7 @@ const ProductLabelPhoto: React.FC<{ reference?: string; storagePath?: string }> 
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [reference, storagePath]);
+  }, [reference]);
 
   if (!url) return null;
   return <img src={url} alt="Rótulo do produto" className="w-full max-h-56 rounded-xl object-contain bg-black/30 border border-[#2A3A55]" />;
