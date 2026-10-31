@@ -10,7 +10,7 @@ create table if not exists private.user_upload_rate_limits (
 );
 
 alter table private.user_upload_rate_limits enable row level security;
-grant select, insert, update on private.user_upload_rate_limits to authenticated;
+grant select, insert, update, delete on private.user_upload_rate_limits to authenticated;
 
 create policy user_upload_rate_limits_own_rows
   on private.user_upload_rate_limits
