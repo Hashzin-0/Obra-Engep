@@ -7,6 +7,26 @@ type AdminRequest = IncomingMessage & { body?: unknown; query?: Record<string, s
 const COOKIE_NAME = '__Host-obra-admin';
 const COOKIE_MAX_AGE_SECONDS = 600;
 
+const ipBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function allowSessionIp(req: AdminRequest): boolean {
+  const forwarded = req.headers['x-forwarded-for'];
+  const chain = typeof forwarded === 'string' ? forwarded : '';
+  const ip = chain ? chain.split(',').pop()?.trim() || 'unknown' : req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  let bucket = ipBuckets.get(ip);
+  if (!bucket || bucket.resetAt <= now) {
+    bucket = { count: 0, resetAt: now + 60_000 };
+    ipBuckets.set(ip, bucket);
+  }
+  bucket.count += 1;
+  if (ipBuckets.size > 10_000) {
+    for (const [key, value] of ipBuckets) if (value.resetAt <= now) ipBuckets.delete(key);
+  }
+  return bucket.count <= 20;
+}
+
+
 function json(res: ServerResponse, status: number, body: Record<string, unknown>) {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -90,6 +110,10 @@ export default async function handler(req: AdminRequest, res: ServerResponse) {
   if (!['GET', 'POST', 'DELETE'].includes(method)) return json(res, 405, { error: 'Método não permitido.' });
 
   if (method !== 'GET' && !sameOrigin(req)) return json(res, 403, { error: 'Origem não autorizada.' });
+  if (method !== 'DELETE' && !allowSessionIp(req)) {
+    res.setHeader('Retry-After', '60');
+    return json(res, 429, { error: 'Muitas tentativas a partir desta origem. Aguarde um minuto.' });
+  }
 
   try {
     if (method === 'DELETE') {
