@@ -6,7 +6,7 @@ import {
   MessageSquareText, Package, Plus, RefreshCw, Search, ShieldCheck, Trash2,
   Users, X
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { adminAuthClient } from './adminAuth';
 
 type Tab = 'overview' | 'feedback' | 'products';
 type FeedbackStatus = 'aberto' | 'em_analise' | 'resolvido';
@@ -101,6 +101,21 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 const inputClass = 'w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2.5 text-sm text-slate-100 outline-none transition focus:border-blue-400';
 const textareaClass = inputClass + ' min-h-24 resize-y';
 
+async function adminApi<T>(url: string, body?: Record<string, unknown>): Promise<T> {
+  const response = await fetch(url, {
+    method: body ? 'POST' : 'GET',
+    credentials: 'same-origin',
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(typeof payload.error === 'string' ? payload.error : 'Falha na comunicação administrativa.');
+  }
+  return payload as T;
+}
+
+
 export default function AdminApp() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -119,61 +134,67 @@ export default function AdminApp() {
   const [showProductForm, setShowProductForm] = useState(false);
 
   useEffect(() => {
-    if (!supabase) {
-      setError('O serviço de autenticação não está configurado.');
-      setAuthLoading(false);
-      return;
-    }
     let active = true;
     const initialize = async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!active) return;
-      if (sessionData.session) {
-        const { data, error: refreshError } = await supabase.auth.refreshSession();
-        if (!active) return;
-        if (refreshError) setError('Não foi possível atualizar a sessão. Entre novamente.');
-        setUser(data.user ?? sessionData.session.user);
+      try {
+        const cookieSession = await fetch('/api/admin/session', { credentials: 'same-origin' });
+        if (cookieSession.ok) {
+          const payload = await cookieSession.json();
+          if (active) setUser(payload.user as User);
+          return;
+        }
+        if (!adminAuthClient) {
+          if (active) setError('O serviço de autenticação não está configurado.');
+          return;
+        }
+        const { data: { session } } = await adminAuthClient.auth.getSession();
+        if (!session?.access_token) return;
+        const exchange = await fetch('/api/admin/session', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { Authorization: \`Bearer \${session.access_token}\` },
+        });
+        const payload = await exchange.json().catch(() => ({}));
+        await adminAuthClient.auth.signOut({ scope: 'local' });
+        if (!exchange.ok) {
+          if (active) setError(typeof payload.error === 'string' ? payload.error : 'Esta conta não possui autorização administrativa.');
+          return;
+        }
+        if (active) setUser(payload.user as User);
+      } catch {
+        if (active) setError('Não foi possível validar a sessão administrativa.');
+      } finally {
+        if (active) setAuthLoading(false);
       }
-      setAuthLoading(false);
     };
     void initialize();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) setUser(session?.user ?? null);
-    });
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
+    return () => { active = false; };
   }, []);
 
   const isAdmin = user?.app_metadata?.is_admin === true;
 
   const loadAdminData = useCallback(async () => {
-    if (!supabase || !isAdmin) return;
+    if (!isAdmin) return;
     setLoading(true);
     setError('');
-    const [statsResult, feedbackResult, productResult, usersResult] = await Promise.all([
-      supabase.rpc('admin_dashboard_stats'),
-      supabase.from('feedback')
-        .select('id,user_id,message,contact_email,page,status,created_at')
-        .order('created_at', { ascending: false })
-        .limit(250),
-      supabase.from('automotive_catalog')
-        .select('*')
-        .order('sort_order', { ascending: true })
-        .order('name', { ascending: true }),
-      supabase.from('profiles').select('id,display_name,profession,company,created_at').order('created_at', { ascending: false }).limit(12),
-    ]);
-    const firstError = statsResult.error || feedbackResult.error || productResult.error || usersResult.error;
-    if (firstError) {
-      setError(firstError.message);
-    } else {
-      setStats((statsResult.data ?? {}) as DashboardStats);
-      setFeedbacks((feedbackResult.data ?? []) as FeedbackItem[]);
-      setProducts((productResult.data ?? []) as CatalogProduct[]);
-      setRecentUsers((usersResult.data ?? []) as AdminProfile[]);
+    try {
+      const [statsResult, feedbackResult, productResult, usersResult] = await Promise.all([
+        adminApi<{ data: DashboardStats }>('/api/admin/data?resource=stats'),
+        adminApi<{ data: FeedbackItem[] }>('/api/admin/data?resource=feedback'),
+        adminApi<{ data: CatalogProduct[] }>('/api/admin/data?resource=products'),
+        adminApi<{ data: AdminProfile[] }>('/api/admin/data?resource=users'),
+      ]);
+      setStats(statsResult.data ?? {});
+      setFeedbacks(feedbackResult.data ?? []);
+      setProducts(productResult.data ?? []);
+      setRecentUsers(usersResult.data ?? []);
+    } catch (loadError) {
+      const message = loadError instanceof Error ? loadError.message : 'Não foi possível carregar os dados administrativos.';
+      setError(message);
+      if (message.toLowerCase().includes('sessão')) setUser(null);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [isAdmin]);
 
   useEffect(() => {
@@ -192,44 +213,50 @@ export default function AdminApp() {
   ), [products, productSearch]);
 
   const signIn = async () => {
-    if (!supabase) return;
+    if (!adminAuthClient) {
+      setError('O serviço de autenticação não está configurado.');
+      return;
+    }
     setError('');
-    const { error: signInError } = await supabase.auth.signInWithOAuth({
+    const { error: signInError } = await adminAuthClient.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.href, queryParams: { prompt: 'select_account' } },
+      options: { redirectTo: window.location.origin + window.location.pathname, queryParams: { prompt: 'select_account' } },
     });
     if (signInError) setError(signInError.message);
   };
 
   const signOut = async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();
-    setUser(null);
+    try {
+      await fetch('/api/admin/session', { method: 'DELETE', credentials: 'same-origin' });
+      await adminAuthClient?.auth.signOut({ scope: 'local' });
+    } finally {
+      setUser(null);
+    }
   };
 
   const updateFeedbackStatus = async (id: string, status: FeedbackStatus) => {
-    if (!supabase) return;
-    const { error: updateError } = await supabase.from('feedback').update({ status }).eq('id', id);
-    if (updateError) setError(updateError.message);
-    else {
+    try {
+      await adminApi('/api/admin/data', { action: 'update_feedback', id, status });
       setFeedbacks((current) => current.map((item) => item.id === id ? { ...item, status } : item));
       setNotice('Status do feedback atualizado.');
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : 'Não foi possível atualizar o feedback.');
     }
   };
 
   const deleteFeedback = async (item: FeedbackItem) => {
-    if (!supabase || !window.confirm('Excluir permanentemente este feedback?')) return;
-    const { error: deleteError } = await supabase.from('feedback').delete().eq('id', item.id);
-    if (deleteError) setError(deleteError.message);
-    else {
+    if (!window.confirm('Excluir permanentemente este feedback?')) return;
+    try {
+      await adminApi('/api/admin/data', { action: 'delete_feedback', id: item.id });
       setFeedbacks((current) => current.filter((entry) => entry.id !== item.id));
       setNotice('Feedback excluído.');
       void loadAdminData();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Não foi possível excluir o feedback.');
     }
   };
 
   const saveProduct = async (form: Omit<CatalogProduct, 'id'> & { id?: string }) => {
-    if (!supabase) return;
     setError('');
     const payload = {
       ...form,
@@ -239,40 +266,36 @@ export default function AdminApp() {
       source_label: form.source_label.trim(),
       source_url: form.source_url?.trim() || null,
       image_url: form.image_url?.trim() || null,
-      created_by: user?.id,
-      updated_at: new Date().toISOString(),
     };
-    const query = form.id
-      ? supabase.from('automotive_catalog').update(payload).eq('id', form.id)
-      : supabase.from('automotive_catalog').insert(payload);
-    const { error: saveError } = await query;
-    if (saveError) {
-      setError(saveError.message);
-      return;
+    try {
+      await adminApi('/api/admin/data', { action: 'save_product', product: payload });
+      setShowProductForm(false);
+      setEditingProduct(null);
+      setNotice('Produto salvo no catálogo.');
+      await loadAdminData();
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Não foi possível salvar o produto.');
     }
-    setShowProductForm(false);
-    setEditingProduct(null);
-    setNotice('Produto salvo no catálogo.');
-    await loadAdminData();
   };
 
   const deleteProduct = async (item: CatalogProduct) => {
-    if (!supabase || !window.confirm('Excluir permanentemente ' + item.name + ' do catálogo?')) return;
-    const { error: deleteError } = await supabase.from('automotive_catalog').delete().eq('id', item.id);
-    if (deleteError) setError(deleteError.message);
-    else {
+    if (!window.confirm('Excluir permanentemente ' + item.name + ' do catálogo?')) return;
+    try {
+      await adminApi('/api/admin/data', { action: 'delete_product', id: item.id });
       setNotice('Produto excluído.');
       await loadAdminData();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Não foi possível excluir o produto.');
     }
   };
 
   const togglePublished = async (item: CatalogProduct) => {
-    if (!supabase) return;
-    const { error: updateError } = await supabase.from('automotive_catalog')
-      .update({ is_published: !item.is_published, updated_at: new Date().toISOString() })
-      .eq('id', item.id);
-    if (updateError) setError(updateError.message);
-    else await loadAdminData();
+    try {
+      await adminApi('/api/admin/data', { action: 'toggle_published', id: item.id, is_published: !item.is_published });
+      await loadAdminData();
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : 'Não foi possível alterar a publicação.');
+    }
   };
 
   if (authLoading) {
