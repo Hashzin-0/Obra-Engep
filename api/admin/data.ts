@@ -28,7 +28,8 @@ function getCookie(req: AdminRequest): string | null {
 function sameOrigin(req: AdminRequest): boolean {
   const origin = req.headers.origin;
   const hostHeader = req.headers['x-forwarded-host'];
-  const host = (typeof hostHeader === 'string' ? hostHeader : req.headers.host || '').split(',')[0].trim().toLowerCase();
+  const hostValue = typeof hostHeader === 'string' ? hostHeader : typeof req.headers.host === 'string' ? req.headers.host : '';
+  const host = hostValue.split(',')[0].trim().toLowerCase();
   if (typeof origin !== 'string' || !host) return false;
   try {
     const parsed = new URL(origin);
@@ -70,7 +71,8 @@ function readBody(req: AdminRequest): Record<string, unknown> | null {
 }
 
 function cleanText(value: unknown, max: number, required = false): string | null {
-  if (typeof value !== 'string') return required ? null : '';
+  if (value === undefined || value === null) return required ? null : '';
+  if (typeof value !== 'string') return null;
   const result = value.trim();
   if ((required && !result) || result.length > max) return null;
   return result;
@@ -126,8 +128,8 @@ function productPayload(body: Record<string, unknown>) {
   const sortOrder = Number(body.sort_order ?? 0);
   if (!name || categoryValue === null || manufacturer === null || typeof ph !== 'string' || !['Neutro', 'Ácido', 'Alcalino', 'Não informado'].includes(ph)) return null;
   if (dilutionRatio === null || actionTime === null || yieldInfo === null || instructions === null || !cautions || !surfaces || sourceLabel === null) return null;
-  if (body.source_url && !sourceUrl) return null;
-  if (body.image_url && !imageUrl) return null;
+  if (body.source_url !== undefined && body.source_url !== null && body.source_url !== '' && !sourceUrl) return null;
+  if (body.image_url !== undefined && body.image_url !== null && body.image_url !== '' && !imageUrl) return null;
   if (body.verified_date && !verifiedDate) return null;
   if (!Number.isFinite(dilutionNumber) || dilutionNumber < 0.0001 || dilutionNumber > 1000000) return null;
   if (!Number.isInteger(sortOrder) || sortOrder < -10000 || sortOrder > 10000) return null;
@@ -199,7 +201,7 @@ export default async function handler(req: AdminRequest, res: ServerResponse) {
     if (!body || typeof body.action !== 'string') return json(res, 400, { error: 'Dados inválidos ou acima do limite.' });
 
     if (body.action === 'update_feedback') {
-      if (typeof body.id !== 'string' || !UUID_PATTERN.test(body.id) || !['aberto', 'em_analise', 'resolvido'].includes(body.status)) {
+      if (typeof body.id !== 'string' || !UUID_PATTERN.test(body.id) || typeof body.status !== 'string' || !['aberto', 'em_analise', 'resolvido'].includes(body.status)) {
         return json(res, 400, { error: 'Dados do feedback inválidos.' });
       }
       const { data, error } = await verified.client.from('feedback')
