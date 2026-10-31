@@ -12,6 +12,8 @@ import { fileURLToPath } from 'url';
 import { WebSocketServer, WebSocket } from 'ws';
 import { GoogleGenAI, Modality } from '@google/genai';
 import dotenv from 'dotenv';
+import { Buffer } from 'node:buffer';
+import { env, exit } from 'node:process';
 
 dotenv.config();
 
@@ -20,11 +22,11 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.disable('x-powered-by');
 
-const port = Number(process.env.PORT) || 3000;
+const port = Number(env.PORT) || 3000;
 const server = http.createServer(app);
-const apiKey = process.env.GEMINI_API_KEY || '';
-const chatModel = process.env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash';
-const liveModel = process.env.GEMINI_LIVE_MODEL || 'gemini-2.5-flash-native-audio-preview-12-2025';
+const apiKey = env.GEMINI_API_KEY || '';
+const chatModel = env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash';
+const liveModel = env.GEMINI_LIVE_MODEL || 'gemini-2.5-flash-native-audio-preview-12-2025';
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 const SYSTEM_INSTRUCTION = \`Você é o Assistente Técnico do OBra ENGEP (obras, instalações prediais, segurança e estética automotiva).
@@ -330,7 +332,7 @@ app.use((error: any, _req: any, res: any, next: any) => {
   return res.status(500).json({ error: 'Erro interno do servidor.' });
 });
 
-const isProduction = process.env.NODE_ENV === 'production';
+const isProduction = env.NODE_ENV === 'production';
 
 async function startServer() {
   if (!isProduction) {
@@ -363,5 +365,5 @@ async function startServer() {
 
 startServer().catch((error) => {
   console.error('[Server] Fatal startup error:', error instanceof Error ? error.name : 'unknown');
-  process.exit(1);
+  exit(1);
 });
