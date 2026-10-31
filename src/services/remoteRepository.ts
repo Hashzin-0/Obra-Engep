@@ -375,19 +375,61 @@ export async function deleteNote(userId: string, id: string) {
   if (error) throw new Error(error.message);
 }
 
+export async function sanitizeProductLabel(file: File): Promise<File> {
+  const maxInputBytes = 5 * 1024 * 1024;
+  const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+  if (!allowedTypes.has(file.type) || file.size <= 0 || file.size > maxInputBytes) {
+    throw new Error('A foto deve ser JPEG, PNG ou WebP e ter no máximo 5 MB.');
+  }
+
+  const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const isJpeg = header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff;
+  const isPng = header.length >= 8 && [137, 80, 78, 71, 13, 10, 26, 10].every((value, index) => header[index] === value);
+  const isWebp = header.length >= 12
+    && String.fromCharCode(...header.slice(0, 4)) === 'RIFF'
+    && String.fromCharCode(...header.slice(8, 12)) === 'WEBP';
+  if (!isJpeg && !isPng && !isWebp) throw new Error('O conteúdo do arquivo não corresponde a uma imagem válida.');
+
+  let bitmap: ImageBitmap | null = null;
+  try {
+    bitmap = await createImageBitmap(file);
+    const pixels = bitmap.width * bitmap.height;
+    if (!bitmap.width || !bitmap.height || bitmap.width > 10000 || bitmap.height > 10000 || pixels > 30000000) {
+      throw new Error('A imagem excede as dimensões permitidas.');
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext('2d', { alpha: false });
+    if (!context) throw new Error('Não foi possível processar a imagem.');
+    context.drawImage(bitmap, 0, 0);
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((result) => result ? resolve(result) : reject(new Error('Falha ao reprocessar a imagem.')), 'image/webp', 0.88);
+    });
+    if (blob.size <= 0 || blob.size > maxInputBytes) throw new Error('A imagem processada excede 5 MB.');
+    return new File([blob], \`product-label-\${crypto.randomUUID()}.webp\`, { type: 'image/webp', lastModified: Date.now() });
+  } finally {
+    bitmap?.close();
+  }
+}
+
 export async function uploadProductLabel(
   userId: string,
   productId: string,
   file: File
 ): Promise<string> {
+  if (!/^[0-9a-f-]{36}$/i.test(userId) || !/^[0-9a-f-]{36}$/i.test(productId)) {
+    throw new Error('Identificador de usuário ou produto inválido.');
+  }
+  const safeFile = await sanitizeProductLabel(file);
   const clientInstance = client();
-  const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-  const path = `${userId}/products/${productId}/${crypto.randomUUID()}.${extension}`;
-  const { error } = await clientInstance.storage.from('user-media').upload(path, file, {
-    contentType: file.type || undefined,
+  const path = \`\${userId}/products/\${productId}/\${crypto.randomUUID()}.webp\`;
+  const { error } = await clientInstance.storage.from('user-media').upload(path, safeFile, {
+    contentType: 'image/webp',
     upsert: false,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error('Não foi possível enviar a foto do rótulo.');
   return path;
 }
 
