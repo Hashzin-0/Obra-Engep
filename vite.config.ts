@@ -14,6 +14,7 @@ export default defineConfig(() => {
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'push-sw.js'],
         workbox: {
           importScripts: ['push-sw.js'],
+          globIgnores: ['console-9f3a71c2.html', 'assets/admin-*.js', 'assets/admin-*.css'],
         },
         manifest: {
           id: '/',
