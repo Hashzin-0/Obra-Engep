@@ -18,7 +18,7 @@ export function getAdminSessionId(token: string): string | null {
   }
 }
 
-function clientIp(req: IncomingMessage): string {
+export function getTrustedClientIp(req: IncomingMessage): string {
   const forwarded = req.headers['x-vercel-forwarded-for'] ?? req.headers['x-forwarded-for'];
   const forwardedValue = Array.isArray(forwarded) ? forwarded[0] : forwarded;
   const candidate = typeof forwardedValue === 'string'
@@ -44,7 +44,7 @@ function fingerprints(req: IncomingMessage): { ip: string; userAgent: string } {
     throw new Error('Client user-agent is unavailable or invalid.');
   }
 
-  const ip = clientIp(req);
+  const ip = getTrustedClientIp(req);
   const hash = (value: string) => createHmac('sha256', secret).update(value, 'utf8').digest('hex');
   return {
     ip: hash('ip:' + ip),
