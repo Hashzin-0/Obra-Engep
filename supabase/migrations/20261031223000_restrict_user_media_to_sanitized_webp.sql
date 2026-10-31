@@ -9,7 +9,7 @@ alter policy user_media_insert
   with check (
     bucket_id = 'user-media'
     and (storage.foldername(name))[1] = (select auth.uid())::text
-    and name ~* '\\.webp$'
+    and name ~* '\.webp
     and metadata ->> 'mimetype' = 'image/webp'
     and coalesce((metadata ->> 'size')::bigint, 0) <= 5242880
   );
@@ -24,6 +24,28 @@ alter policy user_media_update
     bucket_id = 'user-media'
     and (storage.foldername(name))[1] = (select auth.uid())::text
     and name ~* '\\.webp$'
+    and metadata ->> 'mimetype' = 'image/webp'
+    and coalesce((metadata ->> 'size')::bigint, 0) <= 5242880
+  );
+
+    and metadata ->> 'mimetype' = 'image/webp'
+    and coalesce((metadata ->> 'size')::bigint, 0) <= 5242880
+  );
+
+alter policy user_media_update
+  on storage.objects
+  using (
+    bucket_id = 'user-media'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  )
+  with check (
+    bucket_id = 'user-media'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+    and name ~* '\.webp
+    and metadata ->> 'mimetype' = 'image/webp'
+    and coalesce((metadata ->> 'size')::bigint, 0) <= 5242880
+  );
+
     and metadata ->> 'mimetype' = 'image/webp'
     and coalesce((metadata ->> 'size')::bigint, 0) <= 5242880
   );
