@@ -9,11 +9,13 @@ export function isAllowedPushEndpoint(value: string): boolean {
   try {
     const url = new URL(value);
     const host = url.hostname.toLowerCase();
+    const authority = value.slice(value.indexOf('://') + 3).split(/[/?#]/, 1)[0].toLowerCase();
     const trustedHost = ALLOWED_PUSH_HOSTS.has(host)
       || host.endsWith('.push.services.mozilla.com')
       || host.endsWith('.notify.windows.com');
     return url.protocol === 'https:'
       && trustedHost
+      && authority === host
       && !url.username
       && !url.password
       && !url.port
