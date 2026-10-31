@@ -71,6 +71,7 @@ test('allows only HTTPS Web Push provider hosts', () => {
   assert.equal(isAllowedPushEndpoint('https://169.254.169.254/latest/meta-data'), false);
   assert.equal(isAllowedPushEndpoint('https://user@fcm.googleapis.com/fcm/send/example'), false);
   assert.equal(isAllowedPushEndpoint('https://fcm.googleapis.com:8443/fcm/send/example'), false);
+  assert.equal(isAllowedPushEndpoint('https://fcm.googleapis.com:443/fcm/send/example'), false);
 });
 
 test('validates bounded Web Push key encodings', () => {
