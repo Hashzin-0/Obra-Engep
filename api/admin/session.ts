@@ -38,7 +38,8 @@ function getCookie(req: AdminRequest): string | null {
 function sameOrigin(req: AdminRequest): boolean {
   const origin = req.headers.origin;
   const hostHeader = req.headers['x-forwarded-host'];
-  const host = (typeof hostHeader === 'string' ? hostHeader : req.headers.host || '').split(',')[0].trim().toLowerCase();
+  const hostValue = typeof hostHeader === 'string' ? hostHeader : typeof req.headers.host === 'string' ? req.headers.host : '';
+  const host = hostValue.split(',')[0].trim().toLowerCase();
   if (typeof origin !== 'string' || !host) return false;
   try {
     const parsed = new URL(origin);
