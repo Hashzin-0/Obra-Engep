@@ -155,7 +155,7 @@ export default function AdminApp() {
           exchange = await fetch('/api/admin/session', {
             method: 'POST',
             credentials: 'same-origin',
-            headers: { Authorization: \`Bearer \${session.access_token}\` },
+            headers: { Authorization: `Bearer ${session.access_token}` },
           });
           payload = await exchange.json().catch(() => ({}));
         } finally {
