@@ -119,11 +119,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
 
   useEffect(() => {
     if (projects.length > 0 && !projects.some((item) => item.id === project.id)) {
-      const next = projects[0];
-      setProject(next);
-      setHistory([next]);
-      setHistoryIndex(0);
-      setStage(next.stage);
+      const next = ensureProjectLevels(projects[0]);
+      setProject(next); setActiveLevelId(next.activeLevelId ?? 'ground-floor'); setIsNightMode(next.isNightMode ?? false);
+      setHistory([next]); setHistoryIndex(0); setStage(next.stage);
       localStorage.setItem('obra_engep_active_project', JSON.stringify(next));
     }
   }, [projects, project.id]);
@@ -557,6 +555,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     wallDrawMode,
     wallSequencePoints,
     showWallVertices,
+    isNightMode,
   ]);
 
   const snap = (coord: number) => gapEnabled ? Math.round(coord / gapDistance) * gapDistance : coord;
@@ -947,11 +946,10 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
               onChange={(event) => {
                 const selected = projects.find((item) => item.id === event.target.value);
                 if (selected) {
-                  setProject(selected);
-                  setHistory([selected]);
-                  setHistoryIndex(0);
-                  setStage(selected.stage);
-                  localStorage.setItem('obra_engep_active_project', JSON.stringify(selected));
+                  const normalized = ensureProjectLevels(selected);
+                  setProject(normalized); setActiveLevelId(normalized.activeLevelId ?? 'ground-floor'); setIsNightMode(normalized.isNightMode ?? false);
+                  setHistory([normalized]); setHistoryIndex(0); setStage(normalized.stage);
+                  localStorage.setItem('obra_engep_active_project', JSON.stringify(normalized));
                 }
               }}
               className="bg-transparent text-sm font-bold text-white outline-none border border-[#2A3A55] rounded-lg px-2 py-1"
