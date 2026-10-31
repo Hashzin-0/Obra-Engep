@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { env } from 'node:process';
 import { createClient } from '@supabase/supabase-js';
+import { getAdminSessionId, getTrustedClientIp, revokeAdminSession, validateAdminSession } from './sessionSecurity';
 
 type AdminRequest = IncomingMessage & { body?: unknown; query?: Record<string, string | string[] | undefined> };
 export const config = { api: { bodyParser: { sizeLimit: '1kb' } } };
@@ -12,19 +13,26 @@ const COOKIE_MAX_AGE_SECONDS = 600;
 const ipBuckets = new Map<string, { count: number; resetAt: number }>();
 
 function allowSessionIp(req: AdminRequest): boolean {
-  const forwarded = req.headers['x-forwarded-for'];
-  const chain = typeof forwarded === 'string' ? forwarded : '';
-  const ip = chain ? chain.split(',').pop()?.trim() || 'unknown' : req.socket.remoteAddress || 'unknown';
+  let ip: string;
+  try {
+    ip = getTrustedClientIp(req);
+  } catch {
+    return false;
+  }
+
   const now = Date.now();
   let bucket = ipBuckets.get(ip);
+  if (!bucket && ipBuckets.size >= 10_000) {
+    for (const [key, value] of ipBuckets) {
+      if (value.resetAt <= now) ipBuckets.delete(key);
+    }
+    if (ipBuckets.size >= 10_000) return false;
+  }
   if (!bucket || bucket.resetAt <= now) {
     bucket = { count: 0, resetAt: now + 60_000 };
     ipBuckets.set(ip, bucket);
   }
   bucket.count += 1;
-  if (ipBuckets.size > 10_000) {
-    for (const [key, value] of ipBuckets) if (value.resetAt <= now) ipBuckets.delete(key);
-  }
   return bucket.count <= 20;
 }
 
@@ -91,10 +99,12 @@ function tokenMaxAge(token: string): number {
 
 async function verifyAdmin(token: string) {
   if (token.length > 4096 || token.split('.').length !== 3) return null;
+  const sessionId = getAdminSessionId(token);
+  if (!sessionId) return null;
   const client = getClient(token);
   const { data, error } = await client.auth.getUser(token);
   if (error || !data.user || data.user.app_metadata?.is_admin !== true) return null;
-  return { client, user: data.user };
+  return { client, user: data.user, sessionId };
 }
 
 async function consumeSessionLimit(client: ReturnType<typeof getClient>): Promise<boolean> {
@@ -119,6 +129,11 @@ export default async function handler(req: AdminRequest, res: ServerResponse) {
 
   try {
     if (method === 'DELETE') {
+      const existingToken = getCookie(req);
+      if (existingToken) {
+        const verified = await verifyAdmin(existingToken);
+        if (verified) await revokeAdminSession(verified.client, verified.sessionId);
+      }
       clearCookie(res);
       return json(res, 200, { ok: true });
     }
@@ -150,6 +165,11 @@ export default async function handler(req: AdminRequest, res: ServerResponse) {
     if (maxAge <= 0) {
       clearCookie(res);
       return json(res, 401, { error: 'Sessão expirada. Entre novamente.' });
+    }
+
+    if (!(await validateAdminSession(verified.client, verified.sessionId, req))) {
+      clearCookie(res);
+      return json(res, 401, { error: 'Sessão administrativa alterada. Entre novamente.' });
     }
 
     if (!(await consumeSessionLimit(verified.client))) {
