@@ -68,6 +68,23 @@
           "value": "noindex, nofollow"
         }
       ]
+    },
+    {
+      "source": "/bd710978848ee759c9b7f24858aac90607361e767bda6c33.html",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow, noarchive, nosnippet"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store, private, max-age=0"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
+      ]
     }
   ]
 }
