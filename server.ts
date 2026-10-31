@@ -210,9 +210,14 @@ wss.on('connection', async (clientWs: WebSocket, req) => {
 
   let liveSession: any = null;
   let released = false;
+  let connectTimedOut = false;
+  let connectTimer: ReturnType<typeof setTimeout> | undefined;
+  let maxDurationTimer: ReturnType<typeof setTimeout> | undefined;
   const releaseConnection = () => {
     if (released) return;
     released = true;
+    if (connectTimer) clearTimeout(connectTimer);
+    if (maxDurationTimer) clearTimeout(maxDurationTimer);
     activeLiveConnections = Math.max(0, activeLiveConnections - 1);
     const remaining = Math.max(0, (liveConnectionsByIp.get(ip) ?? 1) - 1);
     if (remaining) liveConnectionsByIp.set(ip, remaining);
@@ -236,7 +241,7 @@ wss.on('connection', async (clientWs: WebSocket, req) => {
   let messageWindow = Date.now();
 
   try {
-    liveSession = await ai.live.connect({
+    const connectPromise = ai.live.connect({
       model: liveModel,
       config: {
         responseModalities: [Modality.AUDIO],
@@ -275,7 +280,28 @@ wss.on('connection', async (clientWs: WebSocket, req) => {
         },
         onclose: () => {},
       },
+    }).then((session) => {
+      if (connectTimedOut || clientWs.readyState !== WebSocket.OPEN) {
+        try { session.close(); } catch { /* ignore */ }
+        throw new Error('Live client disconnected during connection setup.');
+      }
+      return session;
     });
+
+    const connectTimeout = new Promise<never>((_resolve, reject) => {
+      connectTimer = setTimeout(() => {
+        connectTimedOut = true;
+        reject(new Error('Gemini Live connection timeout.'));
+      }, 20_000);
+    });
+
+    liveSession = await Promise.race([connectPromise, connectTimeout]);
+    if (connectTimer) clearTimeout(connectTimer);
+    maxDurationTimer = setTimeout(() => {
+      if (clientWs.readyState === WebSocket.OPEN) {
+        clientWs.close(1001, 'Tempo máximo da sessão atingido');
+      }
+    }, 30 * 60_000);
 
     if (clientWs.readyState !== WebSocket.OPEN) {
       try { liveSession?.close(); } catch { /* ignore */ }
@@ -284,6 +310,7 @@ wss.on('connection', async (clientWs: WebSocket, req) => {
     }
     clientWs.send(JSON.stringify({ type: 'ready', message: 'Conectado ao Gemini Live.' }));
   } catch (error) {
+    if (connectTimer) clearTimeout(connectTimer);
     console.warn('[WebSocket] Live setup failed:', error instanceof Error ? error.name : 'unknown');
     if (clientWs.readyState === WebSocket.OPEN) {
       clientWs.send(JSON.stringify({ type: 'error', error: 'Não foi possível iniciar a sessão de voz.' }));
