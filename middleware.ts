@@ -1,5 +1,6 @@
-import { next, rewrite } from '@vercel/functions';
+import { rewrite } from '@vercel/functions';
 import { timingSafeEqual } from 'node:crypto';
+import { Buffer } from 'node:buffer';
 
 const ADMIN_DOCUMENT_PATH = '/bd710978848ee759c9b7f24858aac90607361e767bda6c33.html';
 const ROUTE_PATTERN = /^[a-f0-9]{128}$/;
