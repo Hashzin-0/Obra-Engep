@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     let sent = 0;
     let skipped = 0;
     const gone: string[] = [];
-    const failures: string[] = [];
+    let failed = 0;
 
     for (const deadline of (deadlines ?? []) as Deadline[]) {
       const { data: preferences } = await admin
@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
           sent += 1;
           delivered = true;
         } else {
-          failures.push(result.error);
+          failed += 1;
           if (result.gone) gone.push(subscription.id);
         }
       }
@@ -129,10 +129,10 @@ Deno.serve(async (req) => {
 
     if (gone.length) await admin.from('push_subscriptions').delete().in('id', gone);
 
-    return json({ claimed: deadlines?.length ?? 0, sent, skipped, removed: gone.length, failures }, 200, req);
+    return json({ claimed: deadlines?.length ?? 0, sent, failed, skipped, removed: gone.length }, 200, req);
   } catch (error) {
     return json(
-      { error: error instanceof Error ? error.message : 'Falha ao enviar lembretes.' },
+      { error: 'Falha ao enviar lembretes.' },
       500,
       req
     );
