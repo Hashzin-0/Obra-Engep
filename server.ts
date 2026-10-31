@@ -179,7 +179,7 @@ function sameOrigin(info: any): boolean {
 const wss = new WebSocketServer({
   server,
   path: '/api/live',
-  maxPayload: 512 * 1024,
+  maxPayload: 128 * 1024,
   perMessageDeflate: false,
   verifyClient: (info, done) => {
     const ip = info.req.socket.remoteAddress || 'unknown';
@@ -268,7 +268,7 @@ wss.on('connection', async (clientWs: WebSocket, req) => {
       : Array.isArray(rawData)
         ? Buffer.concat(rawData)
         : Buffer.from(rawData as ArrayBuffer);
-    if (isBinary || messageBuffer.byteLength > 350 * 1024) {
+    if (isBinary || messageBuffer.byteLength > 120 * 1024) {
       clientWs.close(1009, 'Mensagem muito grande ou formato inválido');
       return;
     }
@@ -278,7 +278,7 @@ wss.on('connection', async (clientWs: WebSocket, req) => {
       messageCount = 0;
     }
     messageCount += 1;
-    if (messageCount > 60) {
+    if (messageCount > 600) {
       clientWs.close(1008, 'Limite de mensagens excedido');
       return;
     }
@@ -287,7 +287,7 @@ wss.on('connection', async (clientWs: WebSocket, req) => {
       const data = JSON.parse(messageBuffer.toString('utf8'));
       if (data?.type === 'audio') {
         const mimeType = typeof data.mimeType === 'string' ? data.mimeType : 'audio/pcm;rate=16000';
-        if (typeof data.audio !== 'string' || data.audio.length > 300_000
+        if (typeof data.audio !== 'string' || data.audio.length > 96_000
           || !/^[A-Za-z0-9+/]+={0,2}$/.test(data.audio)
           || !/^audio\\/(pcm|webm|wav)(;|$)/i.test(mimeType)) {
           clientWs.close(1008, 'Áudio inválido');
