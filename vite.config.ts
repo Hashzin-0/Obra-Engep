@@ -15,6 +15,7 @@ export default defineConfig(() => {
         workbox: {
           importScripts: ['push-sw.js'],
           globIgnores: ['console-9f3a71c2.html', 'assets/admin-*.js', 'assets/admin-*.css'],
+          navigateFallbackDenylist: [/^\\/zJucaXs1113@cAdminDomingos$/],
         },
         manifest: {
           id: '/',
