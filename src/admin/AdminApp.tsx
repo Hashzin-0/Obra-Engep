@@ -149,7 +149,7 @@ export default function AdminApp() {
         }
         const { data: { session } } = await adminAuthClient.auth.getSession();
         if (!session?.access_token) return;
-        let exchange: Response;
+        let exchange: Response | null = null;
         let payload: Record<string, unknown> = {};
         try {
           exchange = await fetch('/api/admin/session', {
@@ -161,6 +161,7 @@ export default function AdminApp() {
         } finally {
           await adminAuthClient.auth.signOut({ scope: 'local' });
         }
+        if (!exchange) throw new Error('Não foi possível trocar a sessão administrativa.');
         if (!exchange.ok) {
           if (active) setError(typeof payload.error === 'string' ? payload.error : 'Esta conta não possui autorização administrativa.');
           return;
