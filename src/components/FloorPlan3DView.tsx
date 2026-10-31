@@ -151,7 +151,7 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
 
         // Assign both doors and windows to their host wall. Openings are real
         // gaps in the wall mesh, not decorative markers laid over a solid wall.
-        const openingAssignments = new Map<string, Array<{x:number;y:number;width:number;rotation:number;type:'door'|'window';style?:string}>>();
+        const openingAssignments = new Map<string, Array<{x:number;y:number;width:number;rotation?:number;type:'door'|'window';style?:string}>>();
         floorProject.openings.forEach(o => {
           let bestWall: typeof floorProject.walls[number] | undefined;
           let bestDistance = Infinity;
