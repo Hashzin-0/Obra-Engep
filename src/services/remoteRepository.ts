@@ -408,7 +408,7 @@ export async function sanitizeProductLabel(file: File): Promise<File> {
       canvas.toBlob((result) => result ? resolve(result) : reject(new Error('Falha ao reprocessar a imagem.')), 'image/webp', 0.88);
     });
     if (blob.size <= 0 || blob.size > maxInputBytes) throw new Error('A imagem processada excede 5 MB.');
-    return new File([blob], \`product-label-\${crypto.randomUUID()}.webp\`, { type: 'image/webp', lastModified: Date.now() });
+    return new File([blob], `product-label-${crypto.randomUUID()}.webp`, { type: 'image/webp', lastModified: Date.now() });
   } finally {
     bitmap?.close();
   }
@@ -424,7 +424,7 @@ export async function uploadProductLabel(
   }
   const safeFile = await sanitizeProductLabel(file);
   const clientInstance = client();
-  const path = \`\${userId}/products/\${productId}/\${crypto.randomUUID()}.webp\`;
+  const path = `${userId}/products/${productId}/${crypto.randomUUID()}.webp`;
   const { error } = await clientInstance.storage.from('user-media').upload(path, safeFile, {
     contentType: 'image/webp',
     upsert: false,
