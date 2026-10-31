@@ -53,6 +53,10 @@ This document describes the controls implemented for the application and the rem
 - Vercel documents 1,000,000 included allowed requests for WAF rate limiting on Hobby and Pro, then $0.50 per additional 1,000,000 allowed requests. Review usage before enabling it.
 - VPN/Tor use is not a reliable proof of malicious intent. IP changes do not reset the database per-admin rate limit. JA4 can help correlate clients across changing IPs at the WAF, but it is not a unique identity and can group unrelated users. The database per-admin counter is the control that remains effective when a valid account changes IP, while session fingerprint mismatch forces reauthentication. No third-party VPN/Tor reputation feed is configured; avoid blanket blocking of VPNs or Tor exits.
 
+## Automated validation
+
+- The latest GitHub Actions run completed `npm ci`, production dependency audit, TypeScript validation, Vite production build and 28 unit tests with zero test failures. The production dependency audit reported zero vulnerabilities; the full development/build dependency tree still reports 10 low/moderate advisories.
+
 ## Important limitation
 
 A random URL is only defense-in-depth, not access control. The path value is stored as a Vercel Sensitive environment variable and is not present in the repository; middleware fails closed when it is missing. Admin APIs still independently require a valid server-verified admin session and database authorization. The internal HTML and static bundles are not secrets, so no authorization decision relies on keeping frontend code undiscoverable.
