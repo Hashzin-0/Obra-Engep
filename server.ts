@@ -197,12 +197,21 @@ wss.on('connection', async (clientWs: WebSocket, req) => {
   activeLiveConnections += 1;
   liveConnectionsByIp.set(ip, (liveConnectionsByIp.get(ip) ?? 0) + 1);
 
+  let released = false;
   const releaseConnection = () => {
+    if (released) return;
+    released = true;
     activeLiveConnections = Math.max(0, activeLiveConnections - 1);
     const remaining = Math.max(0, (liveConnectionsByIp.get(ip) ?? 1) - 1);
     if (remaining) liveConnectionsByIp.set(ip, remaining);
     else liveConnectionsByIp.delete(ip);
   };
+  clientWs.on('close', () => {
+    if (liveSession) {
+      try { liveSession.close(); } catch { /* ignore */ }
+    }
+    releaseConnection();
+  });
 
   if (!ai) {
     if (clientWs.readyState === WebSocket.OPEN) clientWs.send(JSON.stringify({ type: 'error', error: 'O modo de voz está indisponível.' }));
@@ -257,9 +266,12 @@ wss.on('connection', async (clientWs: WebSocket, req) => {
       },
     });
 
-    if (clientWs.readyState === WebSocket.OPEN) {
-      clientWs.send(JSON.stringify({ type: 'ready', message: 'Conectado ao Gemini Live.' }));
+    if (clientWs.readyState !== WebSocket.OPEN) {
+      try { liveSession?.close(); } catch { /* ignore */ }
+      releaseConnection();
+      return;
     }
+    clientWs.send(JSON.stringify({ type: 'ready', message: 'Conectado ao Gemini Live.' }));
   } catch (error) {
     console.warn('[WebSocket] Live setup failed:', error instanceof Error ? error.name : 'unknown');
     if (clientWs.readyState === WebSocket.OPEN) {
@@ -324,12 +336,6 @@ wss.on('connection', async (clientWs: WebSocket, req) => {
   });
 
   clientWs.on('error', () => {});
-  clientWs.on('close', () => {
-    if (liveSession) {
-      try { liveSession.close(); } catch { /* ignore */ }
-    }
-    releaseConnection();
-  });
 });
 
 app.use((error: any, _req: any, res: any, next: any) => {
