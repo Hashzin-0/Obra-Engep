@@ -6,8 +6,8 @@ This document describes the controls implemented for the application and the rem
 
 - The admin entry is not linked from public application navigation. Its 512-bit random path is stored only in the Vercel Sensitive environment variable `ADMIN_ENTRY_PATH`; it is not committed to source, route config, client bundles, or public navigation. Vercel Routing Middleware compares the request path server-side and rewrites only an exact match. The internal admin HTML document returns 404 when requested directly.
 - Admin OAuth uses an isolated Supabase client/storage key. The temporary browser OAuth session is cleared after exchanging it for a server-set cookie.
-- The admin cookie is `HttpOnly; Secure; SameSite=Strict; Path=/`, has no `Domain` attribute, is not readable by application JavaScript, and expires after at most 10 minutes.
-- Every admin API request validates the access token with Supabase Auth and re-checks the server-issued `app_metadata.is_admin` claim.
+- The admin cookie is `HttpOnly; Secure; SameSite=Strict; Path=/`, has no `Domain` attribute, is not readable by application JavaScript, and expires after at most 10 minutes. PostgreSQL also enforces a non-sliding 10-minute maximum from first use, so copying the cookie cannot extend its lifetime.
+- Every admin API request validates the access token with Supabase Auth, re-checks the server-issued `app_metadata.is_admin` claim, validates the JWT `session_id` against `auth.sessions`, and checks HMAC fingerprints of the trusted Vercel client IP and user-agent. An IP or user-agent change revokes that Supabase session and requires a new sign-in. Only keyed hashes are stored; raw IPs and user-agent strings are not persisted.
 - The repository's Supabase local config now allows the production origin path pattern for OAuth return. The connected Auth redirect allowlist is managed outside SQL and could not be read or changed through the available Supabase connection; verify the production wildcard in Auth URL Configuration before enabling admin login.
 - Mutating requests require a same-origin HTTPS Origin and JSON content type. Admin API responses are non-cacheable.
 - Admin reads and writes run with the caller's JWT and remain subject to Supabase RLS. No service-role key is used in the browser or admin API.
@@ -25,6 +25,11 @@ This document describes the controls implemented for the application and the rem
 - Gemini Live WebSockets require same-origin HTTPS (localhost HTTP only in local development), have a 128 KB frame ceiling, 600 messages/minute per connection, 2 connections/IP and 50 concurrent connections globally. Slow consumers are closed when buffered output exceeds 2 MB.
 - Express in-memory limits are per process, not globally distributed. The Vercel project is configured as a Vite static app; `server.ts` is the local/self-hosted Express runtime, not the Vercel serverless runtime.
 
+## Session anomaly controls
+
+- The admin cookie is bound to the trusted Vercel client IP and user-agent using HMAC-SHA-256. A fingerprint change revokes the underlying Supabase Auth session; rapid VPN/Tor exit changes therefore cannot reset user-level database rate limits and will force reauthentication. A stable VPN or proxy cannot be classified reliably without an external IP-reputation feed; the system does not falsely claim to detect every VPN/Tor exit.
+- Session fingerprints contain keyed hashes only, not raw IP addresses or user-agent values. Logout deletes the corresponding Supabase Auth session, and the server enforces an absolute 10-minute lifetime.
+
 ## Browser and transport protections
 
 - HSTS, `nosniff`, frame denial, strict referrer policy, restrictive camera/microphone/geolocation permissions and COOP are configured globally.
@@ -34,8 +39,8 @@ This document describes the controls implemented for the application and the rem
 ## Database and secrets
 
 - `pg_net` was moved from the `public` schema to `extensions`; its `net.http_post` function remains available.
-- The admin rate-limit table is protected by RLS. The admin stats function remains SECURITY INVOKER.
-- Vercel runtime secrets (`GEMINI_API_KEY`, `CRON_SECRET`, `VAPID_KEYS` and `ADMIN_ENTRY_PATH`) use Secret/Sensitive visibility; their values are not stored in source control. `ADMIN_ENTRY_PATH` is a 512-bit random path and must never be copied into source files or logs.
+- Admin, upload and push-test rate-limit counters are in the non-exposed `private` schema with RLS enabled and no client table privileges or policies. Public SECURITY INVOKER RPC wrappers delegate only fixed actions to private SECURITY DEFINER functions with an empty `search_path`; admin checks read `auth.users.raw_app_meta_data` in PostgreSQL. The admin stats function remains SECURITY INVOKER.
+- Vercel runtime secrets (`GEMINI_API_KEY`, `CRON_SECRET`, `VAPID_KEYS`, `ADMIN_ENTRY_PATH` and `ADMIN_SESSION_FINGERPRINT_SECRET`) use Secret/Sensitive visibility; their values are not stored in source control. `ADMIN_ENTRY_PATH` is a 512-bit random path and must never be copied into source files or logs.
 - The full npm audit currently reports 10 low/moderate findings in the development/build dependency tree (2 low, 8 moderate; 0 high/critical). The production-only audit passes. npm's suggested automatic fix downgrades `vite-plugin-pwa` to 1.1.0, which predates Vite 8 peer support; the project uses 2.0.0. Do not force that downgrade without a compatible Workbox dependency update. The complete audit report is uploaded by CI.
 - Supabase's leaked-password protection warning remains because this feature is not included in the connected Free plan. Enable it after upgrading to a plan that includes the feature.
 
