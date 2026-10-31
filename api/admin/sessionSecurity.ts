@@ -1,9 +1,16 @@
-import { createHmac } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 import { isIP } from 'node:net';
 import { env } from 'node:process';
 import type { IncomingMessage } from 'node:http';
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+export function matchesAdminEntryPath(pathname: string, configuredPath: string): boolean {
+  if (!/^[a-f0-9]{128}$/.test(configuredPath)) return false;
+  const expected = Buffer.from('/' + configuredPath, 'utf8');
+  const received = Buffer.from(pathname, 'utf8');
+  return expected.length === received.length && timingSafeEqual(expected, received);
+}
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
