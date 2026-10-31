@@ -48,3 +48,12 @@ This document describes the controls implemented for the application and the rem
 ## Important limitation
 
 A random URL is obscurity, not access control. The route and rewrite are present in the repository's deployment configuration, so anyone with repository access can read the path. The server-side authentication and RLS checks are the actual security boundary. For stronger secrecy, move the route mapping into Vercel-managed routing configuration outside the repository when a live deployment and routing-management workflow are available.
+
+## Deployment checklist
+
+Before enabling the admin console in production:
+1. Confirm the production OAuth redirect pattern in Supabase Auth URL Configuration.
+2. Merge and deploy through the existing production-only Vercel workflow; do not disable the configured Preview skip step just to test.
+3. After the first live deployment, configure and observe the `/api/admin/*` WAF rate-limit rule before switching it from Log to Challenge/429.
+4. Review the CI dependency-audit artifact and remediate any high/critical production advisories.
+5. Upgrade the Supabase project if leaked-password protection is required, then enable it in Auth settings.
