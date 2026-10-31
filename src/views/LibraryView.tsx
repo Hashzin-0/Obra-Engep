@@ -846,7 +846,7 @@ const ProductFormModal: React.FC<{
               if (!file) return;
               try {
                 const safeFile = await sanitizeProductLabel(file);
-                const key = \`product-label-\${form.id}\`;
+                const key = `product-label-${form.id}`;
                 await saveMedia(key, safeFile);
                 update('labelPhotoReference', key);
                 update('labelPhotoUrl', URL.createObjectURL(safeFile));
