@@ -93,7 +93,8 @@ Deno.serve(async (req) => {
       const { data: subscriptions } = await admin
         .from('push_subscriptions')
         .select('id, user_id, endpoint, p256dh, auth')
-        .eq('user_id', deadline.user_id);
+        .eq('user_id', deadline.user_id)
+        .limit(20);
 
       if (!subscriptions?.length) {
         await admin.from('deadlines').update({ notified_at: null }).eq('id', deadline.id);
