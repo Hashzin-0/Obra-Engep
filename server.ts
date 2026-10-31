@@ -53,16 +53,19 @@ function clientIp(req: any): string {
 function allowRate(key: string, max: number, windowMs = 60_000): boolean {
   const now = Date.now();
   let bucket = requestBuckets.get(key);
+
+  if (!bucket && requestBuckets.size >= 10_000) {
+    for (const [bucketKey, value] of requestBuckets) {
+      if (value.resetAt <= now) requestBuckets.delete(bucketKey);
+    }
+    if (requestBuckets.size >= 10_000) return false;
+  }
+
   if (!bucket || bucket.resetAt <= now) {
     bucket = { count: 0, resetAt: now + windowMs };
     requestBuckets.set(key, bucket);
   }
   bucket.count += 1;
-  if (requestBuckets.size > 10_000) {
-    for (const [bucketKey, value] of requestBuckets) {
-      if (value.resetAt <= now) requestBuckets.delete(bucketKey);
-    }
-  }
   return bucket.count <= max;
 }
 
