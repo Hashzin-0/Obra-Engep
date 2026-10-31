@@ -29,6 +29,7 @@ import {
   SERVICE_MANUALS,
 } from '../data/referenceData';
 import { SourceSeal } from '../components/SourceSeal';
+import { AutomotiveCatalog } from '../components/AutomotiveCatalog';
 import { AlertBanner } from '../components/AlertBanner';
 import { LimitBar } from '../components/LimitBar';
 import { loadMediaUrl, saveMedia } from '../services/mediaStore';
@@ -87,7 +88,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [activeSection, setActiveSection] = useState<LibrarySection>(initialTab);
   const [selectedNRId, setSelectedNRId] = useState<string>(initialItemId || REFERENCE_NRS[0].id);
   const [selectedLegJurisdiction, setSelectedLegJurisdiction] = useState<string>('todos');
-  const [selectedEsteticaTab, setSelectedEsteticaTab] = useState<'sujeiras' | 'produtos' | 'diluidor'>('produtos');
+  const [selectedEsteticaTab, setSelectedEsteticaTab] = useState<'sujeiras' | 'produtos' | 'diluidor' | 'catalogo'>('produtos');
   const [selectedProductId, setSelectedProductId] = useState<string>(initialItemId || products[0]?.id || '');
   const [selectedManualId, setSelectedManualId] = useState<string>(initialItemId || SERVICE_MANUALS[0].id);
   const [dilutionRatio, setDilutionRatio] = useState<number>(Number.NaN);
@@ -407,6 +408,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           <div className="flex items-center gap-1 p-1 rounded-xl bg-[#17243A] border border-[#2A3A55]">
             {[
               { id: 'produtos' as const, label: 'Meus Produtos' },
+              { id: 'catalogo' as const, label: 'Catálogo do site' },
               { id: 'sujeiras' as const, label: 'Catálogo de Sujeiras' },
               { id: 'diluidor' as const, label: 'Calculadora de Diluição' },
             ].map((tab) => (
@@ -560,6 +562,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               )}
             </div>
           )}
+
+          {selectedEsteticaTab === 'catalogo' && <AutomotiveCatalog />}
 
           {selectedEsteticaTab === 'sujeiras' && (
             <div className="space-y-3">
