@@ -38,7 +38,7 @@ export function getTrustedClientIp(req: IncomingMessage): string {
   throw new Error('Client IP unavailable.');
 }
 
-function fingerprints(req: IncomingMessage): { ip: string; userAgent: string } {
+function fingerprints(req: IncomingMessage): { clientIp: string; userAgent: string; ipFingerprint: string; userAgentFingerprint: string } {
   const secret = env.ADMIN_SESSION_FINGERPRINT_SECRET;
   if (!secret || Buffer.byteLength(secret, 'utf8') < 32) {
     throw new Error('Admin session fingerprint secret is not configured.');
@@ -54,8 +54,10 @@ function fingerprints(req: IncomingMessage): { ip: string; userAgent: string } {
   const ip = getTrustedClientIp(req);
   const hash = (value: string) => createHmac('sha256', secret).update(value, 'utf8').digest('hex');
   return {
-    ip: hash('ip:' + ip),
-    userAgent: hash('ua:' + userAgent),
+    clientIp: ip,
+    userAgent,
+    ipFingerprint: hash('ip:' + ip),
+    userAgentFingerprint: hash('ua:' + userAgent),
   };
 }
 
@@ -67,8 +69,10 @@ export async function validateAdminSession(
   const value = fingerprints(req);
   const { data, error } = await client.rpc('admin_validate_session', {
     p_session_id: sessionId,
-    p_ip_fingerprint: value.ip,
-    p_user_agent_fingerprint: value.userAgent,
+    p_client_ip: value.clientIp,
+    p_user_agent: value.userAgent,
+    p_ip_fingerprint: value.ipFingerprint,
+    p_user_agent_fingerprint: value.userAgentFingerprint,
   });
   if (error) throw new Error('Admin session validation failed.');
   return data === true;
