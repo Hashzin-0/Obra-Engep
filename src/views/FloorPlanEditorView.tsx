@@ -148,6 +148,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     const kindInput = window.prompt('Tipo de pavimento: subsolo, terreo ou superior', 'superior');
     if (!kindInput || !['subsolo','terreo','superior'].includes(kindInput.trim().toLowerCase())) return;
     const kind = kindInput.trim().toLowerCase() as FloorPlanLevel['kind']; const levels = captureActiveLevel(project, activeLevelId);
+    if (kind === 'terreo' && levels.some(level => level.kind === 'terreo')) { window.alert('O projeto já possui um térreo.'); return; }
     const levelNumber = kind === 'terreo' ? 0 : kind === 'subsolo' ? Math.min(-1, ...levels.filter(item=>item.kind==='subsolo').map(item=>item.level-1)) : Math.max(1, ...levels.filter(item=>item.kind==='superior').map(item=>item.level+1));
     const suggested = kind === 'terreo' ? 'Térreo' : kind === 'subsolo' ? 'Subsolo ' + Math.abs(levelNumber) : levelNumber + 'º Pavimento';
     const name = window.prompt('Nome do pavimento:', suggested); if (!name?.trim()) return;
@@ -176,14 +177,16 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   const handleUndo = () => {
     if (historyIndex > 0) {
       setHistoryIndex(historyIndex - 1);
-      setProject(history[historyIndex - 1]);
+      const previous = ensureProjectLevels(history[historyIndex - 1]);
+      setProject(previous); setActiveLevelId(previous.activeLevelId ?? 'ground-floor'); setIsNightMode(previous.isNightMode ?? false);
     }
   };
 
   const handleRedo = () => {
     if (historyIndex < history.length - 1) {
       setHistoryIndex(historyIndex + 1);
-      setProject(history[historyIndex + 1]);
+      const next = ensureProjectLevels(history[historyIndex + 1]);
+      setProject(next); setActiveLevelId(next.activeLevelId ?? 'ground-floor'); setIsNightMode(next.isNightMode ?? false);
     }
   };
 
@@ -1003,8 +1006,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
             onClick={() => {
               const name = window.prompt('Nome do novo projeto:', 'Novo projeto');
               if (!name?.trim()) return;
-              const created = { ...createEmptyProject(), name: name.trim() };
-              setProject(created);
+              const created = ensureProjectLevels({ ...createEmptyProject(), name: name.trim() });
+              setProject(created); setActiveLevelId(created.activeLevelId ?? 'ground-floor'); setIsNightMode(created.isNightMode ?? false);
               setHistory([created]);
               setHistoryIndex(0);
               setStage(created.stage);
@@ -1031,8 +1034,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
               onClick={() => {
                 if (!window.confirm(`Excluir o projeto "${project.name}"?`)) return;
                 onDeleteProject(project.id);
-                const next = projects.find((item) => item.id !== project.id) ?? createEmptyProject();
-                setProject(next);
+                const next = ensureProjectLevels(projects.find((item) => item.id !== project.id) ?? createEmptyProject());
+                setProject(next); setActiveLevelId(next.activeLevelId ?? 'ground-floor'); setIsNightMode(next.isNightMode ?? false);
                 setHistory([next]);
                 setHistoryIndex(0);
                 setStage(next.stage);
