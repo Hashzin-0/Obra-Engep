@@ -14,54 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  sync-lockfile:
-    if: github.event_name == 'pull_request' && github.actor == 'Hashzin-0'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout pull request branch
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ github.event.pull_request.head.ref }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Normalize npm lockfile without running package scripts
-        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-
-      - name: Commit synchronized lockfile
-        env:
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-        run: |
-          if git diff --quiet -- package-lock.json; then
-            echo "The committed lockfile is already synchronized."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
-          git commit -m "chore: synchronize npm lockfile"
-          git push origin "HEAD:${HEAD_REF}"
-
-      - name: Upload synchronized lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: normalized-package-lock
-          path: package-lock.json
-          if-no-files-found: error
-
   verify:
-    needs: sync-lockfile
-    if: ${{ always() && (needs.sync-lockfile.result == 'success' || needs.sync-lockfile.result == 'skipped') }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Checkout current pull request branch
         uses: actions/checkout@v4
@@ -89,7 +43,7 @@ jobs:
           if-no-files-found: error
 
       - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
+        run: npm audit --omit=dev --audit-level=low
 
       - name: TypeScript validation
         run: npm run lint
