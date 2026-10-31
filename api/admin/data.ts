@@ -4,6 +4,8 @@ import { env } from 'node:process';
 import { createClient, type User } from '@supabase/supabase-js';
 
 type AdminRequest = IncomingMessage & { body?: unknown; query?: Record<string, string | string[] | undefined> };
+export const config = { api: { bodyParser: { sizeLimit: '32kb' } } };
+
 const COOKIE_NAME = '__Host-obra-admin';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_BODY_BYTES = 32 * 1024;
