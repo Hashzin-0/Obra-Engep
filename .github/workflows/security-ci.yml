@@ -15,8 +15,6 @@ concurrency:
 
 jobs:
   verify:
-    permissions:
-      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout current pull request branch
@@ -30,31 +28,6 @@ jobs:
         with:
           node-version: 24
           cache: npm
-
-      - name: Generate normalized npm lockfile
-        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-
-      - name: Upload normalized npm lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: normalized-package-lock
-          path: package-lock.json
-          if-no-files-found: error
-
-      - name: Commit generated lockfile on owner PR
-        if: github.event_name == 'pull_request' && github.actor == 'Hashzin-0' && github.event.pull_request.head.repo.full_name == github.repository
-        env:
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-        run: |
-          if git diff --quiet -- package-lock.json; then
-            echo "Lockfile is already synchronized."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
-          git commit -m "chore: synchronize npm lockfile"
-          git push origin "HEAD:${HEAD_REF}"
 
       - name: Install locked dependencies
         run: npm ci
