@@ -12,8 +12,17 @@ Deno.serve(async (req) => {
 
   try {
     const user = await requireAdmin(req);
+    const admin = adminClient();
+    const { data: sessionActive, error: sessionError } = await admin.rpc('admin_session_is_active', {
+      p_user_id: user.id,
+      p_session_id: user.sessionId,
+    });
+    if (sessionError || sessionActive !== true) {
+      return json({ error: 'Sessão administrativa inválida ou revogada.' }, 401, req);
+    }
+
     const { data: allowed, error: limitError } = await userClient(req).rpc('admin_consume_rate_limit', {
-      p_action: 'write',
+      p_action: 'broadcast',
     });
     if (limitError) return json({ error: 'Não foi possível validar o limite de publicação.' }, 503, req);
     if (allowed !== true) return json({ error: 'Limite de publicações atingido. Tente novamente em um minuto.' }, 429, req);
@@ -31,7 +40,6 @@ Deno.serve(async (req) => {
       return json({ error: 'Versão inválida.' }, 400, req);
     }
 
-    const admin = adminClient();
     const { data: update, error: insertError } = await admin
       .from('app_updates')
       .insert({ title, body: message, version: versionValue ?? null, created_by: user.id })
