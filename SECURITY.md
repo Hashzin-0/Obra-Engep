@@ -15,10 +15,10 @@ This document describes the controls implemented for the application and the rem
 
 ## Input and upload controls
 
-- Admin mutations use an allowlist of actions, UUID validation, bounded text/array fields, HTTPS-only source/image URLs, and a 32 KB JSON body ceiling.
+- Admin mutations use an allowlist of actions, UUID validation, bounded text/array fields, HTTPS-only source/image URLs, and a 32 KB JSON body ceiling. PostgreSQL also enforces size/length constraints for feedback, profiles, notes, projects, checklists and automotive catalog rows (including a 10 MB project JSONB ceiling and 1 MB checklist JSONB ceiling).
 - The application uses Supabase/PostgREST parameterized queries; no user-controlled SQL is assembled.
-- The private `user-media` bucket accepts only WebP, is limited to 5 MB, and has owner-folder RLS policies that check the extension, MIME metadata and size.
-- Product-label photos are limited to JPEG/PNG/WebP at input, checked against file signatures, decoded under dimension limits, re-encoded to WebP, and stripped of embedded metadata before storage.
+- The private `user-media` bucket accepts only WebP, is limited to 5 MB, and has owner-folder RLS policies that check the extension, MIME metadata and size. Direct SVG/PDF/JPEG/PNG uploads are rejected by the bucket policy.
+- The normal product-label upload flow accepts JPEG/PNG/WebP, checks file signatures and dimensions, then decodes/re-encodes to WebP (removing metadata) before storage. This browser-side transform is defense in depth; Storage RLS validates declared MIME/extension/size, not the binary image decoder output itself.
 - The Express runtime limits JSON bodies to 256 KB, chat prompts to 24,000 characters, chat streams to 12 requests/minute per IP, 8 concurrent streams globally and 2 per IP. Gemini stream duration is capped at 120 seconds.
 - Gemini Live WebSockets require same-origin HTTPS (localhost HTTP only in local development), have a 128 KB frame ceiling, 600 messages/minute per connection, 2 connections/IP and 50 concurrent connections globally. Slow consumers are closed when buffered output exceeds 2 MB.
 - Express in-memory limits are per process, not globally distributed. The Vercel project is configured as a Vite static app; `server.ts` is the local/self-hosted Express runtime, not the Vercel serverless runtime.
