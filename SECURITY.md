@@ -4,14 +4,14 @@ This document describes the controls implemented for the application and the rem
 
 ## Administrative access
 
-- The admin entry is not linked from public application navigation.
+- The admin entry is not linked from public application navigation. Its 512-bit random path is stored only in the Vercel Sensitive environment variable `ADMIN_ENTRY_PATH`; it is not committed to source, route config, client bundles, or public navigation. Vercel Routing Middleware compares the request path server-side and rewrites only an exact match. The internal admin HTML document returns 404 when requested directly.
 - Admin OAuth uses an isolated Supabase client/storage key. The temporary browser OAuth session is cleared after exchanging it for a server-set cookie.
 - The admin cookie is `HttpOnly; Secure; SameSite=Strict; Path=/`, has no `Domain` attribute, is not readable by application JavaScript, and expires after at most 10 minutes.
 - Every admin API request validates the access token with Supabase Auth and re-checks the server-issued `app_metadata.is_admin` claim.
 - The repository's Supabase local config now allows the production origin path pattern for OAuth return. The connected Auth redirect allowlist is managed outside SQL and could not be read or changed through the available Supabase connection; verify the production wildcard in Auth URL Configuration before enabling admin login.
 - Mutating requests require a same-origin HTTPS Origin and JSON content type. Admin API responses are non-cacheable.
 - Admin reads and writes run with the caller's JWT and remain subject to Supabase RLS. No service-role key is used in the browser or admin API.
-- Admin request limits are enforced in PostgreSQL per authenticated admin: 90 reads/minute, 20 writes/minute and 5 session operations/minute. Counter tables live in a non-PostgREST `private` schema, have RLS, and are updated through SECURITY INVOKER functions.
+- Admin request limits are enforced in PostgreSQL per authenticated admin: 90 reads/minute, 20 writes/minute and 5 session operations/minute. Counter tables live in a non-PostgREST `private` schema, have RLS with no client policies or table privileges, and are updated through public SECURITY INVOKER wrappers that call narrowly scoped private SECURITY DEFINER functions. Admin authorization is rechecked against `auth.users.raw_app_meta_data` in the database.
 - Private media uploads are limited in PostgreSQL to 10 uploads/minute per authenticated user; the counter is also stored in the non-exposed `private` schema.
 - The session endpoint also applies a best-effort per-IP limit of 20 requests/minute per serverless instance. This is not a substitute for a distributed edge limit.
 
@@ -35,7 +35,7 @@ This document describes the controls implemented for the application and the rem
 
 - `pg_net` was moved from the `public` schema to `extensions`; its `net.http_post` function remains available.
 - The admin rate-limit table is protected by RLS. The admin stats function remains SECURITY INVOKER.
-- Vercel runtime secrets (`GEMINI_API_KEY`, `CRON_SECRET`, `ADMIN_SECRET` and `VAPID_KEYS`) use the Secret/Sensitive visibility type; their values are not stored in source control.
+- Vercel runtime secrets (`GEMINI_API_KEY`, `CRON_SECRET`, `VAPID_KEYS` and `ADMIN_ENTRY_PATH`) use Secret/Sensitive visibility; their values are not stored in source control. `ADMIN_ENTRY_PATH` is a 512-bit random path and must never be copied into source files or logs.
 - The full npm audit currently reports 10 low/moderate findings in the development/build dependency tree (2 low, 8 moderate; 0 high/critical). The production-only audit passes. npm's suggested automatic fix downgrades `vite-plugin-pwa` to 1.1.0, which predates Vite 8 peer support; the project uses 2.0.0. Do not force that downgrade without a compatible Workbox dependency update. The complete audit report is uploaded by CI.
 - Supabase's leaked-password protection warning remains because this feature is not included in the connected Free plan. Enable it after upgrading to a plan that includes the feature.
 
@@ -48,7 +48,7 @@ This document describes the controls implemented for the application and the rem
 
 ## Important limitation
 
-A random URL is obscurity, not access control. The route and rewrite are present in the repository's deployment configuration, so anyone with repository access can read the path. The server-side authentication and RLS checks are the actual security boundary. For stronger secrecy, move the route mapping into Vercel-managed routing configuration outside the repository when a live deployment and routing-management workflow are available.
+A random URL is only defense-in-depth, not access control. The path value is stored as a Vercel Sensitive environment variable and is not present in the repository; middleware fails closed when it is missing. Admin APIs still independently require a valid server-verified admin session and database authorization. The internal HTML and static bundles are not secrets, so no authorization decision relies on keeping frontend code undiscoverable.
 
 ## Deployment checklist
 
