@@ -1,10 +1,4 @@
 {
-  "rewrites": [
-    {
-      "source": "/28013dc6981a886775923406c8dbfd9265a1d71201c3682f69c8dcd6d332989a",
-      "destination": "/bd710978848ee759c9b7f24858aac90607361e767bda6c33.html"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -36,27 +30,6 @@
         {
           "key": "Content-Security-Policy-Report-Only",
           "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://accounts.google.com https://*.supabase.co; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com https://accounts.google.com; frame-src https://accounts.google.com https://*.supabase.co; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests"
-        }
-      ]
-    },
-    {
-      "source": "/28013dc6981a886775923406c8dbfd9265a1d71201c3682f69c8dcd6d332989a",
-      "headers": [
-        {
-          "key": "X-Robots-Tag",
-          "value": "noindex, nofollow, noarchive, nosnippet"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "no-store, private, max-age=0"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "no-referrer"
-        },
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://*.supabase.co; form-action 'self' https://accounts.google.com https://*.supabase.co; frame-src https://accounts.google.com https://*.supabase.co; worker-src 'self' blob:; upgrade-insecure-requests"
         }
       ]
     },
@@ -94,5 +67,12 @@
         }
       ]
     }
-  ]
+  ],
+  "proxy": {
+    "entrypoint": "middleware.ts",
+    "matcher": [
+      "/:slug([a-f0-9]{128})",
+      "/bd710978848ee759c9b7f24858aac90607361e767bda6c33.html"
+    ]
+  }
 }
