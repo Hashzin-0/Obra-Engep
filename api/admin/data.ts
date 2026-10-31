@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { env } from 'node:process';
 import { createClient, type User } from '@supabase/supabase-js';
+import { getAdminSessionId, validateAdminSession } from './sessionSecurity';
 
 type AdminRequest = IncomingMessage & { body?: unknown; query?: Record<string, string | string[] | undefined> };
 export const config = { api: { bodyParser: { sizeLimit: '32kb' } } };
@@ -18,6 +19,10 @@ function json(res: ServerResponse, status: number, body: Record<string, unknown>
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.end(JSON.stringify(body));
+}
+
+function clearCookie(res: ServerResponse) {
+  res.setHeader('Set-Cookie', `${COOKIE_NAME}=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; SameSite=Strict`);
 }
 
 function getCookie(req: AdminRequest): string | null {
@@ -47,13 +52,15 @@ function getClient(token: string) {
   });
 }
 
-async function verifyAdmin(req: AdminRequest): Promise<{ client: ReturnType<typeof getClient>; user: User } | null> {
+async function verifyAdmin(req: AdminRequest): Promise<{ client: ReturnType<typeof getClient>; user: User; sessionId: string } | null> {
   const token = getCookie(req);
   if (!token || token.length > 4096 || token.split('.').length !== 3) return null;
+  const sessionId = getAdminSessionId(token);
+  if (!sessionId) return null;
   const client = getClient(token);
   const { data, error } = await client.auth.getUser(token);
   if (error || !data.user || data.user.app_metadata?.is_admin !== true) return null;
-  return { client, user: data.user };
+  return { client, user: data.user, sessionId };
 }
 
 async function consumeLimit(client: ReturnType<typeof getClient>, action: 'read' | 'write') {
@@ -162,7 +169,15 @@ export default async function handler(req: AdminRequest, res: ServerResponse) {
 
   try {
     const verified = await verifyAdmin(req);
-    if (!verified) return json(res, 401, { error: 'Sessão administrativa ausente, inválida ou expirada.' });
+    if (!verified) {
+      clearCookie(res);
+      return json(res, 401, { error: 'Sessão administrativa ausente, inválida ou expirada.' });
+    }
+
+    if (!(await validateAdminSession(verified.client, verified.sessionId, req))) {
+      clearCookie(res);
+      return json(res, 401, { error: 'Sessão administrativa alterada. Entre novamente.' });
+    }
 
     if (!(await consumeLimit(verified.client, method === 'GET' ? 'read' : 'write'))) {
       return json(res, 429, { error: 'Limite de requisições atingido. Aguarde um minuto.' });
