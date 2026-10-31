@@ -14,8 +14,8 @@ export default defineConfig(() => {
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'push-sw.js'],
         workbox: {
           importScripts: ['push-sw.js'],
-          globIgnores: ['console-9f3a71c2.html', 'assets/admin-*.js', 'assets/admin-*.css'],
-          navigateFallbackDenylist: [/^\/zJucaXs1113@cAdminDomingos$/],
+          globIgnores: ['bd710978848ee759c9b7f24858aac90607361e767bda6c33.html', 'assets/bd710978848ee759c9b7f24858aac90607361e767bda6c33-*.js', 'assets/bd710978848ee759c9b7f24858aac90607361e767bda6c33-*.css'],
+          navigateFallbackDenylist: [/^\\/28013dc6981a886775923406c8dbfd9265a1d71201c3682f69c8dcd6d332989a$/],
         },
         manifest: {
           id: '/',
@@ -58,7 +58,7 @@ export default defineConfig(() => {
       rollupOptions: {
         input: {
           app: path.resolve(import.meta.dirname, 'index.html'),
-          admin: path.resolve(import.meta.dirname, 'console-9f3a71c2.html'),
+          bd710978848ee759c9b7f24858aac90607361e767bda6c33: path.resolve(import.meta.dirname, 'bd710978848ee759c9b7f24858aac90607361e767bda6c33.html'),
         },
       },
     },
