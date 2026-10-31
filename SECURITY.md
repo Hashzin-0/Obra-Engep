@@ -40,9 +40,9 @@ This document describes the controls implemented for the application and the rem
 ## Vercel WAF and VPN/Tor handling
 
 - Vercel Hobby provides baseline DDoS mitigation by default and supports one WAF rate-limit rule. The project's current Vercel state reports `live=false` and its latest deployment is canceled; the WAF configuration API therefore returned “config not found” and no custom edge rate-limit rule could be staged against a live deployment.
-- After the first successful deployment, stage a WAF rule for `/api/admin/*` at 60 requests per 60 seconds using IP and JA4 signals in Log mode, observe live traffic for at least 10 minutes, then publish a Challenge or 429 action if the observed traffic is compatible with normal use.
+- After the first successful deployment, stage a WAF rule for `/api/admin/*` at 60 requests per 60 seconds keyed by IP in Log mode, observe live traffic for at least 10 minutes, then publish a Challenge or 429 action if the observed traffic is compatible with normal use. JA4 Digest can be reviewed as an additional signal; using JA4 alone as a rate-limit key can group unrelated users with the same TLS fingerprint.
 - Vercel documents 1,000,000 included allowed requests for WAF rate limiting on Hobby and $0.50 per additional 1,000,000 allowed requests. Review usage before enabling it.
-- VPN/Tor use is not a reliable proof of malicious intent. IP changes do not reset the database per-admin rate limit. JA4 can help correlate clients across changing IPs at the WAF, but it is not a unique identity and can group unrelated users. No third-party VPN/Tor reputation feed is configured; avoid blanket blocking of VPNs or Tor exits.
+- VPN/Tor use is not a reliable proof of malicious intent. IP changes do not reset the database per-admin rate limit. JA4 can help correlate clients across changing IPs at the WAF, but it is not a unique identity and can group unrelated users. The database per-admin counter is the control that remains effective when a valid account changes IP. No third-party VPN/Tor reputation feed is configured; avoid blanket blocking of VPNs or Tor exits.
 
 ## Important limitation
 
