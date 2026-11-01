@@ -11,7 +11,7 @@ const RATE_LIMIT_WINDOW_SECONDS = 30;
 
 function getUserAccessToken(request: Request): string | null {
   const authorization = request.headers.get('authorization') ?? '';
-  const match = authorization.match(/^Bearer\\s+([A-Za-z0-9._-]{20,4096})$/i);
+  const match = authorization.match(/^Bearer\s+([A-Za-z0-9._-]{20,4096})$/i);
   const token = match?.[1] ?? '';
   return token.split('.').length === 3 ? token : null;
 }
