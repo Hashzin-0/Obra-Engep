@@ -39,6 +39,7 @@ declare
   v_existing private.admin_session_fingerprints%rowtype;
   v_allowed_ips text;
   v_ip_entry text;
+  v_ip_network cidr;
   v_ip_allowed boolean := false;
 begin
   if v_user_id is null
@@ -81,13 +82,14 @@ begin
     where btrim(entry.value) <> ''
   loop
     begin
-      if p_client_ip <<= v_ip_entry::cidr then
-        v_ip_allowed := true;
-        exit;
-      end if;
+      v_ip_network := v_ip_entry::cidr;
     exception when invalid_text_representation then
       return false;
     end;
+
+    if p_client_ip <<= v_ip_network then
+      v_ip_allowed := true;
+    end if;
   end loop;
 
   if v_ip_allowed is not true then
