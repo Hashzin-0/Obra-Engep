@@ -87,6 +87,7 @@ app.use((req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   next();
 });
+app.use('/api', rateLimit(120, 'api-global'));
 app.use('/api/health', rateLimit(30, 'health'));
 app.use('/api/gemini/realtime-chat', rateLimit(12, 'gemini-chat'));
 app.use(express.json({ limit: '256kb', strict: true, type: 'application/json' }));
