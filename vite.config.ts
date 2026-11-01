@@ -14,6 +14,8 @@ export default defineConfig(() => {
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'push-sw.js'],
         workbox: {
           importScripts: ['push-sw.js'],
+          globIgnores: ['bd710978848ee759c9b7f24858aac90607361e767bda6c33.html', 'assets/bd710978848ee759c9b7f24858aac90607361e767bda6c33-*.js', 'assets/bd710978848ee759c9b7f24858aac90607361e767bda6c33-*.css'],
+          navigateFallbackDenylist: [/^\/[a-f0-9]{128}$/],
         },
         manifest: {
           id: '/',
@@ -52,6 +54,14 @@ export default defineConfig(() => {
         },
       }),
     ],
+    build: {
+      rollupOptions: {
+        input: {
+          app: path.resolve(import.meta.dirname, 'index.html'),
+          bd710978848ee759c9b7f24858aac90607361e767bda6c33: path.resolve(import.meta.dirname, 'bd710978848ee759c9b7f24858aac90607361e767bda6c33.html'),
+        },
+      },
+    },
     resolve: {
       alias: {
         '@': path.resolve(import.meta.dirname, '.'),

@@ -1,4 +1,4 @@
-import { corsHeaders, json } from '../_shared/cors.ts';
+import { json } from '../_shared/cors.ts';
 import { adminClient } from '../_shared/supabase.ts';
 import { sendPush, type StoredSubscription } from '../_shared/push.ts';
 
@@ -50,24 +50,24 @@ function inQuietHours(
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  if (req.method !== 'POST') return json({ error: 'Método não permitido.' }, 405);
+  if (req.headers.has('origin')) return new Response(null, { status: 403, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
+  if (req.method !== 'POST') return json({ error: 'Método não permitido.' }, 405, req);
 
   const secret = Deno.env.get('CRON_SECRET');
   const authorization = req.headers.get('Authorization') ?? '';
   if (!secret || authorization !== `Bearer ${secret}`) {
-    return json({ error: 'Não autorizado.' }, 401);
+    return json({ error: 'Não autorizado.' }, 401, req);
   }
 
   try {
     const admin = adminClient();
     const { data: deadlines, error } = await admin.rpc('claim_due_deadlines');
-    if (error) return json({ error: error.message }, 500);
+    if (error) return json({ error: 'Falha ao consultar prazos.' }, 500, req);
 
     let sent = 0;
     let skipped = 0;
     const gone: string[] = [];
-    const failures: string[] = [];
+    let failed = 0;
 
     for (const deadline of (deadlines ?? []) as Deadline[]) {
       const { data: preferences } = await admin
@@ -93,7 +93,8 @@ Deno.serve(async (req) => {
       const { data: subscriptions } = await admin
         .from('push_subscriptions')
         .select('id, user_id, endpoint, p256dh, auth')
-        .eq('user_id', deadline.user_id);
+        .eq('user_id', deadline.user_id)
+        .limit(20);
 
       if (!subscriptions?.length) {
         await admin.from('deadlines').update({ notified_at: null }).eq('id', deadline.id);
@@ -117,7 +118,7 @@ Deno.serve(async (req) => {
           sent += 1;
           delivered = true;
         } else {
-          failures.push(result.error);
+          failed += 1;
           if (result.gone) gone.push(subscription.id);
         }
       }
@@ -129,11 +130,12 @@ Deno.serve(async (req) => {
 
     if (gone.length) await admin.from('push_subscriptions').delete().in('id', gone);
 
-    return json({ claimed: deadlines?.length ?? 0, sent, skipped, removed: gone.length, failures });
+    return json({ claimed: deadlines?.length ?? 0, sent, failed, skipped, removed: gone.length }, 200, req);
   } catch (error) {
     return json(
-      { error: error instanceof Error ? error.message : 'Falha ao enviar lembretes.' },
-      500
+      { error: 'Falha ao enviar lembretes.' },
+      500,
+      req
     );
   }
 });

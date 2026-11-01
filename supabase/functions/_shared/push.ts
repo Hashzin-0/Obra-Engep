@@ -6,6 +6,7 @@ import {
   Urgency,
   type ExportedVapidKeys,
 } from 'jsr:@negrel/webpush@^0.5.0';
+import { isAllowedPushEndpoint, isValidSubscriptionKey } from './pushValidation.ts';
 
 export interface StoredSubscription {
   id: string;
@@ -53,6 +54,14 @@ export async function sendPush(
   subscription: StoredSubscription,
   payload: PushPayload
 ): Promise<{ ok: true } | { ok: false; gone: boolean; error: string }> {
+  if (
+    !isAllowedPushEndpoint(subscription.endpoint)
+    || !isValidSubscriptionKey(subscription.p256dh, 40, 200)
+    || !isValidSubscriptionKey(subscription.auth, 16, 100)
+  ) {
+    return { ok: false, gone: false, error: 'Invalid push subscription.' };
+  }
+
   try {
     const server = await applicationServer();
     const subscriber = server.subscribe({
@@ -67,12 +76,12 @@ export async function sendPush(
     return { ok: true };
   } catch (error) {
     if (error instanceof PushMessageError) {
-      return { ok: false, gone: error.isGone(), error: error.toString() };
+      return { ok: false, gone: error.isGone(), error: 'Push delivery failed.' };
     }
     return {
       ok: false,
       gone: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: 'Push delivery failed.',
     };
   }
 }

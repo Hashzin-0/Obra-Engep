@@ -1,4 +1,5 @@
 import React from 'react';
+import { LimitBar } from '../components/LimitBar';
 
 type FormulaCard = {
   title: string;

@@ -29,11 +29,12 @@ import {
   SERVICE_MANUALS,
 } from '../data/referenceData';
 import { SourceSeal } from '../components/SourceSeal';
+import { AutomotiveCatalog } from '../components/AutomotiveCatalog';
 import { AlertBanner } from '../components/AlertBanner';
 import { LimitBar } from '../components/LimitBar';
 import { loadMediaUrl, saveMedia } from '../services/mediaStore';
-import { ensureAnonymousSession, isSupabaseConfigured, supabase } from '../lib/supabase';
-import { loadLibraryItems, uploadProductLabel } from '../services/remoteRepository';
+import { isSupabaseConfigured } from '../lib/supabase';
+import { loadLibraryItems, sanitizeProductLabel } from '../services/remoteRepository';
 import {
   AutomotiveProductItem,
   FavoriteItem,
@@ -87,7 +88,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [activeSection, setActiveSection] = useState<LibrarySection>(initialTab);
   const [selectedNRId, setSelectedNRId] = useState<string>(initialItemId || REFERENCE_NRS[0].id);
   const [selectedLegJurisdiction, setSelectedLegJurisdiction] = useState<string>('todos');
-  const [selectedEsteticaTab, setSelectedEsteticaTab] = useState<'sujeiras' | 'produtos' | 'diluidor'>('produtos');
+  const [selectedEsteticaTab, setSelectedEsteticaTab] = useState<'sujeiras' | 'produtos' | 'diluidor' | 'catalogo'>('produtos');
   const [selectedProductId, setSelectedProductId] = useState<string>(initialItemId || products[0]?.id || '');
   const [selectedManualId, setSelectedManualId] = useState<string>(initialItemId || SERVICE_MANUALS[0].id);
   const [dilutionRatio, setDilutionRatio] = useState<number>(Number.NaN);
@@ -407,6 +408,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
           <div className="flex items-center gap-1 p-1 rounded-xl bg-[#17243A] border border-[#2A3A55]">
             {[
               { id: 'produtos' as const, label: 'Meus Produtos' },
+              { id: 'catalogo' as const, label: 'Catálogo do site' },
               { id: 'sujeiras' as const, label: 'Catálogo de Sujeiras' },
               { id: 'diluidor' as const, label: 'Calculadora de Diluição' },
             ].map((tab) => (
@@ -521,11 +523,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                         <span className="text-[11px] font-mono">{currentProduct.verifiedDate}</span>
                       </div>
 
-                      {(currentProduct.labelPhotoReference || currentProduct.labelPhotoStoragePath) && (
-                        <ProductLabelPhoto
-                          reference={currentProduct.labelPhotoReference}
-                          storagePath={currentProduct.labelPhotoStoragePath}
-                        />
+                      {currentProduct.labelPhotoReference && (
+                        <ProductLabelPhoto reference={currentProduct.labelPhotoReference} />
                       )}
 
                       {currentProduct.instructions && (
@@ -560,6 +559,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               )}
             </div>
           )}
+
+          {selectedEsteticaTab === 'catalogo' && <AutomotiveCatalog />}
 
           {selectedEsteticaTab === 'sujeiras' && (
             <div className="space-y-3">
@@ -740,6 +741,7 @@ const ProductFormModal: React.FC<{
   onSave: (product: AutomotiveProductItem) => void;
 }> = ({ initial, onClose, onSave }) => {
   const [form, setForm] = useState(initial);
+  const [uploadMessage, setUploadMessage] = useState('');
 
   const update = <K extends keyof AutomotiveProductItem>(key: K, value: AutomotiveProductItem[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
@@ -834,30 +836,26 @@ const ProductFormModal: React.FC<{
         <Field label="Foto do rótulo (opcional)">
           <input
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp"
             capture="environment"
             onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
-              const key = `product-label-${form.id}`;
-              await saveMedia(key, file);
-              update('labelPhotoReference', key);
-              update('labelPhotoUrl', URL.createObjectURL(file));
+              try {
+                const safeFile = await sanitizeProductLabel(file);
+                const key = `product-label-${form.id}`;
+                await saveMedia(key, safeFile);
+                update('labelPhotoReference', key);
+                update('labelPhotoUrl', URL.createObjectURL(safeFile));
 
-              if (isSupabaseConfigured) {
-                try {
-                  const session = await ensureAnonymousSession();
-                  if (session) {
-                    const storagePath = await uploadProductLabel(session.userId, form.id, file);
-                    update('labelPhotoStoragePath', storagePath);
-                  }
-                } catch (error) {
-                  console.warn('Falha ao enviar foto do rótulo para o Supabase:', error);
-                }
+                setUploadMessage('Foto validada e salva neste dispositivo. O envio para a nuvem está temporariamente desativado por segurança.');
+              } catch (error) {
+                setUploadMessage(error instanceof Error ? error.message : 'Não foi possível processar a imagem.');
               }
             }}
             className="text-[11px] text-[#9FB0C8] file:mr-2 file:rounded-lg file:border-0 file:bg-[#1F66D6] file:px-3 file:py-1.5 file:text-white"
           />
+          {uploadMessage && <p role="status" className="mt-2 text-[11px] text-[#F5B93A]">{uploadMessage}</p>}
           {form.labelPhotoUrl && (
             <img src={form.labelPhotoUrl} alt="Prévia do rótulo" className="mt-2 h-28 rounded-xl object-cover" />
           )}
@@ -879,10 +877,7 @@ const ProductFormModal: React.FC<{
   );
 };
 
-const ProductLabelPhoto: React.FC<{ reference?: string; storagePath?: string }> = ({
-  reference,
-  storagePath,
-}) => {
+const ProductLabelPhoto: React.FC<{ reference?: string }> = ({ reference }) => {
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -890,30 +885,11 @@ const ProductLabelPhoto: React.FC<{ reference?: string; storagePath?: string }> 
     let objectUrl: string | null = null;
 
     const load = async () => {
-      if (reference) {
-        const localUrl = await loadMediaUrl(reference);
-        if (!active) return;
-        if (localUrl) {
-          objectUrl = localUrl;
-          setUrl(localUrl);
-          return;
-        }
-      }
-
-      if (storagePath && isSupabaseConfigured) {
-        const session = await ensureAnonymousSession();
-        if (!active || !session || !supabase) return;
-        const client = supabase;
-        const { data, error } = await client.storage.from('user-media').createSignedUrl(storagePath, 3600);
-        if (!active || error || !data?.signedUrl) return;
-        const response = await fetch(data.signedUrl);
-        if (!response.ok) return;
-        const blob = await response.blob();
-        await saveMedia(storagePath, blob);
-        if (!active) return;
-        objectUrl = URL.createObjectURL(blob);
-        setUrl(objectUrl);
-      }
+      if (!reference) return;
+      const localUrl = await loadMediaUrl(reference);
+      if (!active || !localUrl) return;
+      objectUrl = localUrl;
+      setUrl(localUrl);
     };
 
     void load();
@@ -921,7 +897,7 @@ const ProductLabelPhoto: React.FC<{ reference?: string; storagePath?: string }> 
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [reference, storagePath]);
+  }, [reference]);
 
   if (!url) return null;
   return <img src={url} alt="Rótulo do produto" className="w-full max-h-56 rounded-xl object-contain bg-black/30 border border-[#2A3A55]" />;
