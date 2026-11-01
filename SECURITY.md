@@ -45,8 +45,8 @@ This document describes the controls implemented for the application and the rem
 
 ## Latest Supabase advisor status
 
-- Security advisor: one remaining warning, leaked-password protection disabled. Supabase pricing lists this as unavailable on Free and included on Pro and above; the connected project plan was not exposed by the management API. Four informational findings report private-schema tables with RLS enabled and no policies; this is intentional because these tables have no direct anon/authenticated privileges.
-- Performance advisor: no remaining warnings after the RLS and foreign-key index migration. Eight informational unused-index findings remain (two pre-existing and six newly added indexes that have not yet been exercised by production traffic); retain the new foreign-key indexes and recheck after normal usage.
+- Security advisor: one remaining warning, leaked-password protection disabled. Supabase pricing lists this as unavailable on Free and included on Pro and above; the connected project plan was not exposed by the management API. Six informational findings report private-schema tables with RLS enabled and no policies; this is intentional because these tables have no direct anon/authenticated privileges.
+- Performance advisor: no remaining warnings after the RLS and foreign-key index migration. Seven informational unused-index findings remain; these indexes have not yet been exercised by sufficient production traffic. Retain the foreign-key indexes and recheck after normal usage.
 
 ## Browser and transport protections
 
