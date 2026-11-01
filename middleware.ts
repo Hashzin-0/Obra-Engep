@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+import { Buffer } from 'node:buffer';
 import { env } from 'node:process';
 import { ipAddress, next, rewrite } from '@vercel/functions';
 import { matchesAdminEntryPath } from './api/admin/sessionSecurity';
