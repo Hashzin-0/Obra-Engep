@@ -23,7 +23,7 @@ This document describes the controls implemented for the application and the rem
 - Supabase PostgREST now runs `private.enforce_data_api_write_limit()` before every Data API request. All POST/PUT/PATCH/DELETE requests from `anon` or `authenticated` roles require a valid Supabase user session and are limited to 30 writes/minute per user and 25 writes/minute per source IP. Existing narrower admin, push-subscription, push-test and broadcast limits remain in force.
 - PostgREST runs GET/HEAD requests in read-only transactions, so the database pre-request hook deliberately does not write counters for reads. The Vercel middleware covers all Vercel `/api/*` reads, but direct browser requests to the Supabase Data API can still bypass that Vercel path limiter for GET/HEAD. Those reads remain protected by API grants, RLS, bounded result sets and the platform gateway. Enforcing a hard per-user limit on direct Supabase reads would require moving those reads behind a server-side API gateway or a supported gateway-level limiter.
 - The PostgREST hook applies only to Supabase Data API requests; it does not automatically cover Supabase Auth, Storage, Realtime or Edge Functions. Those products retain their platform controls and the app's existing endpoint-specific limits.
-- The local/self-hosted Express runtime applies a global 120 requests/minute per-IP limit to every `/api/*` route before the existing tighter health and Gemini limits. Gemini Live WebSocket handshakes and messages retain their separate limits.
+- The local/self-hosted Express runtime applies a global 30 requests/minute per-IP limit to every `/api/*` route before the existing tighter health and Gemini limits. Gemini Live WebSocket handshakes and messages retain their separate limits.
 - There is no `/api/search` route in this branch. The current global search component filters already-loaded client-side data. Any future `/api/search` endpoint will automatically pass through the Vercel `/api/*` limiter.
  
 ## Input and upload controls
@@ -67,8 +67,8 @@ This document describes the controls implemented for the application and the rem
 
 ## Vercel WAF and VPN/Tor handling
 
-- Vercel's automatic DDoS mitigation is enabled by default on all plans. The project's current Vercel state reports `live=false` and its latest deployment is canceled; the WAF configuration API therefore returned “config not found” and no custom edge rate-limit rule could be staged against a live deployment. If the team is on Hobby, WAF rate limiting allows one rule per project; Pro allows 40.
-- After the first successful deployment, stage a WAF rule for `/api/admin/*` at 120 requests per 60 seconds keyed by IP in Log mode, observe live traffic for at least 10 minutes, then publish a Challenge or 429 action if the observed traffic is compatible with normal use. JA4 Digest can be reviewed as an additional signal; using JA4 alone as a rate-limit key can group unrelated users with the same TLS fingerprint.
+- Vercel's automatic DDoS mitigation and custom WAF rules are available on Hobby. WAF rate limiting uses fixed windows on Hobby and permits one rate-limit rule per project, keyed by IP or JA4; managed rulesets are a separate Enterprise feature. The project's current Vercel state reports `live=false` and its latest deployment is canceled. Both the active-config lookup and attempts to create the Project Rule returned `404 Seawall Config not found`, so no WAF rule is currently staged or published.
+- After a successful live deployment, create the single Hobby rate-limit Project Rule for path prefix `/api/`: 25 requests per 60 seconds, key `IP`, fixed window, and default 429 mitigation. The application middleware independently enforces 25 requests/minute per IP, 30/minute per authenticated user, and 20/minute for `/api/admin/session`.
 - Vercel documents 1,000,000 included allowed requests for WAF rate limiting on Hobby and Pro, then $0.50 per additional 1,000,000 allowed requests. Review usage before enabling it.
 - VPN/Tor use is not a reliable proof of malicious intent. IP changes do not reset the database per-admin rate limit. JA4 can help correlate clients across changing IPs at the WAF, but it is not a unique identity and can group unrelated users. The database per-admin counter is the control that remains effective when a valid account changes IP, while session fingerprint mismatch forces reauthentication. No third-party VPN/Tor reputation feed is configured; avoid blanket blocking of VPNs or Tor exits.
 
@@ -85,7 +85,7 @@ A random URL is only defense-in-depth, not access control. The path value is sto
 Before enabling the admin console in production:
 1. Confirm the production OAuth redirect pattern in Supabase Auth URL Configuration.
 2. Merge and deploy through the existing production-only Vercel workflow; do not disable the configured Preview skip step just to test.
-3. After the first live deployment, configure and observe the `/api/admin/*` WAF rate-limit rule before switching it from Log to Challenge/429.
+3. After the first successful live deployment, create and verify the single `/api/*` WAF Project Rule (25 requests/minute per IP).
 4. Review the CI dependency-audit artifact and remediate any high/critical production advisories.
 5. Deploy the updated Supabase Edge Functions from this PR after merge; the database migrations are already applied to the connected project.
 6. Upgrade the Supabase project if leaked-password protection is required, then enable it in Auth settings.
