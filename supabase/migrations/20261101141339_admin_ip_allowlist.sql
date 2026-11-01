@@ -77,7 +77,7 @@ begin
 
   for v_ip_entry in
     select btrim(entry.value)
-    from regexp_split_to_table(v_allowed_ips, E'[,;\n\r\t ]+') as entry(value)
+    from regexp_split_to_table(v_allowed_ips, '[,;[:space:]]+') as entry(value)
     where btrim(entry.value) <> ''
   loop
     begin
