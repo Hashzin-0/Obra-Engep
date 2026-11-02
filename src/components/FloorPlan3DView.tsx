@@ -80,21 +80,51 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
         fillLight.position.set(centerX + spanX, spanX * 0.7, centerZ + spanZ);
         scene.add(fillLight);
 
+        type SceneInteraction = {
+          root: any;
+          kind: 'door' | 'window' | 'light' | 'switch' | 'water' | 'flush' | 'pool';
+          progress: number;
+          target: number;
+          circuit?: string;
+          networkIds?: string[];
+          update: (progress: number, elapsed: number) => void;
+        };
+        const sceneInteractions: SceneInteraction[] = [];
+
         for (const floorProject of floorProjects) {
           const floorGroup = new THREE.Group();
           floorGroup.position.y = floorProject.elevation ?? 0;
           scene.add(floorGroup);
           const furniture = floorProject.furniture ?? [];
-        const addBox = (w: number, h: number, d: number, x: number, y: number, z: number, color: number, roughness = 0.85) => {
-          const mesh = new THREE.Mesh(
-            new THREE.BoxGeometry(Math.max(0.1, w), Math.max(0.1, h), Math.max(0.1, d)),
-            new THREE.MeshStandardMaterial({ color, roughness })
-          );
-          mesh.position.set(x, y, z);
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
-          floorGroup.add(mesh);
-          return mesh;
+          const addBox = (w: number, h: number, d: number, x: number, y: number, z: number, color: number, roughness = 0.85) => {
+            const mesh = new THREE.Mesh(
+              new THREE.BoxGeometry(Math.max(0.1, w), Math.max(0.1, h), Math.max(0.1, d)),
+              new THREE.MeshStandardMaterial({ color, roughness })
+            );
+            mesh.position.set(x, y, z);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            floorGroup.add(mesh);
+            return mesh;
+          };
+
+        const addSceneInteraction = (
+          root: any,
+          kind: SceneInteraction['kind'],
+          update: SceneInteraction['update'],
+          circuit?: string,
+          initiallyActive = false,
+          networkIds: string[] = []
+        ) => {
+          const interaction: SceneInteraction = {
+            root, kind, progress: initiallyActive ? 1 : 0,
+            target: initiallyActive ? 1 : 0, circuit, networkIds, update
+          };
+          root.userData.sceneInteraction = interaction;
+          sceneInteractions.push(interaction);
+          floorGroup.add(root);
+          update(interaction.progress, 0);
+          return interaction;
         };
 
         // One floor surface shared with all scene objects.
@@ -123,6 +153,46 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           floor.receiveShadow = true;
           floorGroup.add(floor);
 
+          // Rodapé contínuo na face interna de cada cômodo. A orientação do
+          // polígono determina a normal interna, mantendo o acabamento voltado
+          // para dentro mesmo quando os vértices estão em sentido horário.
+          const signedArea = room.vertices.reduce((area: number, point: {x:number;y:number}, index: number) => {
+            const next = room.vertices[(index + 1) % room.vertices.length];
+            return area + point.x * next.y - next.x * point.y;
+          }, 0) / 2;
+          const inwardDirection = signedArea >= 0 ? 1 : -1;
+          room.vertices.forEach((point: {x:number;y:number}, index: number) => {
+            const next = room.vertices[(index + 1) % room.vertices.length];
+            const dx = next.x - point.x;
+            const dz = next.y - point.y;
+            const length = Math.hypot(dx, dz);
+            if (length < 1) return;
+            const midX = (point.x + next.x) / 2;
+            const midZ = (point.y + next.y) / 2;
+            const nearestWall = floorProject.walls.reduce((closest, wall) => {
+              const wallDx = wall.x2 - wall.x1;
+              const wallDz = wall.y2 - wall.y1;
+              const wallLengthSquared = wallDx * wallDx + wallDz * wallDz;
+              const t = wallLengthSquared > 0
+                ? Math.max(0, Math.min(1, ((midX - wall.x1) * wallDx + (midZ - wall.y1) * wallDz) / wallLengthSquared))
+                : 0;
+              const distance = Math.hypot(midX - (wall.x1 + t * wallDx), midZ - (wall.y1 + t * wallDz));
+              return distance < closest.distance ? { distance, thickness: wall.thickness } : closest;
+            }, { distance: Infinity, thickness: 8 });
+            const wallThickness = Math.max(4, nearestWall.thickness || 8);
+            const inwardOffset = wallThickness / 2 + 0.9;
+            const baseboard = addBox(
+              length + 1,
+              6,
+              1.8,
+              midX + (-dz / length) * inwardDirection * inwardOffset,
+              3,
+              midZ + (dx / length) * inwardDirection * inwardOffset,
+              isDark ? 0xb6a18a : 0x9a8066
+            );
+            baseboard.rotation.y = -Math.atan2(dz, dx) + (inwardDirection < 0 ? Math.PI : 0);
+          });
+
           const center = room.vertices.reduce((a: {x:number;y:number}, p: {x:number;y:number}) => ({x:a.x+p.x/room.vertices.length,y:a.y+p.y/room.vertices.length}), {x:0,y:0});
           if (room.name) {
             const labelCanvas = document.createElement('canvas');
@@ -145,9 +215,9 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           }
         });
 
-        // The reference grid belongs to the ground floor only. Upper floors
-        // and basements retain their geometry without duplicating the grid.
-        if (floorProject.kind === 'terreo') {
+        // The reference grid belongs exclusively to level zero. Checking both
+        // fields prevents upper floors incorrectly tagged as "terreo" from drawing it.
+        if (floorProject.level === 0 && floorProject.kind === 'terreo') {
           const grid = new THREE.GridHelper(Math.max(spanX, spanZ) + 160, Math.max(10, Math.round(Math.max(spanX, spanZ) / 20)), isDark ? 0x475569 : 0x94a3b8, isDark ? 0x334155 : 0xcbd5e1);
           grid.position.set(centerX, -0.7, centerZ);
           floorGroup.add(grid);
@@ -223,47 +293,180 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           addBox(thickness+1,2,thickness+1,p.x,101,p.z,isDark?0xcbd5e1:0xf8fafc);
         });
 
-        // Modela o batente dentro do vão real da parede, alinhado ao eixo da abertura.
+        // Batentes e folhas móveis. Cada abertura possui um controlador
+        // independente para que a interação não altere a geometria persistida.
         floorProject.openings.forEach(o => {
           const widthPx = Math.max(16, o.width * 0.5);
           const angle = -((o.rotation ?? 0) * Math.PI / 180);
           const hostWall = floorProject.walls.find(w => w.id === o.wallId);
           const frameDepth = Math.max(6, (hostWall?.thickness ?? 8) + 3);
-          const offsetOnWall = (distance: number) => ({ x: o.x + Math.cos(angle) * distance, z: o.y - Math.sin(angle) * distance });
+          const offsetOnWall = (distance: number) => ({
+            x: o.x + Math.cos(angle) * distance,
+            z: o.y - Math.sin(angle) * distance
+          });
+          const left = offsetOnWall(-widthPx / 2), right = offsetOnWall(widthPx / 2);
+          const frameColor = o.type === 'door'
+            ? (o.doorStyle === 'metal' ? 0x94a3b8 : o.doorStyle === 'glass' ? 0x64748b : 0x805333)
+            : 0x64748b;
+          const jambHeight = o.type === 'door' ? 80 : 42;
+          const jambY = o.type === 'door' ? 40 : 51;
+          const jambLeft = addBox(o.type === 'door' ? 4 : 3, jambHeight, frameDepth, left.x, jambY, left.z, frameColor);
+          const jambRight = addBox(o.type === 'door' ? 4 : 3, jambHeight, frameDepth, right.x, jambY, right.z, frameColor);
+          jambLeft.rotation.y = angle; jambRight.rotation.y = angle;
+
           if (o.type === 'door') {
             const style = o.doorStyle ?? 'wood';
-            const frameColor = style === 'metal' ? 0x94a3b8 : style === 'glass' ? 0x64748b : 0x805333;
+            const frameTop = addBox(widthPx + 4, 4, frameDepth, o.x, 80, o.y, frameColor);
+            frameTop.rotation.y = angle;
+            const doorRoot = new THREE.Group();
+            doorRoot.position.set(o.x, 0, o.y);
+            doorRoot.rotation.y = angle;
             const material = style === 'glass'
-              ? new THREE.MeshStandardMaterial({ color: 0x93c5fd, transparent: true, opacity: 0.55, metalness: 0.1, roughness: 0.15 })
-              : new THREE.MeshStandardMaterial({ color: style === 'metal' ? 0x94a3b8 : style === 'sliding' ? 0xb08968 : 0x9a6b3f, roughness: 0.72 });
-            const left = offsetOnWall(-widthPx / 2), right = offsetOnWall(widthPx / 2);
-            const jambLeft = addBox(4, 80, frameDepth, left.x, 40, left.z, frameColor);
-            const jambRight = addBox(4, 80, frameDepth, right.x, 40, right.z, frameColor);
-            const header = addBox(widthPx + 4, 4, frameDepth, o.x, 80, o.y, frameColor);
-            jambLeft.rotation.y = angle; jambRight.rotation.y = angle; header.rotation.y = angle;
-            const leaf = new THREE.Mesh(new THREE.BoxGeometry(widthPx * (style === 'double' ? 0.46 : 0.92), 78, 3, 1, 1, 1), material);
-            leaf.position.set(o.x, 39, o.y);
-            leaf.rotation.y = angle;
-            floorGroup.add(leaf);
-            if (style === 'double') {
-              const leaf2 = new THREE.Mesh(new THREE.BoxGeometry(widthPx * 0.46, 78, 3), material.clone());
-              leaf2.position.set(o.x, 39, o.y);
-              leaf2.rotation.y = angle;
-              floorGroup.add(leaf2);
+              ? new THREE.MeshStandardMaterial({ color: 0x93c5fd, transparent: true, opacity: 0.62, metalness: 0.12, roughness: 0.16 })
+              : new THREE.MeshStandardMaterial({ color: style === 'metal' ? 0x94a3b8 : style === 'sliding' ? 0xb08968 : 0x9a6b3f, roughness: 0.68, metalness: style === 'metal' ? 0.55 : 0.05 });
+
+            if (style === 'sliding') {
+              const sash = new THREE.Group();
+              const leaf = new THREE.Mesh(new THREE.BoxGeometry(widthPx * 0.9, 78, 3), material);
+              leaf.position.y = 39;
+              sash.add(leaf);
+              const slidingHandle = new THREE.Mesh(
+                new THREE.BoxGeometry(2.2, 12, 2),
+                new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.82, roughness: 0.24 })
+              );
+              slidingHandle.position.set(widthPx * 0.34, 39, 2.6);
+              sash.add(slidingHandle);
+              const railTop = new THREE.Mesh(new THREE.BoxGeometry(widthPx + 2, 1.5, 5), new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.65, roughness: 0.3 }));
+              railTop.position.y = 79;
+              sash.add(railTop);
+              doorRoot.add(sash);
+              addSceneInteraction(doorRoot, 'door', progress => {
+                sash.position.x = progress * widthPx * 0.82;
+              });
+            } else if (style === 'double') {
+              const leftPivot = new THREE.Group();
+              leftPivot.position.x = -widthPx / 2;
+              const leftLeaf = new THREE.Mesh(new THREE.BoxGeometry(widthPx / 2, 78, 3), material);
+              leftLeaf.position.set(widthPx / 4, 39, 0);
+              leftPivot.add(leftLeaf);
+              const rightPivot = new THREE.Group();
+              rightPivot.position.x = widthPx / 2;
+              const rightLeaf = new THREE.Mesh(new THREE.BoxGeometry(widthPx / 2, 78, 3), material.clone());
+              rightLeaf.position.set(-widthPx / 4, 39, 0);
+              rightPivot.add(rightLeaf);
+              const doubleHandleMaterial = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.82, roughness: 0.24 });
+              [-1, 1].forEach(side => {
+                const handle = new THREE.Mesh(new THREE.SphereGeometry(2.5, 16, 12), doubleHandleMaterial);
+                handle.position.set(side * widthPx * 0.12, 40, 3.2);
+                leftPivot.add(handle);
+                const oppositeHandle = new THREE.Mesh(new THREE.SphereGeometry(2.5, 16, 12), doubleHandleMaterial.clone());
+                oppositeHandle.position.set(-side * widthPx * 0.12, 40, 3.2);
+                rightPivot.add(oppositeHandle);
+              });
+              doorRoot.add(leftPivot, rightPivot);
+              addSceneInteraction(doorRoot, 'door', progress => {
+                leftPivot.rotation.y = -progress * Math.PI / 2;
+                rightPivot.rotation.y = progress * Math.PI / 2;
+              });
+            } else {
+              const hinge = new THREE.Group();
+              hinge.position.x = -widthPx / 2;
+              const leaf = new THREE.Mesh(new THREE.BoxGeometry(widthPx * 0.92, 78, 3), material);
+              leaf.position.set(widthPx * 0.46, 39, 0);
+              hinge.add(leaf);
+              const handleMaterial = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.82, roughness: 0.24 });
+              [-1, 1].forEach(side => {
+                const handleX = widthPx * 0.72;
+                const handleZ = side * 3;
+                const rosette = new THREE.Mesh(new THREE.CylinderGeometry(2.8, 2.8, 1.4, 16), handleMaterial);
+                rosette.rotation.x = Math.PI / 2;
+                rosette.position.set(handleX, 40, handleZ);
+                hinge.add(rosette);
+                const knob = new THREE.Mesh(new THREE.SphereGeometry(2.5, 16, 12), handleMaterial);
+                knob.position.set(handleX, 40, side * 5);
+                hinge.add(knob);
+              });
+              doorRoot.add(hinge);
+              addSceneInteraction(doorRoot, 'door', progress => {
+                hinge.rotation.y = progress * Math.PI / 2;
+              });
             }
-            addBox(2, 8, 2, o.x + Math.cos(angle) * widthPx * 0.32, 39, o.y - Math.sin(angle) * widthPx * 0.32, 0xf8fafc);
+            doorRoot.traverse((node: any) => {
+              if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; }
+            });
+            // addSceneInteraction attaches the root; traversal above also covers
+            // children added later because the root is populated before registration.
           } else {
-            const frameColor = 0x64748b;
-            const left = offsetOnWall(-widthPx / 2), right = offsetOnWall(widthPx / 2);
-            const jambLeft = addBox(3, 42, frameDepth, left.x, 51, left.z, frameColor);
-            const jambRight = addBox(3, 42, frameDepth, right.x, 51, right.z, frameColor);
             const sill = addBox(widthPx + 3, 3, frameDepth, o.x, 30, o.y, frameColor);
             const header = addBox(widthPx + 3, 3, frameDepth, o.x, 72, o.y, frameColor);
-            jambLeft.rotation.y = angle; jambRight.rotation.y = angle; sill.rotation.y = angle; header.rotation.y = angle;
-            const glazing = new THREE.Mesh(new THREE.BoxGeometry(Math.max(1, widthPx - 3), 39, 1.5), new THREE.MeshStandardMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.32, metalness: 0.12, roughness: 0.16 }));
-            glazing.position.set(o.x, 51, o.y); glazing.rotation.y = angle; floorGroup.add(glazing);
+            sill.rotation.y = angle; header.rotation.y = angle;
+            const windowRoot = new THREE.Group();
+            windowRoot.position.set(o.x, 0, o.y);
+            windowRoot.rotation.y = angle;
+            const sash = new THREE.Group();
+            const glazing = new THREE.Mesh(
+              new THREE.BoxGeometry(Math.max(1, widthPx - 3), 39, 1.5),
+              new THREE.MeshStandardMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.38, metalness: 0.12, roughness: 0.16 })
+            );
+            glazing.position.y = 51;
+            sash.add(glazing);
+            const sashFrame = new THREE.Mesh(
+              new THREE.BoxGeometry(widthPx - 1, 2, 2),
+              new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.35, roughness: 0.45 })
+            );
+            sashFrame.position.y = 51;
+            sash.add(sashFrame);
+            windowRoot.add(sash);
+            addSceneInteraction(windowRoot, 'window', progress => {
+              sash.position.x = progress * widthPx * 0.42;
+            });
           }
         });
+
+        // Resolve physical wire connectivity as well as circuit labels.
+        // Wire endpoints within snapping tolerance form one connected network;
+        // a switch controls lights attached to the same network.
+        const wireSegments = floorProject.electrical.filter(
+          item => item.type === 'wire' && item.x2 !== undefined && item.y2 !== undefined
+        );
+        const wireParents = wireSegments.flatMap((_, index) => [index * 2, index * 2 + 1]);
+        const findWireRoot = (node: number): number => {
+          if (wireParents[node] !== node) wireParents[node] = findWireRoot(wireParents[node]);
+          return wireParents[node];
+        };
+        const unionWireNodes = (a: number, b: number) => {
+          const rootA = findWireRoot(a), rootB = findWireRoot(b);
+          if (rootA !== rootB) wireParents[rootB] = rootA;
+        };
+        const wireEndpoints = wireSegments.flatMap((wire, index) => [
+          { x: wire.x, y: wire.y, node: index * 2 },
+          { x: wire.x2 as number, y: wire.y2 as number, node: index * 2 + 1 }
+        ]);
+        wireEndpoints.forEach((endpoint, index) => {
+          wireEndpoints.slice(index + 1).forEach(other => {
+            if (Math.hypot(endpoint.x - other.x, endpoint.y - other.y) <= 14) {
+              unionWireNodes(endpoint.node, other.node);
+            }
+          });
+        });
+        const distanceToWire = (x: number, y: number, wire: typeof wireSegments[number]) => {
+          const dx = (wire.x2 as number) - wire.x;
+          const dy = (wire.y2 as number) - wire.y;
+          const lengthSquared = dx * dx + dy * dy;
+          const t = lengthSquared > 0
+            ? Math.max(0, Math.min(1, ((x - wire.x) * dx + (y - wire.y) * dy) / lengthSquared))
+            : 0;
+          return Math.hypot(x - (wire.x + t * dx), y - (wire.y + t * dy));
+        };
+        const getWireNetworks = (item: typeof floorProject.electrical[number]) => {
+          const networks = new Set<string>();
+          wireSegments.forEach((wire, index) => {
+            if (distanceToWire(item.x, item.y, wire) <= 14) {
+              networks.add(`${floorProject.id}:${findWireRoot(index * 2)}`);
+            }
+          });
+          return [...networks];
+        };
 
         floorProject.electrical.forEach(item => {
           if ((item.type === 'wire' || item.type === 'conduit') && item.x2 !== undefined && item.y2 !== undefined) { const dx=item.x2-item.x,dz=item.y2-item.y,len=Math.hypot(dx,dz); if(len>1){const mesh=addBox(len,item.type==='conduit'?4:2,2,(item.x+item.x2)/2,8,(item.y+item.y2)/2,item.type==='conduit'?0xa78bfa:0xfacc15);mesh.rotation.y=-Math.atan2(dz,dx);} return; }
@@ -274,25 +477,139 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
             return;
           }
           const isLight = item.type === 'light';
-          const color = isLight ? 0xfacc15 : item.type === 'panel' ? 0x2563eb : 0xfb7185;
-          const point = new THREE.Mesh(new THREE.SphereGeometry(isLight ? 6 : 4, 16, 12), new THREE.MeshStandardMaterial({ color: isLight && isNightMode ? 0xffe4a3 : color, emissive: isLight ? 0xffb84d : color, emissiveIntensity: isLight ? (isNightMode ? 2.2 : 0.65) : 0.12 }));
+          const isSwitch = item.type === 'switch';
+          const color = isLight ? 0xfacc15 : isSwitch ? 0x22c55e : item.type === 'panel' ? 0x2563eb : 0xfb7185;
+          const point = new THREE.Mesh(
+            new THREE.SphereGeometry(isLight ? 6 : 4, 16, 12),
+            new THREE.MeshStandardMaterial({
+              color: isLight && isNightMode ? 0xffe4a3 : color,
+              emissive: isLight ? 0xffb84d : color,
+              emissiveIntensity: isLight ? 0.9 : 0.12
+            })
+          );
           point.position.set(item.x, isLight ? 102 : 7, item.y);
-          floorGroup.add(point);
-          // Point lights are active in both day and night modes so the 3D fixture
-          // visibly illuminates nearby walls and furniture, not only its own bulb.
-          if (isLight) { const lamp = new THREE.PointLight(0xffc66d, isNightMode ? 4.2 : 2.0, 260, 2); lamp.position.set(item.x, 98, item.y); floorGroup.add(lamp); }
+          if (isLight) {
+            const lamp = new THREE.PointLight(0xffc66d, isNightMode ? 26000 : 18000, 420, 2);
+            lamp.position.set(item.x, 86, item.y);
+            const lightRoot = new THREE.Group();
+            lightRoot.add(point, lamp);
+            addSceneInteraction(lightRoot, 'light', progress => {
+              (point.material as any).emissiveIntensity = 0.08 + progress * (isNightMode ? 2.2 : 0.9);
+              lamp.intensity = (isNightMode ? 26000 : 18000) * progress;
+            }, item.circuit ? `${floorProject.id}::${item.circuit}` : undefined, true, getWireNetworks(item));
+          } else if (isSwitch) {
+            const switchRoot = new THREE.Group();
+            switchRoot.add(point);
+            addSceneInteraction(switchRoot, 'switch', progress => {
+              point.rotation.x = progress * 0.24;
+              (point.material as any).color.setHex(progress > 0.5 ? 0x22c55e : 0x64748b);
+            }, item.circuit ? `${floorProject.id}::${item.circuit}` : undefined, false, getWireNetworks(item));
+          } else {
+            floorGroup.add(point);
+          }
         });
         floorProject.hydraulic.forEach(item => {
           if ((item.type === 'water_pipe' || item.type === 'sewage_pipe' || item.type === 'vent_pipe' || item.type === 'rain_pipe') && item.x2 !== undefined && item.y2 !== undefined) { const dx=item.x2-item.x,dz=item.y2-item.y,len=Math.hypot(dx,dz); if(len>1){const mesh=addBox(len,item.type==='sewage_pipe'?4:3,3,(item.x+item.x2)/2,5,(item.y+item.y2)/2,item.type==='sewage_pipe'?0x92400e:item.type==='rain_pipe'?0x2563eb:item.type==='vent_pipe'?0xa78bfa:0x0ea5e9);mesh.rotation.y=-Math.atan2(dz,dx);} return; }
           if (item.type === 'pool') {
-            const pool = addBox(48, 3, 32, item.x, -0.2, item.y, 0x0891b2);
-            pool.material = new THREE.MeshStandardMaterial({ color: 0x0891b2, roughness: 0.2, metalness: 0.05, transparent: true, opacity: 0.78 });
+            const poolRoot = new THREE.Group();
+            const pool = new THREE.Mesh(
+              new THREE.BoxGeometry(48, 3, 32),
+              new THREE.MeshStandardMaterial({ color: 0x0891b2, roughness: 0.2, metalness: 0.05, transparent: true, opacity: 0.78 })
+            );
+            pool.position.set(item.x, -0.2, item.y);
+            poolRoot.add(pool);
+            const ripple = new THREE.Mesh(
+              new THREE.TorusGeometry(12, 0.55, 8, 48),
+              new THREE.MeshBasicMaterial({ color: 0x67e8f9, transparent: true, opacity: 0.55 })
+            );
+            ripple.rotation.x = Math.PI / 2;
+            ripple.position.set(item.x, 2, item.y);
+            poolRoot.add(ripple);
+            addSceneInteraction(poolRoot, 'pool', (progress, elapsed) => {
+              ripple.visible = progress > 0.02;
+              ripple.material.opacity = progress * 0.55;
+              ripple.scale.setScalar(0.5 + (elapsed % 2) * 0.55);
+            });
             return;
           }
           const color = item.type === 'sewage' || item.type === 'drain' || item.type === 'sewage_pipe' || item.type === 'grease_trap' || item.type === 'inspection_box' ? 0x92400e : item.type === 'rain_pipe' ? 0x2563eb : item.type === 'vent_pipe' ? 0xa78bfa : 0x0ea5e9;
-          const point = new THREE.Mesh(new THREE.CylinderGeometry(['sink','faucet','shower','toilet','floor_drain','cleanout','inspection_box','tank','heater','grease_trap'].includes(item.type)?8:5, ['sink','faucet','shower','toilet'].includes(item.type)?8:5, 5, 16), new THREE.MeshStandardMaterial({ color }));
-          point.position.set(item.x, 5, item.y);
-          floorGroup.add(point);
+          const hydraulicRoot = new THREE.Group();
+          hydraulicRoot.position.set(item.x, 0, item.y);
+          const fixture = new THREE.Mesh(
+            new THREE.CylinderGeometry(['sink','faucet','shower','toilet','floor_drain','cleanout','inspection_box','tank','heater','grease_trap'].includes(item.type) ? 8 : 5, ['sink','faucet','shower','toilet'].includes(item.type) ? 8 : 5, 5, 16),
+            new THREE.MeshStandardMaterial({ color, metalness: ['faucet','shower'].includes(item.type) ? 0.62 : 0.12, roughness: 0.38 })
+          );
+          fixture.position.y = 5;
+          hydraulicRoot.add(fixture);
+
+          if (item.type === 'faucet' || item.type === 'shower') {
+            const isShower = item.type === 'shower';
+            const waterMaterial = new THREE.MeshBasicMaterial({
+              color: 0x38bdf8, transparent: true, opacity: 0.82,
+              depthWrite: false
+            });
+            const water = isShower
+              ? new THREE.Mesh(new THREE.ConeGeometry(10, 28, 18, 1, true), waterMaterial)
+              : new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.8, 20, 10), waterMaterial);
+            water.position.y = isShower ? -4 : -6;
+            if (isShower) water.rotation.x = Math.PI;
+            hydraulicRoot.add(water);
+            addSceneInteraction(hydraulicRoot, 'water', (progress, elapsed) => {
+              water.visible = progress > 0.02;
+              water.material.opacity = 0.18 + progress * 0.64;
+              water.scale.setScalar(0.92 + Math.sin(elapsed * 9) * 0.035 * progress);
+            });
+          } else if (item.type === 'sink' || item.type === 'tank') {
+            const reservoirWater = new THREE.Mesh(
+              new THREE.CylinderGeometry(item.type === 'tank' ? 7 : 6, item.type === 'tank' ? 7 : 6, 0.8, 32),
+              new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.7 })
+            );
+            reservoirWater.position.y = item.type === 'tank' ? 9 : 3;
+            reservoirWater.visible = false;
+            hydraulicRoot.add(reservoirWater);
+            addSceneInteraction(hydraulicRoot, 'water', (progress, elapsed) => {
+              reservoirWater.visible = progress > 0.02;
+              reservoirWater.position.y = (item.type === 'tank' ? 7 : 1) + progress * (item.type === 'tank' ? 8 : 5);
+              reservoirWater.material.opacity = progress * 0.7;
+              reservoirWater.scale.x = 0.96 + Math.sin(elapsed * 3) * 0.025 * progress;
+              reservoirWater.scale.z = reservoirWater.scale.x;
+            });
+          } else if (item.type === 'floor_drain' || item.type === 'drain') {
+            const drainFlow = new THREE.Mesh(
+              new THREE.TorusGeometry(4, 0.65, 8, 32),
+              new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72 })
+            );
+            drainFlow.rotation.x = Math.PI / 2;
+            drainFlow.position.y = 2;
+            hydraulicRoot.add(drainFlow);
+            addSceneInteraction(hydraulicRoot, 'water', (progress, elapsed) => {
+              drainFlow.visible = progress > 0.02;
+              drainFlow.material.opacity = progress * 0.72;
+              drainFlow.rotation.z = elapsed * 3;
+              drainFlow.scale.setScalar(0.5 + progress * 0.5);
+            });
+          } else if (item.type === 'toilet') {
+            const flushWater = new THREE.Mesh(
+              new THREE.TorusGeometry(5, 0.7, 8, 32),
+              new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.75 })
+            );
+            flushWater.rotation.x = Math.PI / 2;
+            flushWater.position.y = 8;
+            hydraulicRoot.add(flushWater);
+            addSceneInteraction(hydraulicRoot, 'flush', (progress, elapsed) => {
+              flushWater.visible = progress > 0.02;
+              flushWater.material.opacity = progress * 0.72;
+              flushWater.scale.setScalar(0.45 + progress * 0.75 + Math.sin(elapsed * 10) * 0.08 * progress);
+              flushWater.rotation.z = elapsed * 2.4;
+            });
+          } else if (item.type === 'heater') {
+            addSceneInteraction(hydraulicRoot, 'water', progress => {
+              (fixture.material as any).emissive = new THREE.Color(0xf97316);
+              (fixture.material as any).emissiveIntensity = progress * 0.8;
+            });
+          } else {
+            floorGroup.add(hydraulicRoot);
+          }
         });
 
         // Load genuine GLB geometry into the same scene, normalized to catalog dimensions.
@@ -339,9 +656,55 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
         let active = new Map<number, { x: number; y: number }>();
         let start: { x: number; y: number; yaw: number; pitch: number; distance: number; tx: number; ty: number; tz: number } | null = null;
         let pinchStart: { distance: number; zoom: number; cx: number; cy: number; tx: number; ty: number; tz: number } | null = null;
+        const pointerOrigins = new Map<number, { x: number; y: number }>();
+        const raycaster = new THREE.Raycaster();
+        const normalizedPointer = new THREE.Vector2();
+        const activateInteraction = (event: PointerEvent) => {
+          const rect = renderer.domElement.getBoundingClientRect();
+          normalizedPointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+          normalizedPointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+          raycaster.setFromCamera(normalizedPointer, camera);
+          const hits = raycaster.intersectObjects(scene.children, true);
+          let interaction: SceneInteraction | undefined;
+          for (const hit of hits) {
+            let node = hit.object;
+            while (node && !node.userData?.sceneInteraction) node = node.parent;
+            if (node?.userData?.sceneInteraction) {
+              interaction = node.userData.sceneInteraction as SceneInteraction;
+              break;
+            }
+          }
+          if (!interaction) return;
+          const sharesConnection = (a: SceneInteraction, b: SceneInteraction) =>
+            (!!a.circuit && a.circuit === b.circuit) ||
+            (a.networkIds ?? []).some(network => b.networkIds?.includes(network));
+          if (interaction.kind === 'switch') {
+            const circuitLights = sceneInteractions.filter(candidate =>
+              candidate.kind === 'light' && sharesConnection(candidate, interaction)
+            );
+            if (!circuitLights.length) return;
+            const shouldTurnOn = circuitLights.some(light => light.target < 0.5);
+            circuitLights.forEach(light => { light.target = shouldTurnOn ? 1 : 0; });
+            sceneInteractions
+              .filter(candidate => candidate.kind === 'switch' && sharesConnection(candidate, interaction))
+              .forEach(switchControl => { switchControl.target = shouldTurnOn ? 1 : 0; });
+            return;
+          }
+          interaction.target = interaction.target > 0.5 ? 0 : 1;
+          if (interaction.kind === 'light') {
+            const relatedLights = sceneInteractions.filter(candidate =>
+              candidate.kind === 'light' && sharesConnection(candidate, interaction)
+            );
+            const allOn = relatedLights.every(light => light.target > 0.5);
+            sceneInteractions
+              .filter(candidate => candidate.kind === 'switch' && sharesConnection(candidate, interaction))
+              .forEach(switchControl => { switchControl.target = allOn ? 1 : 0; });
+          }
+        };
         const onDown = (e: PointerEvent) => {
           (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
           active.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          pointerOrigins.set(e.pointerId, { x: e.clientX, y: e.clientY });
           if (!controls) return;
           const pts = [...active.values()];
           if (pts.length === 1) start = { x: e.clientX, y: e.clientY, yaw: controls.yaw, pitch: controls.pitch, distance: controls.distance, tx: controls.targetX, ty: controls.targetY, tz: controls.targetZ };
@@ -368,7 +731,15 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           }
           updateCamera();
         };
-        const onUp = (e: PointerEvent) => { active.delete(e.pointerId); if (active.size < 2) pinchStart = null; if (!active.size) start = null; };
+        const onUp = (e: PointerEvent) => {
+          const origin = pointerOrigins.get(e.pointerId);
+          const wasClick = origin && active.size === 1 && Math.hypot(e.clientX - origin.x, e.clientY - origin.y) < 7;
+          if (wasClick && e.type === 'pointerup') activateInteraction(e);
+          pointerOrigins.delete(e.pointerId);
+          active.delete(e.pointerId);
+          if (active.size < 2) pinchStart = null;
+          if (!active.size) start = null;
+        };
         const onWheel = (e: WheelEvent) => { e.preventDefault(); if (controls) { controls.distance = Math.max(80, Math.min(5000, controls.distance * (e.deltaY > 0 ? 1.1 : 0.9))); updateCamera(); } };
         renderer.domElement.addEventListener('pointerdown', onDown);
         renderer.domElement.addEventListener('pointermove', onMove);
@@ -390,9 +761,24 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
         });
         resizeObserver.observe(host);
 
+        let previousFrameTime = performance.now();
+        let elapsedSceneTime = 0;
         const animate = () => {
           if (disposed) return;
           frame = requestAnimationFrame(animate);
+          const now = performance.now();
+          const delta = Math.min(0.05, (now - previousFrameTime) / 1000);
+          previousFrameTime = now;
+          elapsedSceneTime += delta;
+          sceneInteractions.forEach(interaction => {
+            const difference = interaction.target - interaction.progress;
+            if (Math.abs(difference) > 0.001) {
+              interaction.progress += Math.sign(difference) * Math.min(Math.abs(difference), delta * 2.8);
+            } else {
+              interaction.progress = interaction.target;
+            }
+            interaction.update(interaction.progress, elapsedSceneTime);
+          });
           renderer.render(scene, camera);
         };
         animate();
@@ -424,6 +810,6 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
     <div ref={hostRef} className="absolute inset-0" aria-label="Cena 3D integrada da planta" role="img" />
     {loading && <div className="absolute bottom-3 left-3 rounded-md bg-slate-950/80 px-3 py-2 text-xs text-white" role="status">Carregando cena 3D e modelos GLB…</div>}
     {error && <div className="absolute inset-x-3 bottom-3 rounded-md border border-amber-500/40 bg-slate-950/90 px-3 py-2 text-sm text-amber-100" role="alert">Falha ao carregar a cena 3D: {error}. Verifique a conexão e a disponibilidade do CDN.</div>}
-    <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-slate-950/75 px-3 py-2 text-xs text-white">Arraste para orbitar · Pinça/roda para zoom · Objetos com profundidade real</div>
+    <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-slate-950/75 px-3 py-2 text-xs text-white">Arraste para orbitar · Pinça/roda para zoom · Clique em portas, janelas, luzes, interruptores e peças hidráulicas para interagir</div>
   </div>;
 };
