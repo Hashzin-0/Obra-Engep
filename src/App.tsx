@@ -234,7 +234,7 @@ function AppShell() {
           localOnly.favorites.length ||
           localOnly.notes.length ||
           localOnly.products.length ||
-          Object.keys(localOnly.checklists).length ||
+          Object.keys(localOnly.checklists).length
         ) {
           await pushLocalData(session.userId, localOnly);
         }
