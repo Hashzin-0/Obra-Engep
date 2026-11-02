@@ -143,8 +143,10 @@ function AppShell() {
         name: metadata.full_name || metadata.name || metadata.given_name || undefined,
         avatarUrl: metadata.avatar_url || metadata.picture || undefined,
       } : null);
-      userIdRef.current = user?.id ?? null;
-      setSessionUserId(user?.id ?? null);
+      const nextUserId = user?.id ?? null;
+      if (userIdRef.current !== nextUserId) setProjects([]);
+      userIdRef.current = nextUserId;
+      setSessionUserId(nextUserId);
     };
 
     void supabase.auth.getSession().then(({ data }) => syncAuthState(data.session));
