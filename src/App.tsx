@@ -685,6 +685,7 @@ function AppShell() {
           />
         ) : (
           <MoreView
+            userId={sessionUserId}
             historyItems={historyItems}
             deadlines={deadlines}
             notes={notes}
