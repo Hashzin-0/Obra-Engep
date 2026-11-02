@@ -692,8 +692,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           if (uniqueVertices.length >= 3) {
             const room: FloorPlanRoom = { id: ensureUuid('room'), name: 'Novo cômodo', vertices: uniqueVertices, material: 'concrete' };
             nextRooms = [...nextRooms, room];
-            // Open the room editor after the new project snapshot is committed.
-            createdRoomId = room.id;
+            setPendingRoomId(room.id);
           }
         }
         if (addedWalls.length || nextRooms !== (project.rooms ?? [])) updateProjectState({ ...project, walls: nextWalls, rooms: nextRooms });
@@ -979,7 +978,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           if (polygon.length >= 3 && area > 100 && !duplicate) {
             const room: FloorPlanRoom = {id:ensureUuid('room'),name:'Novo cômodo',vertices:polygon,material:'concrete'};
             nextRooms = [...nextRooms,room];
-            setPendingRoomId(room.id);
+            createdRoomId = room.id;
           }
         }
         updateProjectState({ ...project, walls: nextWalls, rooms: nextRooms });
