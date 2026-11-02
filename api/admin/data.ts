@@ -2,8 +2,8 @@ import { Buffer } from 'node:buffer';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { env } from 'node:process';
 import { createClient, type User } from '@supabase/supabase-js';
-import { getAdminSessionId, validateAdminSession } from './sessionSecurity';
-import { safeHttpsUrl } from './urlSafety';
+import { getAdminSessionId, validateAdminSession } from './sessionSecurity.js';
+import { safeHttpsUrl } from './urlSafety.js';
 
 type AdminRequest = IncomingMessage & { body?: unknown; query?: Record<string, string | string[] | undefined> };
 export const config = { api: { bodyParser: { sizeLimit: '32kb' } } };
