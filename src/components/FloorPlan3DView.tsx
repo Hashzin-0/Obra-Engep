@@ -57,7 +57,7 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
         renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;touch-action:none;outline:none;';
 
         camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000);
-        const floorProjects = (project.levels?.length ? project.levels : [{ ...project, elevation: 0 }]).slice().sort((a,b) => a.elevation - b.elevation);
+        const floorProjects = (project.levels?.length ? project.levels : [{ ...project, elevation: 0, kind: 'terreo' as const, level: 0 }]).slice().sort((a,b) => a.elevation - b.elevation);
         const points = floorProjects.flatMap(floor => [...floor.walls.flatMap(w => [{ x: w.x1, z: w.y1 }, { x: w.x2, z: w.y2 }]), ...(floor.furniture ?? []).map(item => ({ x: item.x, z: item.y }))]);
         const minX = points.length ? Math.min(...points.map(p => p.x)) : 0;
         const maxX = points.length ? Math.max(...points.map(p => p.x)) : 600;
