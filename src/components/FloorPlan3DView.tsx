@@ -103,7 +103,7 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           progress: number;
           target: number;
           circuit?: string;
-          networkIds?: number[];
+          networkIds?: string[];
           update: (progress: number, elapsed: number) => void;
         };
         const sceneInteractions: SceneInteraction[] = [];
@@ -131,7 +131,7 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           update: SceneInteraction['update'],
           circuit?: string,
           initiallyActive = false,
-          networkIds: number[] = []
+          networkIds: string[] = []
         ) => {
           const interaction: SceneInteraction = {
             root, kind, progress: initiallyActive ? 1 : 0,
@@ -476,10 +476,10 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           return Math.hypot(x - (wire.x + t * dx), y - (wire.y + t * dy));
         };
         const getWireNetworks = (item: typeof floorProject.electrical[number]) => {
-          const networks = new Set<number>();
+          const networks = new Set<string>();
           wireSegments.forEach((wire, index) => {
             if (distanceToWire(item.x, item.y, wire) <= 14) {
-              networks.add(findWireRoot(index * 2));
+              networks.add(`${floorProject.id}:${findWireRoot(index * 2)}`);
             }
           });
           return [...networks];
@@ -675,8 +675,8 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           if (!interaction) return;
           if (interaction.kind === 'switch') {
             const circuit = interaction.circuit;
-            if (!circuit) return;
             const switchNetworks = interaction.networkIds ?? [];
+            if (!circuit && !switchNetworks.length) return;
             const circuitLights = sceneInteractions.filter(candidate =>
               candidate.kind === 'light' && (
                 (!!circuit && candidate.circuit === circuit) ||
