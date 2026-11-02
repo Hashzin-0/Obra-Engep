@@ -345,6 +345,12 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
               const leaf = new THREE.Mesh(new THREE.BoxGeometry(widthPx * 0.9, 78, 3), material);
               leaf.position.y = 39;
               sash.add(leaf);
+              const slidingHandle = new THREE.Mesh(
+                new THREE.BoxGeometry(2.2, 12, 2),
+                new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.82, roughness: 0.24 })
+              );
+              slidingHandle.position.set(widthPx * 0.34, 39, 2.6);
+              sash.add(slidingHandle);
               const railTop = new THREE.Mesh(new THREE.BoxGeometry(widthPx + 2, 1.5, 5), new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.65, roughness: 0.3 }));
               railTop.position.y = 79;
               sash.add(railTop);
@@ -363,6 +369,15 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
               const rightLeaf = new THREE.Mesh(new THREE.BoxGeometry(widthPx / 2, 78, 3), material.clone());
               rightLeaf.position.set(-widthPx / 4, 39, 0);
               rightPivot.add(rightLeaf);
+              const doubleHandleMaterial = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.82, roughness: 0.24 });
+              [-1, 1].forEach(side => {
+                const handle = new THREE.Mesh(new THREE.SphereGeometry(2.5, 16, 12), doubleHandleMaterial);
+                handle.position.set(side * widthPx * 0.12, 40, 3.2);
+                leftPivot.add(handle);
+                const oppositeHandle = new THREE.Mesh(new THREE.SphereGeometry(2.5, 16, 12), doubleHandleMaterial.clone());
+                oppositeHandle.position.set(-side * widthPx * 0.12, 40, 3.2);
+                rightPivot.add(oppositeHandle);
+              });
               doorRoot.add(leftPivot, rightPivot);
               addSceneInteraction(doorRoot, 'door', progress => {
                 leftPivot.rotation.y = -progress * Math.PI / 2;
@@ -464,8 +479,12 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           if ((item.type === 'water_pipe' || item.type === 'sewage_pipe' || item.type === 'vent_pipe' || item.type === 'rain_pipe') && item.x2 !== undefined && item.y2 !== undefined) { const dx=item.x2-item.x,dz=item.y2-item.y,len=Math.hypot(dx,dz); if(len>1){const mesh=addBox(len,item.type==='sewage_pipe'?4:3,3,(item.x+item.x2)/2,5,(item.y+item.y2)/2,item.type==='sewage_pipe'?0x92400e:item.type==='rain_pipe'?0x2563eb:item.type==='vent_pipe'?0xa78bfa:0x0ea5e9);mesh.rotation.y=-Math.atan2(dz,dx);} return; }
           if (item.type === 'pool') {
             const poolRoot = new THREE.Group();
-            const pool = addBox(48, 3, 32, item.x, -0.2, item.y, 0x0891b2);
-            pool.material = new THREE.MeshStandardMaterial({ color: 0x0891b2, roughness: 0.2, metalness: 0.05, transparent: true, opacity: 0.78 });
+            const pool = new THREE.Mesh(
+              new THREE.BoxGeometry(48, 3, 32),
+              new THREE.MeshStandardMaterial({ color: 0x0891b2, roughness: 0.2, metalness: 0.05, transparent: true, opacity: 0.78 })
+            );
+            pool.position.set(item.x, -0.2, item.y);
+            poolRoot.add(pool);
             const ripple = new THREE.Mesh(
               new THREE.TorusGeometry(12, 0.55, 8, 48),
               new THREE.MeshBasicMaterial({ color: 0x67e8f9, transparent: true, opacity: 0.55 })
