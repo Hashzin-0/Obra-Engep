@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { env } from 'node:process';
 import { createClient } from '@supabase/supabase-js';
-import { getAdminSessionId, getTrustedClientIp, revokeAdminSession, validateAdminSession } from './sessionSecurity';
+import { getAdminSessionId, getTrustedClientIp, revokeAdminSession, validateAdminSession } from './sessionSecurity.js';
 
 type AdminRequest = IncomingMessage & { body?: unknown; query?: Record<string, string | string[] | undefined> };
 export const config = { api: { bodyParser: { sizeLimit: '1kb' } } };
