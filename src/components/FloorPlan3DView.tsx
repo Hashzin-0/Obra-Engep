@@ -123,6 +123,46 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           floor.receiveShadow = true;
           floorGroup.add(floor);
 
+          // Rodapé contínuo na face interna de cada cômodo. A orientação do
+          // polígono determina a normal interna, mantendo o acabamento voltado
+          // para dentro mesmo quando os vértices estão em sentido horário.
+          const signedArea = room.vertices.reduce((area: number, point: {x:number;y:number}, index: number) => {
+            const next = room.vertices[(index + 1) % room.vertices.length];
+            return area + point.x * next.y - next.x * point.y;
+          }, 0) / 2;
+          const inwardDirection = signedArea >= 0 ? 1 : -1;
+          room.vertices.forEach((point: {x:number;y:number}, index: number) => {
+            const next = room.vertices[(index + 1) % room.vertices.length];
+            const dx = next.x - point.x;
+            const dz = next.y - point.y;
+            const length = Math.hypot(dx, dz);
+            if (length < 1) return;
+            const midX = (point.x + next.x) / 2;
+            const midZ = (point.y + next.y) / 2;
+            const nearestWall = floorProject.walls.reduce((closest, wall) => {
+              const wallDx = wall.x2 - wall.x1;
+              const wallDz = wall.y2 - wall.y1;
+              const wallLengthSquared = wallDx * wallDx + wallDz * wallDz;
+              const t = wallLengthSquared > 0
+                ? Math.max(0, Math.min(1, ((midX - wall.x1) * wallDx + (midZ - wall.y1) * wallDz) / wallLengthSquared))
+                : 0;
+              const distance = Math.hypot(midX - (wall.x1 + t * wallDx), midZ - (wall.y1 + t * wallDz));
+              return distance < closest.distance ? { distance, thickness: wall.thickness } : closest;
+            }, { distance: Infinity, thickness: 8 });
+            const wallThickness = Math.max(4, nearestWall.thickness || 8);
+            const inwardOffset = wallThickness / 2 + 0.9;
+            const baseboard = addBox(
+              length + 1,
+              6,
+              1.8,
+              midX + (-dz / length) * inwardDirection * inwardOffset,
+              3,
+              midZ + (dx / length) * inwardDirection * inwardOffset,
+              isDark ? 0xb6a18a : 0x9a8066
+            );
+            baseboard.rotation.y = -Math.atan2(dz, dx) + (inwardDirection < 0 ? Math.PI : 0);
+          });
+
           const center = room.vertices.reduce((a: {x:number;y:number}, p: {x:number;y:number}) => ({x:a.x+p.x/room.vertices.length,y:a.y+p.y/room.vertices.length}), {x:0,y:0});
           if (room.name) {
             const labelCanvas = document.createElement('canvas');
@@ -145,9 +185,9 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           }
         });
 
-        // The reference grid belongs to the ground floor only. Upper floors
-        // and basements retain their geometry without duplicating the grid.
-        if (floorProject.kind === 'terreo') {
+        // The reference grid belongs exclusively to level zero. Checking both
+        // fields prevents upper floors incorrectly tagged as "terreo" from drawing it.
+        if (floorProject.level === 0 && floorProject.kind === 'terreo') {
           const grid = new THREE.GridHelper(Math.max(spanX, spanZ) + 160, Math.max(10, Math.round(Math.max(spanX, spanZ) / 20)), isDark ? 0x475569 : 0x94a3b8, isDark ? 0x334155 : 0xcbd5e1);
           grid.position.set(centerX, -0.7, centerZ);
           floorGroup.add(grid);
@@ -251,7 +291,22 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
               leaf2.rotation.y = angle;
               floorGroup.add(leaf2);
             }
-            addBox(2, 8, 2, o.x + Math.cos(angle) * widthPx * 0.32, 39, o.y - Math.sin(angle) * widthPx * 0.32, 0xf8fafc);
+            // Maçaneta metálica com roseta e pomo nos dois lados da folha.
+            // O vetor normal acompanha a rotação da porta e evita deslocamento
+            // incorreto em portas diagonais.
+            const handleX = o.x + Math.cos(angle) * widthPx * 0.32;
+            const handleZ = o.y - Math.sin(angle) * widthPx * 0.32;
+            const handleMaterial = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.82, roughness: 0.24 });
+            [-1, 1].forEach(side => {
+              const normal = new THREE.Vector3(Math.sin(angle) * side, 0, Math.cos(angle) * side);
+              const rosette = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 1.4, 16), handleMaterial.clone());
+              rosette.position.set(handleX + normal.x * 2, 40, handleZ + normal.z * 2);
+              rosette.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+              floorGroup.add(rosette);
+              const knob = new THREE.Mesh(new THREE.SphereGeometry(2.5, 16, 12), handleMaterial.clone());
+              knob.position.set(handleX + normal.x * 4.2, 40, handleZ + normal.z * 4.2);
+              floorGroup.add(knob);
+            });
           } else {
             const frameColor = 0x64748b;
             const left = offsetOnWall(-widthPx / 2), right = offsetOnWall(widthPx / 2);
@@ -280,7 +335,14 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           floorGroup.add(point);
           // Point lights are active in both day and night modes so the 3D fixture
           // visibly illuminates nearby walls and furniture, not only its own bulb.
-          if (isLight) { const lamp = new THREE.PointLight(0xffc66d, isNightMode ? 4.2 : 2.0, 260, 2); lamp.position.set(item.x, 98, item.y); floorGroup.add(lamp); }
+          if (isLight) {
+            // A escala da planta é menor que a unidade física assumida pelo
+            // Three.js; intensidades pequenas praticamente não iluminam nada.
+            // Aumentamos a intensidade e posicionamos a luminária abaixo do teto.
+            const lamp = new THREE.PointLight(0xffc66d, isNightMode ? 26000 : 18000, 420, 2);
+            lamp.position.set(item.x, 86, item.y);
+            floorGroup.add(lamp);
+          }
         });
         floorProject.hydraulic.forEach(item => {
           if ((item.type === 'water_pipe' || item.type === 'sewage_pipe' || item.type === 'vent_pipe' || item.type === 'rain_pipe') && item.x2 !== undefined && item.y2 !== undefined) { const dx=item.x2-item.x,dz=item.y2-item.y,len=Math.hypot(dx,dz); if(len>1){const mesh=addBox(len,item.type==='sewage_pipe'?4:3,3,(item.x+item.x2)/2,5,(item.y+item.y2)/2,item.type==='sewage_pipe'?0x92400e:item.type==='rain_pipe'?0x2563eb:item.type==='vent_pipe'?0xa78bfa:0x0ea5e9);mesh.rotation.y=-Math.atan2(dz,dx);} return; }
