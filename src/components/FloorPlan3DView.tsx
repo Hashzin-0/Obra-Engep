@@ -500,7 +500,10 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           } else if (isSwitch) {
             const switchRoot = new THREE.Group();
             switchRoot.add(point);
-            addSceneInteraction(switchRoot, 'switch', () => {}, item.circuit ? `${floorProject.id}::${item.circuit}` : undefined, false, getWireNetworks(item));
+            addSceneInteraction(switchRoot, 'switch', progress => {
+              point.rotation.x = progress * 0.24;
+              (point.material as THREE.MeshStandardMaterial).color.setHex(progress > 0.5 ? 0x22c55e : 0x64748b);
+            }, item.circuit ? `${floorProject.id}::${item.circuit}` : undefined, false, getWireNetworks(item));
           } else {
             floorGroup.add(point);
           }
@@ -555,6 +558,35 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
               water.visible = progress > 0.02;
               water.material.opacity = 0.18 + progress * 0.64;
               water.scale.setScalar(0.92 + Math.sin(elapsed * 9) * 0.035 * progress);
+            });
+          } else if (item.type === 'sink' || item.type === 'tank') {
+            const reservoirWater = new THREE.Mesh(
+              new THREE.CylinderGeometry(item.type === 'tank' ? 7 : 6, item.type === 'tank' ? 7 : 6, 0.8, 32),
+              new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.7 })
+            );
+            reservoirWater.position.y = item.type === 'tank' ? 9 : 3;
+            reservoirWater.visible = false;
+            hydraulicRoot.add(reservoirWater);
+            addSceneInteraction(hydraulicRoot, 'water', (progress, elapsed) => {
+              reservoirWater.visible = progress > 0.02;
+              reservoirWater.position.y = (item.type === 'tank' ? 7 : 1) + progress * (item.type === 'tank' ? 8 : 5);
+              reservoirWater.material.opacity = progress * 0.7;
+              reservoirWater.scale.x = 0.96 + Math.sin(elapsed * 3) * 0.025 * progress;
+              reservoirWater.scale.z = reservoirWater.scale.x;
+            });
+          } else if (item.type === 'floor_drain' || item.type === 'drain') {
+            const drainFlow = new THREE.Mesh(
+              new THREE.TorusGeometry(4, 0.65, 8, 32),
+              new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72 })
+            );
+            drainFlow.rotation.x = Math.PI / 2;
+            drainFlow.position.y = 2;
+            hydraulicRoot.add(drainFlow);
+            addSceneInteraction(hydraulicRoot, 'water', (progress, elapsed) => {
+              drainFlow.visible = progress > 0.02;
+              drainFlow.material.opacity = progress * 0.72;
+              drainFlow.rotation.z = elapsed * 3;
+              drainFlow.scale.setScalar(0.5 + progress * 0.5);
             });
           } else if (item.type === 'toilet') {
             const flushWater = new THREE.Mesh(
@@ -643,22 +675,31 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
             }
           }
           if (!interaction) return;
+          const sharesConnection = (a: SceneInteraction, b: SceneInteraction) =>
+            (!!a.circuit && a.circuit === b.circuit) ||
+            (a.networkIds ?? []).some(network => b.networkIds?.includes(network));
           if (interaction.kind === 'switch') {
-            const circuit = interaction.circuit;
-            const switchNetworks = interaction.networkIds ?? [];
-            if (!circuit && !switchNetworks.length) return;
             const circuitLights = sceneInteractions.filter(candidate =>
-              candidate.kind === 'light' && (
-                (!!circuit && candidate.circuit === circuit) ||
-                switchNetworks.some(network => candidate.networkIds?.includes(network))
-              )
+              candidate.kind === 'light' && sharesConnection(candidate, interaction)
             );
             if (!circuitLights.length) return;
             const shouldTurnOn = circuitLights.some(light => light.target < 0.5);
             circuitLights.forEach(light => { light.target = shouldTurnOn ? 1 : 0; });
+            sceneInteractions
+              .filter(candidate => candidate.kind === 'switch' && sharesConnection(candidate, interaction))
+              .forEach(switchControl => { switchControl.target = shouldTurnOn ? 1 : 0; });
             return;
           }
           interaction.target = interaction.target > 0.5 ? 0 : 1;
+          if (interaction.kind === 'light') {
+            const relatedLights = sceneInteractions.filter(candidate =>
+              candidate.kind === 'light' && sharesConnection(candidate, interaction)
+            );
+            const allOn = relatedLights.every(light => light.target > 0.5);
+            sceneInteractions
+              .filter(candidate => candidate.kind === 'switch' && sharesConnection(candidate, interaction))
+              .forEach(switchControl => { switchControl.target = allOn ? 1 : 0; });
+          }
         };
         const onDown = (e: PointerEvent) => {
           (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
