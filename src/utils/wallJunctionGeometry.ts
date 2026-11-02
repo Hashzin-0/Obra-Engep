@@ -42,11 +42,13 @@ export function buildWallJunctionPolygon(
   tolerance = 3
 ): WallJunctionPoint[] {
   const corners: WallJunctionPoint[] = [];
+  let connectedWallCount = 0;
 
   for (const wall of walls) {
     const startsHere = Math.hypot(wall.x1 - x, wall.y1 - y) <= tolerance;
     const endsHere = Math.hypot(wall.x2 - x, wall.y2 - y) <= tolerance;
     if (!startsHere && !endsHere) continue;
+    connectedWallCount += 1;
 
     const other = startsHere
       ? { x: wall.x2, y: wall.y2 }
@@ -72,5 +74,5 @@ export function buildWallJunctionPolygon(
     }
   }
 
-  return convexHull(corners);
+  return connectedWallCount > 1 ? convexHull(corners) : [];
 }
