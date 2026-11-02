@@ -546,19 +546,20 @@ function AppShell() {
   };
 
   const latest = historyItems[0] ?? null;
-  const isCalculatorView = activeModuleView === 'calculadoras';
+  const isHomeView = currentTab === 'inicio' && activeModuleView === null;
+  const isNonHomeView = !isHomeView;
 
   return (
     <div className="min-h-screen flex flex-col transition-colors selection:bg-[#1F66D6] selection:text-white">
       <TopHeader
         onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)}
-        onBackToHome={isCalculatorView ? () => {
+        onBackToHome={isNonHomeView ? () => {
           setActiveModuleView(null);
           setCurrentTab('inicio');
         } : undefined}
       />
 
-      {!isCalculatorView && (
+      {isHomeView && (
       <section
         aria-label="Navegação e ações rápidas"
         className={`max-w-4xl w-full mx-auto px-4 pt-3 pb-1`}
@@ -619,21 +620,15 @@ function AppShell() {
         ) : activeModuleView === 'calculadoras' ? (
           <CalculatorsView onSaveToHistory={handleSaveCalculation} initialCategory="eletrica" onToggleFavorite={handleAddFavorite} isFavorite={isFavorite} />
         ) : activeModuleView === 'projetos' ? (
-          <div>
-            <BackButton onClick={() => setActiveModuleView(null)} />
-            <FloorPlanEditorView
-              onOpenCalendarModal={() => setIsCalendarModalOpen(true)}
-              deadlines={deadlines}
-              projects={projects}
-              onSaveProject={handleSaveProject}
-              onDeleteProject={handleDeleteProject}
-            />
-          </div>
+          <FloorPlanEditorView
+            onOpenCalendarModal={() => setIsCalendarModalOpen(true)}
+            deadlines={deadlines}
+            projects={projects}
+            onSaveProject={handleSaveProject}
+            onDeleteProject={handleDeleteProject}
+          />
         ) : activeModuleView === 'ia' ? (
-          <div>
-            <BackButton onClick={() => setActiveModuleView(null)} />
-            <AIStudiesView key={aiInitialTab} initialTab={aiInitialTab} />
-          </div>
+          <AIStudiesView key={aiInitialTab} initialTab={aiInitialTab} />
         ) : currentTab === 'inicio' ? (
           <HomeView
             authenticatedName={authenticatedUser?.name}
