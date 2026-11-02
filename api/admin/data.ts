@@ -155,7 +155,7 @@ function productImagePath(imageUrl: string | null): string | null {
     const prefix = `/storage/v1/object/public/${PRODUCT_IMAGE_BUCKET}/`;
     if (image.origin !== base.origin || !image.pathname.startsWith(prefix)) return null;
     const path = decodeURIComponent(image.pathname.slice(prefix.length));
-    return /^[0-9a-f-]{36}\\.webp$/i.test(path) ? path : null;
+    return /^[0-9a-f-]{36}\.webp$/i.test(path) ? path : null;
   } catch {
     return null;
   }
