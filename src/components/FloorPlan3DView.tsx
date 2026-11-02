@@ -106,6 +106,24 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           update: (progress: number, elapsed: number) => void;
         };
         const sceneInteractions: SceneInteraction[] = [];
+
+        for (const floorProject of floorProjects) {
+          const floorGroup = new THREE.Group();
+          floorGroup.position.y = floorProject.elevation ?? 0;
+          scene.add(floorGroup);
+          const furniture = floorProject.furniture ?? [];
+        const addBox = (w: number, h: number, d: number, x: number, y: number, z: number, color: number, roughness = 0.85) => {
+          const mesh = new THREE.Mesh(
+            new THREE.BoxGeometry(Math.max(0.1, w), Math.max(0.1, h), Math.max(0.1, d)),
+            new THREE.MeshStandardMaterial({ color, roughness })
+          );
+          mesh.position.set(x, y, z);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          floorGroup.add(mesh);
+          return mesh;
+        };
+
         const addSceneInteraction = (
           root: any,
           kind: SceneInteraction['kind'],
@@ -433,11 +451,11 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
             addSceneInteraction(lightRoot, 'light', progress => {
               (point.material as any).emissiveIntensity = 0.08 + progress * (isNightMode ? 2.2 : 0.9);
               lamp.intensity = (isNightMode ? 26000 : 18000) * progress;
-            }, item.circuit, true);
+            }, item.circuit ? `${floorProject.id}::${item.circuit}` : undefined, true);
           } else if (isSwitch) {
             const switchRoot = new THREE.Group();
             switchRoot.add(point);
-            addSceneInteraction(switchRoot, 'switch', () => {}, item.circuit);
+            addSceneInteraction(switchRoot, 'switch', () => {}, item.circuit ? `${floorProject.id}::${item.circuit}` : undefined);
           } else {
             floorGroup.add(point);
           }
@@ -445,8 +463,21 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
         floorProject.hydraulic.forEach(item => {
           if ((item.type === 'water_pipe' || item.type === 'sewage_pipe' || item.type === 'vent_pipe' || item.type === 'rain_pipe') && item.x2 !== undefined && item.y2 !== undefined) { const dx=item.x2-item.x,dz=item.y2-item.y,len=Math.hypot(dx,dz); if(len>1){const mesh=addBox(len,item.type==='sewage_pipe'?4:3,3,(item.x+item.x2)/2,5,(item.y+item.y2)/2,item.type==='sewage_pipe'?0x92400e:item.type==='rain_pipe'?0x2563eb:item.type==='vent_pipe'?0xa78bfa:0x0ea5e9);mesh.rotation.y=-Math.atan2(dz,dx);} return; }
           if (item.type === 'pool') {
+            const poolRoot = new THREE.Group();
             const pool = addBox(48, 3, 32, item.x, -0.2, item.y, 0x0891b2);
             pool.material = new THREE.MeshStandardMaterial({ color: 0x0891b2, roughness: 0.2, metalness: 0.05, transparent: true, opacity: 0.78 });
+            const ripple = new THREE.Mesh(
+              new THREE.TorusGeometry(12, 0.55, 8, 48),
+              new THREE.MeshBasicMaterial({ color: 0x67e8f9, transparent: true, opacity: 0.55 })
+            );
+            ripple.rotation.x = Math.PI / 2;
+            ripple.position.set(item.x, 2, item.y);
+            poolRoot.add(ripple);
+            addSceneInteraction(poolRoot, 'pool', (progress, elapsed) => {
+              ripple.visible = progress > 0.02;
+              ripple.material.opacity = progress * 0.55;
+              ripple.scale.setScalar(0.5 + (elapsed % 2) * 0.55);
+            });
             return;
           }
           const color = item.type === 'sewage' || item.type === 'drain' || item.type === 'sewage_pipe' || item.type === 'grease_trap' || item.type === 'inspection_box' ? 0x92400e : item.type === 'rain_pipe' ? 0x2563eb : item.type === 'vent_pipe' ? 0xa78bfa : 0x0ea5e9;
@@ -620,7 +651,7 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
         const onUp = (e: PointerEvent) => {
           const origin = pointerOrigins.get(e.pointerId);
           const wasClick = origin && active.size === 1 && Math.hypot(e.clientX - origin.x, e.clientY - origin.y) < 7;
-          if (wasClick) activateInteraction(e);
+          if (wasClick && e.type === 'pointerup') activateInteraction(e);
           pointerOrigins.delete(e.pointerId);
           active.delete(e.pointerId);
           if (active.size < 2) pinchStart = null;
@@ -696,6 +727,6 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
     <div ref={hostRef} className="absolute inset-0" aria-label="Cena 3D integrada da planta" role="img" />
     {loading && <div className="absolute bottom-3 left-3 rounded-md bg-slate-950/80 px-3 py-2 text-xs text-white" role="status">Carregando cena 3D e modelos GLB…</div>}
     {error && <div className="absolute inset-x-3 bottom-3 rounded-md border border-amber-500/40 bg-slate-950/90 px-3 py-2 text-sm text-amber-100" role="alert">Falha ao carregar a cena 3D: {error}. Verifique a conexão e a disponibilidade do CDN.</div>}
-    <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-slate-950/75 px-3 py-2 text-xs text-white">Arraste para orbitar · Pinça/roda para zoom · Objetos com profundidade real</div>
+    <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-slate-950/75 px-3 py-2 text-xs text-white">Arraste para orbitar · Pinça/roda para zoom · Clique em portas, janelas, luzes, interruptores e peças hidráulicas para interagir</div>
   </div>;
 };
