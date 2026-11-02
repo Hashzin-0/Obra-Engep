@@ -45,6 +45,7 @@ import {
   deleteProduct as deleteRemoteProduct,
   deleteProject as deleteRemoteProject,
   loadRemoteData,
+  loadRemoteProjects,
   pushLocalData,
   saveChecklist as saveRemoteChecklist,
   saveDeadline as saveRemoteDeadline,
@@ -116,12 +117,7 @@ function AppShell() {
   const [checklists, setChecklists] = useState<Record<string, Record<string, boolean>>>(() =>
     readStored(STORAGE_KEYS.nrChecks, {})
   );
-  const [projects, setProjects] = useState<FloorPlanProject[]>(() =>
-    readStored<FloorPlanProject[]>(STORAGE_KEYS.projects, []).map((project) => ({
-      ...project,
-      id: ensureUuid(project.id),
-    }))
-  );
+  const [projects, setProjects] = useState<FloorPlanProject[]>([]);
 
   const [syncState, setSyncState] = useState<SyncState>({
     status: isSupabaseConfigured ? 'connecting' : 'disabled',
@@ -131,6 +127,7 @@ function AppShell() {
   const userIdRef = useRef<string | null>(null);
 
   const [authenticatedUser, setAuthenticatedUser] = useState<{ id: string; email?: string; name?: string; avatarUrl?: string } | null>(null);
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabase) return;
@@ -147,6 +144,7 @@ function AppShell() {
         avatarUrl: metadata.avatar_url || metadata.picture || undefined,
       } : null);
       userIdRef.current = user?.id ?? null;
+      setSessionUserId(user?.id ?? null);
     };
 
     void supabase.auth.getSession().then(({ data }) => syncAuthState(data.session));
@@ -180,7 +178,6 @@ function AppShell() {
           notes: readStored<NotebookNote[]>(STORAGE_KEYS.notebook, []),
           products: readStored<AutomotiveProductItem[]>(STORAGE_KEYS.products, []),
           checklists: readStored<Record<string, Record<string, boolean>>>(STORAGE_KEYS.nrChecks, {}),
-          projects: readStored<FloorPlanProject[]>(STORAGE_KEYS.projects, []),
         };
 
         const mergeById = <T extends { id: string }>(remoteItems: T[], localItems: T[]) => {
@@ -197,7 +194,7 @@ function AppShell() {
           checklists: Object.fromEntries(
             Object.entries(local.checklists).filter(([normId]) => !(normId in remote.checklists))
           ) as Record<string, Record<string, boolean>>,
-          projects: local.projects.filter((item) => !remote.projects.some((remoteItem) => remoteItem.id === item.id)),
+          projects: [],
         };
 
         const merged = {
@@ -209,7 +206,7 @@ function AppShell() {
           notes: mergeById(remote.notes, local.notes).sort((a, b) => b.timestamp - a.timestamp),
           products: mergeById(remote.products, local.products),
           checklists: { ...local.checklists, ...remote.checklists },
-          projects: mergeById(remote.projects, local.projects),
+
         };
 
         setDeadlines(merged.deadlines);
@@ -218,7 +215,6 @@ function AppShell() {
         setNotes(merged.notes);
         setProducts(merged.products);
         setChecklists(merged.checklists);
-        setProjects(merged.projects);
 
         writeStored(STORAGE_KEYS.deadlines, merged.deadlines);
         writeStored(STORAGE_KEYS.history, merged.history);
@@ -226,7 +222,6 @@ function AppShell() {
         writeStored(STORAGE_KEYS.notebook, merged.notes);
         writeStored(STORAGE_KEYS.products, merged.products);
         writeStored(STORAGE_KEYS.nrChecks, merged.checklists);
-        writeStored(STORAGE_KEYS.projects, merged.projects);
 
         if (remote.settings) {
           setTheme(remote.settings.theme);
@@ -240,7 +235,6 @@ function AppShell() {
           localOnly.notes.length ||
           localOnly.products.length ||
           Object.keys(localOnly.checklists).length ||
-          localOnly.projects.length
         ) {
           await pushLocalData(session.userId, localOnly);
         }
@@ -261,6 +255,35 @@ function AppShell() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!sessionUserId) {
+      setProjects([]);
+      return;
+    }
+
+    let cancelled = false;
+    const storageKey = `${STORAGE_KEYS.projects}:${sessionUserId}`;
+    const loadUserProjects = async () => {
+      try {
+        const [remoteProjects, localProjects] = await Promise.all([
+          loadRemoteProjects(sessionUserId),
+          Promise.resolve(readStored<FloorPlanProject[]>(storageKey, [])),
+        ]);
+        const remoteIds = new Set(remoteProjects.map((project) => project.id));
+        const localOnly = localProjects.filter((project) => !remoteIds.has(project.id));
+        const merged = [...remoteProjects, ...localOnly];
+        if (cancelled) return;
+        setProjects(merged);
+        writeStored(storageKey, merged);
+        await Promise.all(localOnly.map((project) => saveRemoteProject(sessionUserId, project)));
+      } catch (error) {
+        if (!cancelled) reportSyncError(error);
+      }
+    };
+    void loadUserProjects();
+    return () => { cancelled = true; };
+  }, [sessionUserId]);
 
   useEffect(() => {
     if (!remoteReady || !userIdRef.current) return;
@@ -432,8 +455,7 @@ function AppShell() {
       ? projects.map((item) => (item.id === project.id ? project : item))
       : [project, ...projects];
     setProjects(updated);
-    writeStored(STORAGE_KEYS.projects, updated);
-    writeStored(STORAGE_KEYS.activeProject, project);
+    if (userIdRef.current) writeStored(`${STORAGE_KEYS.projects}:${userIdRef.current}`, updated);
     if (userIdRef.current) {
       void saveRemoteProject(userIdRef.current, project).then(markSynced).catch(reportSyncError);
     }
@@ -442,7 +464,7 @@ function AppShell() {
   const handleDeleteProject = (id: string) => {
     const updated = projects.filter((project) => project.id !== id);
     setProjects(updated);
-    writeStored(STORAGE_KEYS.projects, updated);
+    if (userIdRef.current) writeStored(`${STORAGE_KEYS.projects}:${userIdRef.current}`, updated);
     if (userIdRef.current) {
       void deleteRemoteProject(userIdRef.current, id).then(markSynced).catch(reportSyncError);
     }
@@ -621,6 +643,7 @@ function AppShell() {
           <CalculatorsView onSaveToHistory={handleSaveCalculation} initialCategory="eletrica" onToggleFavorite={handleAddFavorite} isFavorite={isFavorite} />
         ) : activeModuleView === 'projetos' ? (
           <FloorPlanEditorView
+            key={sessionUserId ?? 'anonymous'}
             onOpenCalendarModal={() => setIsCalendarModalOpen(true)}
             deadlines={deadlines}
             projects={projects}
