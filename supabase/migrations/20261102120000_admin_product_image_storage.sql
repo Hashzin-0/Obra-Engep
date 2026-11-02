@@ -1,7 +1,7 @@
 -- Public read access is required because catalog images are displayed to all users.
 -- Writes remain restricted to authenticated administrator JWTs and the admin API.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('admin-product-images', 'admin-product-images', true, 3145728, array['image/webp']::text[])
+values ('admin-product-images', 'admin-product-images', true, 5242880, array['image/webp']::text[])
 on conflict (id) do update
 set public = excluded.public,
     file_size_limit = excluded.file_size_limit,
