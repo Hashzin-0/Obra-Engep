@@ -42,8 +42,8 @@ jobs:
           path: npm-audit.json
           if-no-files-found: error
 
-      - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=low
+      - name: Audit all dependencies
+        run: npm audit --audit-level=low
 
       - name: TypeScript validation
         run: npm run lint

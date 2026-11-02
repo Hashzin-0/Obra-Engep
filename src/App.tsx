@@ -3,26 +3,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { TopHeader } from './components/TopHeader';
 import { Home, BookOpen, Star, MoreHorizontal, Search, CalendarDays, Moon, Sun, Laptop, UserRound, LogIn } from 'lucide-react';
 import { OfflineIndicator } from './components/OfflineIndicator';
-import { OnboardingModal } from './components/OnboardingModal';
-import { GlobalSearchModal } from './components/GlobalSearchModal';
+const OnboardingModal = lazy(() => import('./components/OnboardingModal').then(({ OnboardingModal }) => ({ default: OnboardingModal })));
+const GlobalSearchModal = lazy(() => import('./components/GlobalSearchModal').then(({ GlobalSearchModal }) => ({ default: GlobalSearchModal })));
 
-import { HomeView } from './views/HomeView';
-import { CalculatorsView } from './views/CalculatorsView';
-import { LibraryView } from './views/LibraryView';
-import { FloorPlanEditorView } from './views/FloorPlanEditorView';
-import { AIStudiesView } from './views/AIStudiesView';
-import { FavoritesView } from './views/FavoritesView';
-import { MoreView } from './views/MoreView';
-import { ContractsView } from './views/ContractsView';
+const HomeView = lazy(() => import('./views/HomeView').then(({ HomeView }) => ({ default: HomeView })));
+const CalculatorsView = lazy(() => import('./views/CalculatorsView').then(({ CalculatorsView }) => ({ default: CalculatorsView })));
+const LibraryView = lazy(() => import('./views/LibraryView').then(({ LibraryView }) => ({ default: LibraryView })));
+const FloorPlanEditorView = lazy(() => import('./views/FloorPlanEditorView').then(({ FloorPlanEditorView }) => ({ default: FloorPlanEditorView })));
+const AIStudiesView = lazy(() => import('./views/AIStudiesView').then(({ AIStudiesView }) => ({ default: AIStudiesView })));
+const FavoritesView = lazy(() => import('./views/FavoritesView').then(({ FavoritesView }) => ({ default: FavoritesView })));
+const MoreView = lazy(() => import('./views/MoreView').then(({ MoreView }) => ({ default: MoreView })));
+const ContractsView = lazy(() => import('./views/ContractsView').then(({ ContractsView }) => ({ default: ContractsView })));
 
-import { DeadlinesCalendarModal } from './components/DeadlinesCalendarModal';
-import { VoiceAgentOrbModal } from './components/VoiceAgentOrbModal';
+const DeadlinesCalendarModal = lazy(() => import('./components/DeadlinesCalendarModal').then(({ DeadlinesCalendarModal }) => ({ default: DeadlinesCalendarModal })));
+const VoiceAgentOrbModal = lazy(() => import('./components/VoiceAgentOrbModal').then(({ VoiceAgentOrbModal }) => ({ default: VoiceAgentOrbModal })));
 
 import {
   AutomotiveProductItem,
@@ -67,7 +67,9 @@ import { ensureUuid } from './utils/uuid';
 export default function App() {
   return (
     <ThemeProvider>
-      <AppShell />
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-sm text-slate-400" role="status">Carregando aplicação...</div>}>
+        <AppShell />
+      </Suspense>
     </ThemeProvider>
   );
 }

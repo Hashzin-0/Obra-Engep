@@ -6,13 +6,14 @@
   "scripts": {
     "dev": "tsx server.ts",
     "start": "tsx server.ts",
-    "build": "vite build",
+    "build": "npm run typecheck && vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "vapid:generate": "node scripts/generate-vapid-keys.mjs",
     "vapid:convert": "node scripts/convert-vapid-keys.mjs",
-    "test": "tsx --test src/utils/*.test.ts"
+    "test": "tsx --test src/utils/*.test.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@vercel/functions": "3.6.1",
@@ -46,5 +47,17 @@
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",
     "vite-plugin-pwa": "^2.0.0"
+  },
+  "allowScripts": {
+    "@google/genai@2.32.0": false,
+    "core-js@3.51.0": true,
+    "esbuild@0.28.2": true,
+    "protobufjs@7.6.6": true
+  },
+  "overrides": {
+    "deepmerge": "4.1.2",
+    "ejs": "7.0.2",
+    "glob": "14.0.3",
+    "minimatch": "11.0.3"
   }
 }
