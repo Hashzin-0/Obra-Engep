@@ -360,7 +360,12 @@ export default async function handler(req: AdminRequest, res: ServerResponse) {
     return json(res, 400, { error: 'Ação inválida.' });
   } catch (error) {
     const code = typeof error === 'object' && error && 'code' in error ? String((error as { code: unknown }).code) : 'unknown';
-    console.error('Admin data endpoint failed:', code);
+    const resource = typeof req.query?.resource === 'string' ? req.query.resource : 'write';
+    const action = req.body && typeof req.body === 'object' && !Array.isArray(req.body)
+      && typeof (req.body as Record<string, unknown>).action === 'string'
+      ? (req.body as Record<string, unknown>).action as string
+      : 'none';
+    console.error('Admin data endpoint failed:', { method, resource, action, code });
     return json(res, 500, { error: 'Não foi possível concluir a operação administrativa.' });
   }
 }
