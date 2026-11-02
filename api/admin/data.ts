@@ -124,16 +124,22 @@ function parseProductImage(value: unknown): ProductImageInput | null {
 
 async function uploadProductImage(client: ReturnType<typeof getClient>, input: ProductImageInput) {
   const source = Buffer.from(input.data, 'base64');
-  const metadata = await sharp(source, { limitInputPixels: 25_000_000, animated: false }).metadata();
-  const expectedMime = metadata.format === 'jpeg' ? 'image/jpeg' : metadata.format === 'png' ? 'image/png' : metadata.format === 'webp' ? 'image/webp' : null;
-  if (!expectedMime || expectedMime !== input.mime_type || (metadata.pages ?? 1) > 1) {
-    throw new Error('Arquivo de imagem inválido. Envie um JPG, PNG ou WebP estático.');
+  let output: Buffer;
+  try {
+    const metadata = await sharp(source, { limitInputPixels: 25_000_000, animated: false }).metadata();
+    const expectedMime = metadata.format === 'jpeg' ? 'image/jpeg' : metadata.format === 'png' ? 'image/png' : metadata.format === 'webp' ? 'image/webp' : null;
+    if (!expectedMime || expectedMime !== input.mime_type || (metadata.pages ?? 1) > 1) {
+      throw new Error('Arquivo de imagem inválido. Envie um JPG, PNG ou WebP estático.');
+    }
+    output = await sharp(source, { limitInputPixels: 25_000_000 })
+      .rotate()
+      .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 82, effort: 4 })
+      .toBuffer();
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Arquivo de imagem inválido')) throw error;
+    throw new Error('Arquivo de imagem inválido ou corrompido.');
   }
-  const output = await sharp(source, { limitInputPixels: 25_000_000 })
-    .rotate()
-    .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-    .webp({ quality: 82, effort: 4 })
-    .toBuffer();
   const path = `${randomUUID()}.webp`;
   const { error } = await client.storage.from(PRODUCT_IMAGE_BUCKET).upload(path, output, {
     contentType: 'image/webp',
@@ -332,6 +338,9 @@ export default async function handler(req: AdminRequest, res: ServerResponse) {
         return json(res, 200, { ok: true, id: data.id });
       } catch (error) {
         if (uploadedImagePath) await verified.client.storage.from(PRODUCT_IMAGE_BUCKET).remove([uploadedImagePath]);
+        if (error instanceof Error && error.message.startsWith('Arquivo de imagem inválido')) {
+          return json(res, 400, { error: error.message });
+        }
         throw error;
       }
     }
