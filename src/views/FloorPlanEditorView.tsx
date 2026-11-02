@@ -593,6 +593,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     wallDrawMode,
     wallSequencePoints,
     showWallVertices,
+    gapEnabled,
+    gapDistance,
     isNightMode,
   ]);
 
