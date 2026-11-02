@@ -527,7 +527,7 @@ function ProductEditor({ initial, onClose, onSave }: {
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 p-3 sm:p-6">
       <div className="mx-auto my-4 max-w-3xl rounded-2xl border border-slate-700 bg-[#17243A] shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4"><div><h2 className="font-bold">{initial ? 'Editar produto' : 'Novo produto'}</h2><p className="text-xs text-slate-400">Dados técnicos e fonte de referência</p></div><button onClick={onClose} aria-label="Fechar" className="rounded-lg p-2 hover:bg-slate-800"><X className="h-4 w-4" /></button></div>
-        <form onSubmit={submit} className="space-y-4 p-5">
+        <form noValidate onSubmit={submit} className="space-y-4 p-5">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Nome do produto"><input required maxLength={180} value={form.name} onChange={(e) => update('name', e.target.value)} className={inputClass} /></Field>
             <Field label="Fabricante"><input value={form.manufacturer} onChange={(e) => update('manufacturer', e.target.value)} className={inputClass} /></Field>
