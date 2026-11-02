@@ -610,7 +610,7 @@ function AppShell() {
         ) : activeModuleView === 'calculadoras' ? (
           <div>
             <BackButton onClick={() => setActiveModuleView(null)} />
-            <CalculatorsView onSaveToHistory={handleSaveCalculation} initialCategory="eletrica" />
+            <CalculatorsView onSaveToHistory={handleSaveCalculation} initialCategory="eletrica" onToggleFavorite={handleAddFavorite} isFavorite={isFavorite} />
           </div>
         ) : activeModuleView === 'projetos' ? (
           <div>

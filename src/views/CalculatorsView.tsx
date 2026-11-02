@@ -53,11 +53,13 @@ import { AdvancedElectricalCalculatorView, ADVANCED_ELECTRICAL_TOOLS } from './A
 import { ElectricalFormulasView } from './ElectricalFormulasView';
 import { LimitBar } from '../components/LimitBar';
 import { AlertBanner } from '../components/AlertBanner';
-import { CalculationHistoryItem } from '../types';
+import { CalculationHistoryItem, FavoriteItem } from '../types';
 
 interface CalculatorsViewProps {
   initialCategory?: string;
   onSaveToHistory: (item: CalculationHistoryItem) => void;
+  onToggleFavorite: (item: FavoriteItem) => void;
+  isFavorite: (id: string) => boolean;
   prefillItem?: CalculationHistoryItem | null;
 }
 
@@ -293,6 +295,8 @@ function safeCalculation<T>(callback: () => T): T | null {
 export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
   initialCategory = 'eletrica',
   onSaveToHistory,
+  onToggleFavorite,
+  isFavorite,
   prefillItem,
 }) => {
   const { resolvedTheme } = useTheme();
@@ -307,9 +311,7 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
 
   // Selected tool inside category (defaults to 'potencia_corrente' for immediate utility)
   const [selectedToolId, setSelectedToolId] = useState<string | null>('potencia_corrente');
-  const [bookmarkedTools, setBookmarkedTools] = useState<Record<string, boolean>>({
-    potencia_corrente: true,
-  });
+
 
   // Electrical Tab State (Potência, Corrente, Tensão, Cabo)
   const [elecSubTab, setElecSubTab] = useState<'potencia' | 'corrente' | 'tensao' | 'cabo'>('corrente');
@@ -354,9 +356,16 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
   // Conversions State
   const [convInputValue, setConvInputValue] = useState<number>(Number.NaN);
 
-  // Toggle bookmark helper
-  const toggleBookmark = (id: string) => {
-    setBookmarkedTools((prev) => ({ ...prev, [id]: !prev[id] }));
+  const toggleToolFavorite = (tool: ToolDef) => {
+    onToggleFavorite({
+      id: tool.id,
+      type: 'calculadora',
+      title: tool.title,
+      subtitle: tool.subtitle,
+      moduleId: 'calculadoras',
+      metadata: { category: tool.category },
+      addedAt: Date.now(),
+    });
   };
 
   // Electrical Handler
@@ -411,24 +420,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
 
   return (
     <div className="space-y-5 pb-24">
-      {/* 3. CALCULADORAS Header matching briefing board */}
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold tracking-widest text-[#5B9BFF] uppercase bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
-              Tela 3 • Ferramentas
-            </span>
-            <span className="text-xs text-[#9FB0C8]">Cálculos de Campo</span>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">
-            Calculadoras Técnicas
-          </h2>
-          <p className="text-xs text-[#9FB0C8]">
-            Ferramentas práticas e precisas com fórmulas transparentes e memórias de cálculo.
-          </p>
-        </div>
-
-        {selectedToolId && (
+      {selectedToolId && (
+        <div className="flex justify-end">
           <button
             onClick={() => setSelectedToolId(null)}
             className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#17243A] hover:bg-[#1E2E48] text-xs font-medium text-[#9FB0C8] hover:text-white border border-[#2A3A55] transition"
@@ -436,8 +429,8 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Ver Todas</span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Top Category Filter Pills (Exact order from Board 3: Elétrica, Hidráulica, Estrutural, Outras) */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -484,7 +477,7 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {currentCategoryTools.map((tool) => {
               const ToolIcon = tool.icon;
-              const isFav = bookmarkedTools[tool.id];
+              const isFav = isFavorite(tool.id);
               return (
                 <div
                   key={tool.id}
@@ -516,10 +509,10 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        toggleBookmark(tool.id);
+                        toggleToolFavorite(tool);
                       }}
                       className="p-1.5 text-[#9FB0C8] hover:text-[#F5B93A] transition"
-                      title="Salvar nos favoritos"
+                      title={isFav ? 'Remover dos favoritos' : 'Salvar nos favoritos'}
                     >
                       <Bookmark
                         className={`w-4 h-4 ${isFav ? 'fill-[#F5B93A] text-[#F5B93A]' : ''}`}
@@ -563,16 +556,16 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => toggleBookmark(currentTool.id)}
+                onClick={() => toggleToolFavorite(currentTool)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/20 hover:bg-black/40 border border-white/5 text-xs text-[#E8EDF5] transition"
               >
                 <Bookmark
                   className={`w-3.5 h-3.5 ${
-                    bookmarkedTools[currentTool.id] ? 'fill-[#F5B93A] text-[#F5B93A]' : ''
+                    isFavorite(currentTool.id) ? 'fill-[#F5B93A] text-[#F5B93A]' : ''
                   }`}
                 />
                 <span className="hidden sm:inline">
-                  {bookmarkedTools[currentTool.id] ? 'Favoritado' : 'Salvar Favorito'}
+                  {isFavorite(currentTool.id) ? 'Favoritado' : 'Salvar Favorito'}
                 </span>
               </button>
             </div>
