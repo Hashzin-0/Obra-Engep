@@ -42,6 +42,7 @@ import { exportToLocalCalendar, getGoogleCalendarUrl } from '../utils/calendarSy
 import { CalendarCheck, BellRing, Smartphone, Clock, Calendar } from 'lucide-react';
 
 interface MoreViewProps {
+  userId?: string | null;
   historyItems: CalculationHistoryItem[];
   deadlines?: ProjectDeadline[];
   notes?: NotebookNote[];
@@ -58,6 +59,7 @@ interface MoreViewProps {
 type SubSection = 'menu' | 'caderno' | 'historico' | 'notificacoes' | 'configuracoes' | 'sobre' | 'ajuda';
 
 export const MoreView: React.FC<MoreViewProps> = ({
+  userId,
   historyItems,
   deadlines = [],
   notes: notesProp,
@@ -117,7 +119,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
   };
 
   const handleExportBackup = () => {
-    const blob = new Blob([JSON.stringify(buildBackup(), null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(buildBackup(userId ?? undefined), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -127,7 +129,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
   };
 
   const handleImportBackup = async (file: File) => {
-    const result = restoreBackup(await file.text());
+    const result = restoreBackup(await file.text(), userId ?? undefined);
     setPushFeedback(result.message);
     if (result.ok) window.setTimeout(() => window.location.reload(), 900);
   };
