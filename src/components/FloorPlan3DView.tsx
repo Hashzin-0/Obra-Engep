@@ -103,6 +103,7 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           progress: number;
           target: number;
           circuit?: string;
+          networkIds?: number[];
           update: (progress: number, elapsed: number) => void;
         };
         const sceneInteractions: SceneInteraction[] = [];
@@ -129,11 +130,12 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           kind: SceneInteraction['kind'],
           update: SceneInteraction['update'],
           circuit?: string,
-          initiallyActive = false
+          initiallyActive = false,
+          networkIds: number[] = []
         ) => {
           const interaction: SceneInteraction = {
             root, kind, progress: initiallyActive ? 1 : 0,
-            target: initiallyActive ? 1 : 0, circuit, update
+            target: initiallyActive ? 1 : 0, circuit, networkIds, update
           };
           root.userData.sceneInteraction = interaction;
           sceneInteractions.push(interaction);
@@ -438,6 +440,51 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           }
         });
 
+        // Resolve physical wire connectivity as well as circuit labels.
+        // Wire endpoints within snapping tolerance form one connected network;
+        // a switch controls lights attached to the same network.
+        const wireSegments = floorProject.electrical.filter(
+          item => item.type === 'wire' && item.x2 !== undefined && item.y2 !== undefined
+        );
+        const wireParents = wireSegments.flatMap((_, index) => [index * 2, index * 2 + 1]);
+        const findWireRoot = (node: number): number => {
+          if (wireParents[node] !== node) wireParents[node] = findWireRoot(wireParents[node]);
+          return wireParents[node];
+        };
+        const unionWireNodes = (a: number, b: number) => {
+          const rootA = findWireRoot(a), rootB = findWireRoot(b);
+          if (rootA !== rootB) wireParents[rootB] = rootA;
+        };
+        const wireEndpoints = wireSegments.flatMap((wire, index) => [
+          { x: wire.x, y: wire.y, node: index * 2 },
+          { x: wire.x2 as number, y: wire.y2 as number, node: index * 2 + 1 }
+        ]);
+        wireEndpoints.forEach((endpoint, index) => {
+          wireEndpoints.slice(index + 1).forEach(other => {
+            if (Math.hypot(endpoint.x - other.x, endpoint.y - other.y) <= 14) {
+              unionWireNodes(endpoint.node, other.node);
+            }
+          });
+        });
+        const distanceToWire = (x: number, y: number, wire: typeof wireSegments[number]) => {
+          const dx = (wire.x2 as number) - wire.x;
+          const dy = (wire.y2 as number) - wire.y;
+          const lengthSquared = dx * dx + dy * dy;
+          const t = lengthSquared > 0
+            ? Math.max(0, Math.min(1, ((x - wire.x) * dx + (y - wire.y) * dy) / lengthSquared))
+            : 0;
+          return Math.hypot(x - (wire.x + t * dx), y - (wire.y + t * dy));
+        };
+        const getWireNetworks = (item: typeof floorProject.electrical[number]) => {
+          const networks = new Set<number>();
+          wireSegments.forEach((wire, index) => {
+            if (distanceToWire(item.x, item.y, wire) <= 14) {
+              networks.add(findWireRoot(index * 2));
+            }
+          });
+          return [...networks];
+        };
+
         floorProject.electrical.forEach(item => {
           if ((item.type === 'wire' || item.type === 'conduit') && item.x2 !== undefined && item.y2 !== undefined) { const dx=item.x2-item.x,dz=item.y2-item.y,len=Math.hypot(dx,dz); if(len>1){const mesh=addBox(len,item.type==='conduit'?4:2,2,(item.x+item.x2)/2,8,(item.y+item.y2)/2,item.type==='conduit'?0xa78bfa:0xfacc15);mesh.rotation.y=-Math.atan2(dz,dx);} return; }
           if (item.type === 'solar_panel') {
@@ -466,11 +513,11 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
             addSceneInteraction(lightRoot, 'light', progress => {
               (point.material as any).emissiveIntensity = 0.08 + progress * (isNightMode ? 2.2 : 0.9);
               lamp.intensity = (isNightMode ? 26000 : 18000) * progress;
-            }, item.circuit ? `${floorProject.id}::${item.circuit}` : undefined, true);
+            }, item.circuit ? `${floorProject.id}::${item.circuit}` : undefined, true, getWireNetworks(item));
           } else if (isSwitch) {
             const switchRoot = new THREE.Group();
             switchRoot.add(point);
-            addSceneInteraction(switchRoot, 'switch', () => {}, item.circuit ? `${floorProject.id}::${item.circuit}` : undefined);
+            addSceneInteraction(switchRoot, 'switch', () => {}, item.circuit ? `${floorProject.id}::${item.circuit}` : undefined, false, getWireNetworks(item));
           } else {
             floorGroup.add(point);
           }
@@ -629,7 +676,13 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           if (interaction.kind === 'switch') {
             const circuit = interaction.circuit;
             if (!circuit) return;
-            const circuitLights = sceneInteractions.filter(candidate => candidate.kind === 'light' && candidate.circuit === circuit);
+            const switchNetworks = interaction.networkIds ?? [];
+            const circuitLights = sceneInteractions.filter(candidate =>
+              candidate.kind === 'light' && (
+                (!!circuit && candidate.circuit === circuit) ||
+                switchNetworks.some(network => candidate.networkIds?.includes(network))
+              )
+            );
             if (!circuitLights.length) return;
             const shouldTurnOn = circuitLights.some(light => light.target < 0.5);
             circuitLights.forEach(light => { light.target = shouldTurnOn ? 1 : 0; });
