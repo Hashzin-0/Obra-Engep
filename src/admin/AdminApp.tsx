@@ -467,7 +467,7 @@ export default function AdminApp() {
         )}
       </main>
 
-      {showProductForm && <ProductEditor initial={editingProduct} onClose={() => setShowProductForm(false)} onSave={(value) => void saveProduct(value)} />}
+      {showProductForm && <ProductEditor initial={editingProduct} onClose={() => setShowProductForm(false)} onSave={(value) => saveProduct(value)} />}
     </div>
   );
 }
