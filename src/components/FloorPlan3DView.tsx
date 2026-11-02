@@ -223,16 +223,24 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           addBox(thickness+1,2,thickness+1,p.x,101,p.z,isDark?0xcbd5e1:0xf8fafc);
         });
 
-        // Door panels stand vertically in the opening; style is configurable.
-        // Windows receive a thin frame/glazing centered in the actual wall cutout.
+        // Modela o batente dentro do vão real da parede, alinhado ao eixo da abertura.
         floorProject.openings.forEach(o => {
           const widthPx = Math.max(16, o.width * 0.5);
           const angle = -((o.rotation ?? 0) * Math.PI / 180);
+          const hostWall = floorProject.walls.find(w => w.id === o.wallId);
+          const frameDepth = Math.max(6, (hostWall?.thickness ?? 8) + 3);
+          const offsetOnWall = (distance: number) => ({ x: o.x + Math.cos(angle) * distance, z: o.y - Math.sin(angle) * distance });
           if (o.type === 'door') {
             const style = o.doorStyle ?? 'wood';
+            const frameColor = style === 'metal' ? 0x94a3b8 : style === 'glass' ? 0x64748b : 0x805333;
             const material = style === 'glass'
               ? new THREE.MeshStandardMaterial({ color: 0x93c5fd, transparent: true, opacity: 0.55, metalness: 0.1, roughness: 0.15 })
               : new THREE.MeshStandardMaterial({ color: style === 'metal' ? 0x94a3b8 : style === 'sliding' ? 0xb08968 : 0x9a6b3f, roughness: 0.72 });
+            const left = offsetOnWall(-widthPx / 2), right = offsetOnWall(widthPx / 2);
+            const jambLeft = addBox(4, 80, frameDepth, left.x, 40, left.z, frameColor);
+            const jambRight = addBox(4, 80, frameDepth, right.x, 40, right.z, frameColor);
+            const header = addBox(widthPx + 4, 4, frameDepth, o.x, 80, o.y, frameColor);
+            jambLeft.rotation.y = angle; jambRight.rotation.y = angle; header.rotation.y = angle;
             const leaf = new THREE.Mesh(new THREE.BoxGeometry(widthPx * (style === 'double' ? 0.46 : 0.92), 78, 3, 1, 1, 1), material);
             leaf.position.set(o.x, 39, o.y);
             leaf.rotation.y = angle;
@@ -243,10 +251,17 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
               leaf2.rotation.y = angle;
               floorGroup.add(leaf2);
             }
-            const handle = addBox(2, 8, 2, o.x + Math.cos(angle) * widthPx * 0.32, 39, o.y - Math.sin(angle) * widthPx * 0.32, 0xf8fafc);
+            addBox(2, 8, 2, o.x + Math.cos(angle) * widthPx * 0.32, 39, o.y - Math.sin(angle) * widthPx * 0.32, 0xf8fafc);
           } else {
-            const frame = addBox(widthPx, 42, 3, o.x, 51, o.y, 0x38bdf8, 0.8);
-            frame.rotation.y = angle;
+            const frameColor = 0x64748b;
+            const left = offsetOnWall(-widthPx / 2), right = offsetOnWall(widthPx / 2);
+            const jambLeft = addBox(3, 42, frameDepth, left.x, 51, left.z, frameColor);
+            const jambRight = addBox(3, 42, frameDepth, right.x, 51, right.z, frameColor);
+            const sill = addBox(widthPx + 3, 3, frameDepth, o.x, 30, o.y, frameColor);
+            const header = addBox(widthPx + 3, 3, frameDepth, o.x, 72, o.y, frameColor);
+            jambLeft.rotation.y = angle; jambRight.rotation.y = angle; sill.rotation.y = angle; header.rotation.y = angle;
+            const glazing = new THREE.Mesh(new THREE.BoxGeometry(Math.max(1, widthPx - 3), 39, 1.5), new THREE.MeshStandardMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.32, metalness: 0.12, roughness: 0.16 }));
+            glazing.position.set(o.x, 51, o.y); glazing.rotation.y = angle; floorGroup.add(glazing);
           }
         });
 
@@ -258,11 +273,14 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
             panel.material = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, emissive: 0x172554, roughness: 0.35, metalness: 0.25 });
             return;
           }
-          const color = item.type === 'light' ? 0xfacc15 : item.type === 'panel' ? 0x2563eb : 0xfb7185;
-          const point = new THREE.Mesh(new THREE.SphereGeometry(item.type === 'light' ? 6 : 4, 16, 12), new THREE.MeshStandardMaterial({ color: isNightMode && item.type === 'light' ? 0xffe4a3 : color, emissive: isNightMode && item.type === 'light' ? 0xffb84d : color, emissiveIntensity: isNightMode && item.type === 'light' ? 2.2 : 0.12 }));
-          point.position.set(item.x, item.type === 'light' ? 102 : 7, item.y);
+          const isLight = item.type === 'light';
+          const color = isLight ? 0xfacc15 : item.type === 'panel' ? 0x2563eb : 0xfb7185;
+          const point = new THREE.Mesh(new THREE.SphereGeometry(isLight ? 6 : 4, 16, 12), new THREE.MeshStandardMaterial({ color: isLight && isNightMode ? 0xffe4a3 : color, emissive: isLight ? 0xffb84d : color, emissiveIntensity: isLight ? (isNightMode ? 2.2 : 0.65) : 0.12 }));
+          point.position.set(item.x, isLight ? 102 : 7, item.y);
           floorGroup.add(point);
-          if (isNightMode && item.type === 'light') { const lamp = new THREE.PointLight(0xffc66d, 2.8, 210, 2); lamp.position.set(item.x, 98, item.y); floorGroup.add(lamp); }
+          // Point lights are active in both day and night modes so the 3D fixture
+          // visibly illuminates nearby walls and furniture, not only its own bulb.
+          if (isLight) { const lamp = new THREE.PointLight(0xffc66d, isNightMode ? 4.2 : 2.0, 260, 2); lamp.position.set(item.x, 98, item.y); floorGroup.add(lamp); }
         });
         floorProject.hydraulic.forEach(item => {
           if ((item.type === 'water_pipe' || item.type === 'sewage_pipe' || item.type === 'vent_pipe' || item.type === 'rain_pipe') && item.x2 !== undefined && item.y2 !== undefined) { const dx=item.x2-item.x,dz=item.y2-item.y,len=Math.hypot(dx,dz); if(len>1){const mesh=addBox(len,item.type==='sewage_pipe'?4:3,3,(item.x+item.x2)/2,5,(item.y+item.y2)/2,item.type==='sewage_pipe'?0x92400e:item.type==='rain_pipe'?0x2563eb:item.type==='vent_pipe'?0xa78bfa:0x0ea5e9);mesh.rotation.y=-Math.atan2(dz,dx);} return; }
