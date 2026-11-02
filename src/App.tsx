@@ -546,11 +546,19 @@ function AppShell() {
   };
 
   const latest = historyItems[0] ?? null;
+  const isCalculatorView = activeModuleView === 'calculadoras';
 
   return (
     <div className="min-h-screen flex flex-col transition-colors selection:bg-[#1F66D6] selection:text-white">
-      <TopHeader onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)} />
+      <TopHeader
+        onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)}
+        onBackToHome={isCalculatorView ? () => {
+          setActiveModuleView(null);
+          setCurrentTab('inicio');
+        } : undefined}
+      />
 
+      {!isCalculatorView && (
       <section
         aria-label="Navegação e ações rápidas"
         className={`max-w-4xl w-full mx-auto px-4 pt-3 pb-1`}
@@ -604,14 +612,12 @@ function AppShell() {
           </div>
         </div>
       </section>
+      )}
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 pt-2">
         {activeModuleView === 'contratos' ? (
           <ContractsView userId={authenticatedUser?.id ?? null} onBack={() => setActiveModuleView(null)} />
         ) : activeModuleView === 'calculadoras' ? (
-          <div>
-            <BackButton onClick={() => setActiveModuleView(null)} />
-            <CalculatorsView onSaveToHistory={handleSaveCalculation} initialCategory="eletrica" onToggleFavorite={handleAddFavorite} isFavorite={isFavorite} />
-          </div>
+          <CalculatorsView onSaveToHistory={handleSaveCalculation} initialCategory="eletrica" onToggleFavorite={handleAddFavorite} isFavorite={isFavorite} />
         ) : activeModuleView === 'projetos' ? (
           <div>
             <BackButton onClick={() => setActiveModuleView(null)} />
