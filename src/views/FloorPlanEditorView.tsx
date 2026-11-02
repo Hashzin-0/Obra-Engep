@@ -138,8 +138,10 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   // Push state to undo history
   const updateProjectState = (newProject: FloorPlanProject) => {
     const levelId = newProject.activeLevelId ?? activeLevelId;
-    const normalized = ensureProjectLevels({ ...newProject, activeLevelId: levelId, isNightMode });
-    normalized.levels = captureActiveLevel(normalized, levelId);
+    // Capture the changed top-level arrays before normalization. Normalizing first
+    // would restore the stale active-level snapshot and silently discard new items.
+    const levels = captureActiveLevel(newProject, levelId);
+    const normalized = ensureProjectLevels({ ...newProject, levels, activeLevelId: levelId, isNightMode });
     const newHistory = history.slice(0, historyIndex + 1); newHistory.push(normalized);
     setHistory(newHistory); setHistoryIndex(newHistory.length - 1); setProject(normalized); setActiveLevelId(levelId);
     localStorage.setItem('obra_engep_active_project', JSON.stringify(normalized)); onSaveProject?.(normalized);
@@ -874,7 +876,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       } else if (['light','socket','switch','panel','data_point','grounding','solar_panel'].includes(tool)) {
         const item: ElectricalItem = { id: ensureUuid(tool + '-' + Date.now()), type: tool as ElectricalItem['type'], x, y, rotation: p.wallId ? p.rotation : 0, circuit: tool === 'light' ? 'Circuito de iluminação' : tool === 'socket' ? 'Circuito de tomadas' : 'A definir', label: ({light:'Ponto de luz',socket:'Tomada TUG',switch:'Interruptor',panel:'Quadro de distribuição',data_point:'Ponto de dados',grounding:'Ponto de aterramento',solar_panel:'Painel solar fotovoltaico'} as Record<string,string>)[tool] || tool };
         updateProjectState({ ...project, electrical: [...project.electrical, item] }); setSelectedObject({ kind: 'electrical', id: item.id });
-      } else if (['cold_water','hot_water','sink','faucet','shower','toilet','floor_drain','cleanout','inspection_box','tank','heater','grease_trap'].includes(tool)) {
+      } else if (['cold_water','hot_water','sink','faucet','shower','toilet','floor_drain','cleanout','inspection_box','tank','heater','grease_trap','pool'].includes(tool)) {
         const hydraulicType = tool as HydraulicItem['type'];
         const item: HydraulicItem = { id: ensureUuid(tool + '-' + Date.now()), type: hydraulicType, x, y, diameterMm: ['toilet','inspection_box','grease_trap'].includes(tool) ? 100 : tool === 'pool' ? 0 : ['shower','sink','floor_drain','cleanout'].includes(tool) ? 40 : 25, label: ({cold_water:'Ponto de água fria',hot_water:'Ponto de água quente',sink:'Pia',faucet:'Torneira',shower:'Chuveiro',toilet:'Bacia sanitária',floor_drain:'Ralo sifonado',cleanout:'Ponto de limpeza',inspection_box:'Caixa de inspeção',tank:'Reservatório de água',heater:'Aquecedor de água',grease_trap:'Caixa de gordura',pool:'Piscina'} as Record<string,string>)[tool] || tool };
         updateProjectState({ ...project, hydraulic: [...project.hydraulic, item] }); setSelectedObject({ kind: 'hydraulic', id: item.id });
