@@ -131,9 +131,15 @@ export function mapProject(row: Row): FloorPlanProject {
     scale: row.scale,
     updatedAt: row.updated_at ? new Date(row.updated_at).toLocaleDateString('pt-BR') : '',
     walls: data.walls ?? [],
+    rooms: data.rooms ?? [],
     openings: data.openings ?? [],
     electrical: data.electrical ?? [],
     hydraulic: data.hydraulic ?? [],
+    furniture: data.furniture ?? [],
+    levels: data.levels ?? [],
+    activeLevelId: data.activeLevelId,
+    isNightMode: data.isNightMode ?? false,
+    deadlines: data.deadlines ?? [],
   };
 }
 
@@ -465,6 +471,16 @@ export async function saveSettings(userId: string, settings: AppSettings) {
   if (error) throw new Error(error.message);
 }
 
+export async function loadRemoteProjects(userId: string): Promise<FloorPlanProject[]> {
+  const { data, error } = await client()
+    .from('projects')
+    .select('*')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapProject);
+}
+
 export async function saveProject(userId: string, project: FloorPlanProject) {
   const { error } = await client().from('projects').upsert(
     {
@@ -476,9 +492,15 @@ export async function saveProject(userId: string, project: FloorPlanProject) {
       scale: project.scale,
       data: {
         walls: project.walls,
+        rooms: project.rooms ?? [],
         openings: project.openings,
         electrical: project.electrical,
         hydraulic: project.hydraulic,
+        furniture: project.furniture ?? [],
+        levels: project.levels ?? [],
+        activeLevelId: project.activeLevelId ?? null,
+        isNightMode: project.isNightMode ?? false,
+        deadlines: project.deadlines ?? [],
       },
     },
     { onConflict: 'id' }
