@@ -108,7 +108,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   const [zoom, setZoom] = useState(1);
   const [show3D, setShow3D] = useState(false);
   const [showFurnitureCatalog, setShowFurnitureCatalog] = useState(false);
-  const [selectedObjects, setSelectedObjects] = useState<Array<{ kind: 'wall' | 'opening' | 'electrical' | 'hydraulic'; id: string }>>([]);
+  const [selectedObjects, setSelectedObjects] = useState<Array<{ kind: 'wall' | 'opening' | 'electrical' | 'hydraulic' | 'furniture'; id: string }>>([]);
   const [selectionRect, setSelectionRect] = useState<{x1:number;y1:number;x2:number;y2:number}|null>(null);
   const selectionStartRef = useRef<{x:number;y:number}|null>(null);
   const [canvasPan, setCanvasPan] = useState({ x: 0, y: 0 });
@@ -131,8 +131,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
   const [currentMouse, setCurrentMouse] = useState<{ x: number; y: number } | null>(null);
-  const [selectedObject, setSelectedObject] = useState<{ kind: 'wall' | 'opening' | 'electrical' | 'hydraulic'; id: string } | null>(null);
-  const dragRef = useRef<{ kind: 'wall' | 'opening' | 'electrical' | 'hydraulic'; id: string; x: number; y: number; endpoint?: 1 | 2 } | null>(null);
+  const [selectedObject, setSelectedObject] = useState<{ kind: 'wall' | 'opening' | 'electrical' | 'hydraulic' | 'furniture'; id: string } | null>(null);
+  const dragRef = useRef<{ kind: 'wall' | 'opening' | 'electrical' | 'hydraulic' | 'furniture'; id: string; x: number; y: number; endpoint?: 1 | 2 } | null>(null);
   const placementRef = useRef(false);
 
   // Push state to undo history
@@ -418,6 +418,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     if (dragRef.current && currentMouse) {
       const drag = dragRef.current; ctx.save(); ctx.globalAlpha = 0.55; ctx.strokeStyle = '#5B9BFF'; ctx.fillStyle = '#5B9BFF'; ctx.lineWidth = 4; ctx.setLineDash([5, 3]);
       if (drag.kind === 'wall') { const w = project.walls.find(item => item.id === drag.id); if (w) { const dx = currentMouse.x - drag.x, dy = currentMouse.y - drag.y; ctx.beginPath(); ctx.moveTo(w.x1 + dx, w.y1 + dy); ctx.lineTo(w.x2 + dx, w.y2 + dy); ctx.stroke(); } }
+      else if (drag.kind === 'furniture') { const item=(project.furniture??[]).find(o=>o.id===drag.id); if(item){ctx.save();ctx.translate(item.x+currentMouse.x-drag.x,item.y+currentMouse.y-drag.y);ctx.rotate(item.rotation*Math.PI/180);ctx.strokeRect(-item.widthIn*(40/39.37)/2,-item.depthIn*(40/39.37)/2,item.widthIn*(40/39.37),item.depthIn*(40/39.37));ctx.restore();} }
       else { const item = drag.kind === 'opening' ? project.openings.find(o => o.id === drag.id) : drag.kind === 'electrical' ? project.electrical.find(o => o.id === drag.id) : project.hydraulic.find(o => o.id === drag.id); if (item) { ctx.beginPath(); ctx.arc(item.x + currentMouse.x - drag.x, item.y + currentMouse.y - drag.y, 12, 0, Math.PI * 2); ctx.stroke(); } }
       ctx.restore();
     }
@@ -438,26 +439,22 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           ctx.stroke();
           return;
         }
-        const item = selection.kind === 'opening'
-          ? project.openings.find(value => value.id === selection.id)
-          : selection.kind === 'electrical'
-            ? project.electrical.find(value => value.id === selection.id)
-            : project.hydraulic.find(value => value.id === selection.id);
+        if(selection.kind==='furniture'){const item=(project.furniture??[]).find(value=>value.id===selection.id);if(!item)return;ctx.save();ctx.translate(item.x,item.y);ctx.rotate(item.rotation*Math.PI/180);ctx.strokeRect(-item.widthIn*(40/39.37)/2,-item.depthIn*(40/39.37)/2,item.widthIn*(40/39.37),item.depthIn*(40/39.37));ctx.restore();return;}
+        const item = selection.kind === 'opening' ? project.openings.find(value => value.id === selection.id) : selection.kind === 'electrical' ? project.electrical.find(value => value.id === selection.id) : project.hydraulic.find(value => value.id === selection.id);
         if (!item) return;
-        ctx.beginPath();
-        ctx.arc(item.x, item.y, 15, 0, Math.PI * 2);
-        ctx.stroke();
+        ctx.beginPath(); ctx.arc(item.x, item.y, 15, 0, Math.PI * 2); ctx.stroke();
       });
       ctx.restore();
     }
     if (selectedObject) {
       ctx.save(); ctx.strokeStyle = '#5B9BFF'; ctx.lineWidth = 3; ctx.setLineDash([5, 3]);
       if (selectedObject.kind === 'wall') { const w = project.walls.find(item => item.id === selectedObject.id); if (w) { ctx.beginPath(); ctx.moveTo(w.x1, w.y1); ctx.lineTo(w.x2, w.y2); ctx.stroke(); } }
+      else if(selectedObject.kind==='furniture'){const item=(project.furniture??[]).find(o=>o.id===selectedObject.id);if(item){ctx.translate(item.x,item.y);ctx.rotate(item.rotation*Math.PI/180);ctx.strokeRect(-item.widthIn*(40/39.37)/2,-item.depthIn*(40/39.37)/2,item.widthIn*(40/39.37),item.depthIn*(40/39.37));}}
       else { const item = selectedObject.kind === 'opening' ? project.openings.find(o => o.id === selectedObject.id) : selectedObject.kind === 'electrical' ? project.electrical.find(o => o.id === selectedObject.id) : project.hydraulic.find(o => o.id === selectedObject.id); if (item) { ctx.beginPath(); ctx.arc(item.x, item.y, 15, 0, Math.PI * 2); ctx.stroke(); } }
       ctx.restore();
     }
     if (placementRef.current && currentMouse && tool !== 'wall') {
-      const p = snapToNearestWall(currentMouse.x, currentMouse.y); ctx.save(); ctx.globalAlpha = 0.65; ctx.setLineDash([4, 3]); ctx.strokeStyle = '#5B9BFF'; ctx.fillStyle = '#5B9BFF';
+      const p = (tool === 'door' || tool === 'window' || gapEnabled) ? snapToNearestWall(currentMouse.x, currentMouse.y) : {x:currentMouse.x,y:currentMouse.y,rotation:0,wallId:''}; ctx.save(); ctx.globalAlpha = 0.65; ctx.setLineDash([4, 3]); ctx.strokeStyle = '#5B9BFF'; ctx.fillStyle = '#5B9BFF';
       if (tool === 'door' || tool === 'window') { ctx.translate(p.x, p.y); ctx.rotate(p.rotation * Math.PI / 180); ctx.beginPath(); if (tool === 'door') { ctx.arc(0, 0, 25, 0, Math.PI / 2); ctx.moveTo(0, 0); ctx.lineTo(25, 0); } else { ctx.moveTo(-20, 0); ctx.lineTo(20, 0); } ctx.stroke(); }
       else { ctx.beginPath(); ctx.arc(p.x, p.y, tool === 'cold_water' ? 9 : 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
       ctx.restore();
@@ -596,6 +593,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     wallDrawMode,
     wallSequencePoints,
     showWallVertices,
+    gapEnabled,
+    gapDistance,
     isNightMode,
   ]);
 
@@ -658,7 +657,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       }
     }
 
-    if (tool === 'select') { const hit=[...project.openings.map(o=>({kind:'opening' as const,id:o.id,x:o.x,y:o.y})),...project.electrical.map(o=>({kind:'electrical' as const,id:o.id,x:o.x,y:o.y})),...project.hydraulic.map(o=>({kind:'hydraulic' as const,id:o.id,x:o.x,y:o.y})),...project.walls.map(w=>({kind:'wall' as const,id:w.id,x:(w.x1+w.x2)/2,y:(w.y1+w.y2)/2}))].reverse().find(o=>Math.hypot(o.x-x,o.y-y)<20); if(hit){const hitItem=hit.kind==='wall'?project.walls.find(v=>v.id===hit.id):hit.kind==='opening'?project.openings.find(v=>v.id===hit.id):hit.kind==='electrical'?project.electrical.find(v=>v.id===hit.id):project.hydraulic.find(v=>v.id===hit.id);if(hitItem?.locked){const target={kind:hit.kind,id:hit.id};setSelectedObject(target);setSelectedObjects([target]);dragRef.current=null;e.currentTarget.setPointerCapture(e.pointerId);return;}const target={kind:hit.kind,id:hit.id};setSelectedObjects(prev=>e.shiftKey?(prev.some(s=>s.id===hit.id&&s.kind===hit.kind)?prev.filter(s=>s.id!==hit.id):[...prev,target]):(prev.some(s=>s.id===hit.id&&s.kind===hit.kind)?prev:[target]));setSelectedObject(target);dragRef.current={...target,x,y};selectionStartRef.current=null;}else{selectionStartRef.current={x,y};setSelectionRect({x1:x,y1:y,x2:x,y2:y});setIsDrawing(true);if(!e.shiftKey){setSelectedObjects([]);setSelectedObject(null);}} e.currentTarget.setPointerCapture(e.pointerId);return; }
+    if (tool === 'select') { const furnitureHits=(showFurnitureLayer?(project.furniture??[]):[]).filter(item=>{const dx=x-item.x,dy=y-item.y,angle=item.rotation*Math.PI/180,localX=dx*Math.cos(angle)+dy*Math.sin(angle),localY=-dx*Math.sin(angle)+dy*Math.cos(angle);return Math.abs(localX)<=item.widthIn*(40/39.37)/2+5&&Math.abs(localY)<=item.depthIn*(40/39.37)/2+5;}).map(item=>({kind:'furniture' as const,id:item.id,x:item.x,y:item.y})); const hit=[...project.openings.map(o=>({kind:'opening' as const,id:o.id,x:o.x,y:o.y})),...project.electrical.map(o=>({kind:'electrical' as const,id:o.id,x:o.x,y:o.y})),...project.hydraulic.map(o=>({kind:'hydraulic' as const,id:o.id,x:o.x,y:o.y})),...project.walls.map(w=>({kind:'wall' as const,id:w.id,x:(w.x1+w.x2)/2,y:(w.y1+w.y2)/2})),...furnitureHits].reverse().find(o=>o.kind==='furniture'||Math.hypot(o.x-x,o.y-y)<20); if(hit){const hitItem=hit.kind==='wall'?project.walls.find(v=>v.id===hit.id):hit.kind==='opening'?project.openings.find(v=>v.id===hit.id):hit.kind==='electrical'?project.electrical.find(v=>v.id===hit.id):hit.kind==='hydraulic'?project.hydraulic.find(v=>v.id===hit.id):(project.furniture??[]).find(v=>v.id===hit.id);if(hitItem?.locked){const target={kind:hit.kind,id:hit.id};setSelectedObject(target);setSelectedObjects([target]);dragRef.current=null;e.currentTarget.setPointerCapture(e.pointerId);return;}const target={kind:hit.kind,id:hit.id};setSelectedObjects(prev=>e.shiftKey?(prev.some(s=>s.id===hit.id&&s.kind===hit.kind)?prev.filter(s=>s.id!==hit.id):[...prev,target]):(prev.some(s=>s.id===hit.id&&s.kind===hit.kind)?prev:[target]));setSelectedObject(target);dragRef.current={...target,x,y};selectionStartRef.current=null;}else{selectionStartRef.current={x,y};setSelectionRect({x1:x,y1:y,x2:x,y2:y});setIsDrawing(true);if(!e.shiftKey){setSelectedObjects([]);setSelectedObject(null);}} e.currentTarget.setPointerCapture(e.pointerId);return; }
     if (tool === 'wall' && wallDrawMode === 'sequence') {
       const points = wallSequencePoints;
       const existingVertices = project.walls.flatMap(w => [{ x: w.x1, y: w.y1 }, { x: w.x2, y: w.y2 }]);
@@ -789,8 +788,10 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   };
 
   const handleMouseUp = (e?: React.PointerEvent<HTMLCanvasElement>) => {
+    if(e?.type==='lostpointercapture')return;
+    if(e?.type==='pointercancel'){activePointersRef.current.delete(e.pointerId);dragRef.current=null;placementRef.current=false;selectionStartRef.current=null;setSelectionRect(null);setIsDrawing(false);setStartPoint(null);setCurrentMouse(null);return;}
     if (e) activePointersRef.current.delete(e.pointerId);
-    if(tool==='select'&&selectionStartRef.current&&e){const r=e.currentTarget.getBoundingClientRect(),x2=snap((e.clientX-r.left-canvasPan.x)/zoom),y2=snap((e.clientY-r.top-canvasPan.y)/zoom),s=selectionStartRef.current;if(Math.hypot(x2-s.x,y2-s.y)>8){const inside=(x:number,y:number)=>x>=Math.min(s.x,x2)&&x<=Math.max(s.x,x2)&&y>=Math.min(s.y,y2)&&y<=Math.max(s.y,y2);const found=[...project.walls.filter(w=>inside((w.x1+w.x2)/2,(w.y1+w.y2)/2)).map(w=>({kind:'wall' as const,id:w.id})),...project.openings.filter(o=>inside(o.x,o.y)).map(o=>({kind:'opening' as const,id:o.id})),...project.electrical.filter(o=>inside(o.x,o.y)).map(o=>({kind:'electrical' as const,id:o.id})),...project.hydraulic.filter(o=>inside(o.x,o.y)).map(o=>({kind:'hydraulic' as const,id:o.id}))];setSelectedObjects(found);setSelectedObject(found[0]||null);}selectionStartRef.current=null;setSelectionRect(null);setIsDrawing(false);setCurrentMouse(null);return;}
+    if(tool==='select'&&selectionStartRef.current&&e){const r=e.currentTarget.getBoundingClientRect(),x2=snap((e.clientX-r.left-canvasPan.x)/zoom),y2=snap((e.clientY-r.top-canvasPan.y)/zoom),s=selectionStartRef.current;if(Math.hypot(x2-s.x,y2-s.y)>8){const inside=(x:number,y:number)=>x>=Math.min(s.x,x2)&&x<=Math.max(s.x,x2)&&y>=Math.min(s.y,y2)&&y<=Math.max(s.y,y2);const found=[...project.walls.filter(w=>inside((w.x1+w.x2)/2,(w.y1+w.y2)/2)).map(w=>({kind:'wall' as const,id:w.id})),...project.openings.filter(o=>inside(o.x,o.y)).map(o=>({kind:'opening' as const,id:o.id})),...project.electrical.filter(o=>inside(o.x,o.y)).map(o=>({kind:'electrical' as const,id:o.id})),...project.hydraulic.filter(o=>inside(o.x,o.y)).map(o=>({kind:'hydraulic' as const,id:o.id})),...(project.furniture??[]).filter(o=>inside(o.x,o.y)).map(o=>({kind:'furniture' as const,id:o.id}))];setSelectedObjects(found);setSelectedObject(found[0]||null);}selectionStartRef.current=null;setSelectionRect(null);setIsDrawing(false);setCurrentMouse(null);return;}
     if (panGestureRef.current) {
       if (activePointersRef.current.size < 2) panGestureRef.current = null;
       if (e && activePointersRef.current.size > 0) return;
@@ -818,8 +819,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           updateProjectState({...project,walls,rooms,openings,electrical,hydraulic});
         }
       } else if ((dx || dy) && tool === 'select' && selectedObjects.length > 1 && selectedObjects.some(s=>s.id===drag.id&&s.kind===drag.kind)) {
-        const ids=(kind:string)=>new Set(selectedObjects.filter(s=>s.kind===kind).map(s=>s.id)); const walls=ids('wall'), openings=ids('opening'), electrical=ids('electrical'), hydraulic=ids('hydraulic');
-        updateProjectState({...project,walls:project.walls.map(w=>walls.has(w.id)?{...w,x1:w.x1+dx,y1:w.y1+dy,x2:w.x2+dx,y2:w.y2+dy}:w),openings:project.openings.map(o=>openings.has(o.id)?{...o,x:o.x+dx,y:o.y+dy}:o),electrical:project.electrical.map(o=>electrical.has(o.id)?{...o,x:o.x+dx,y:o.y+dy}:o),hydraulic:project.hydraulic.map(o=>hydraulic.has(o.id)?{...o,x:o.x+dx,y:o.y+dy}:o)});
+        const ids=(kind:string)=>new Set(selectedObjects.filter(s=>s.kind===kind).map(s=>s.id)); const walls=ids('wall'), openings=ids('opening'), electrical=ids('electrical'), hydraulic=ids('hydraulic'), furniture=ids('furniture');
+        updateProjectState({...project,walls:project.walls.map(w=>walls.has(w.id)?{...w,x1:w.x1+dx,y1:w.y1+dy,x2:w.x2+dx,y2:w.y2+dy}:w),openings:project.openings.map(o=>openings.has(o.id)?{...o,x:o.x+dx,y:o.y+dy}:o),electrical:project.electrical.map(o=>electrical.has(o.id)?{...o,x:o.x+dx,y:o.y+dy}:o),hydraulic:project.hydraulic.map(o=>hydraulic.has(o.id)?{...o,x:o.x+dx,y:o.y+dy}:o),furniture:(project.furniture??[]).map(o=>furniture.has(o.id)?{...o,x:o.x+dx,y:o.y+dy}:o)});
       } else if (dx || dy) {
         if (drag.kind === 'wall') {
           const movedWall = project.walls.find(w => w.id === drag.id);
@@ -861,15 +862,16 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           });
         }
         else if (drag.kind === 'opening') { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, openings: project.openings.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y, rotation: p.rotation, wallId: p.wallId || o.wallId } : o) }); }
-        else if (drag.kind === 'electrical') { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, electrical: project.electrical.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y, ...(o.x2 !== undefined ? {x2:o.x2+dx,y2:(o.y2 ?? o.y)+dy} : {}), rotation: p.wallId ? p.rotation : (o.rotation ?? 0) } : o) }); }
-        else { const p = snapToNearestWall(endX, endY); updateProjectState({ ...project, hydraulic: project.hydraulic.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y, ...(o.x2 !== undefined ? {x2:o.x2+dx,y2:(o.y2 ?? o.y)+dy} : {}) } : o) }); }
+        else if (drag.kind === 'electrical') { const p = gapEnabled ? snapToNearestWall(endX, endY) : {x:endX,y:endY,rotation:0,wallId:''}; updateProjectState({ ...project, electrical: project.electrical.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y, ...(o.x2 !== undefined ? {x2:o.x2+dx,y2:(o.y2 ?? o.y)+dy} : {}), rotation: p.wallId ? p.rotation : (o.rotation ?? 0) } : o) }); }
+        else if (drag.kind === 'hydraulic') { const p = gapEnabled ? snapToNearestWall(endX, endY) : {x:endX,y:endY,rotation:0,wallId:''}; updateProjectState({ ...project, hydraulic: project.hydraulic.map(o => o.id === drag.id ? { ...o, x: p.x, y: p.y, ...(o.x2 !== undefined ? {x2:o.x2+dx,y2:(o.y2 ?? o.y)+dy} : {}) } : o) }); }
+        else { updateProjectState({...project,furniture:(project.furniture??[]).map(item=>item.id===drag.id?{...item,x:item.x+dx,y:item.y+dy}:item)}); }
       }
       dragRef.current = null; setCurrentMouse(null); setIsDrawing(false); setStartPoint(null); return;
     }
     if (placementRef.current && e) {
       const rect = e.currentTarget.getBoundingClientRect();
       const px = snap((e.clientX - rect.left - canvasPan.x) / zoom), py = snap((e.clientY - rect.top - canvasPan.y) / zoom);
-      const p = snapToNearestWall(px, py), x = p.x, y = p.y;
+      const p = (tool === 'door' || tool === 'window' || gapEnabled) ? snapToNearestWall(px, py) : {x:px,y:py,rotation:0,wallId:''}; const x = p.x, y = p.y;
       if (tool === 'door' || tool === 'window') {
         const item: OpeningItem = { id: ensureUuid(tool + '-' + Date.now()), type: tool, wallId: p.wallId || project.walls[0]?.id || '', x, y, width: tool === 'door' ? 80 : 100, rotation: p.rotation };
         updateProjectState({ ...project, openings: [...project.openings, item] }); setSelectedObject({ kind: 'opening', id: item.id });
@@ -925,14 +927,22 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       placementRef.current = false;
       return;
     }
-    if (isDrawing && startPoint && currentMouse && tool === 'wall' && wallDrawMode === 'segment') {
-      if (startPoint.x !== currentMouse.x || startPoint.y !== currentMouse.y) {
+    if (isDrawing && startPoint && e && tool === 'wall' && wallDrawMode === 'segment') {
+      const rect=e.currentTarget.getBoundingClientRect();
+      const pointerX=snap((e.clientX-rect.left-canvasPan.x)/zoom),pointerY=snap((e.clientY-rect.top-canvasPan.y)/zoom);
+      const projectedEnd=snapToNearestWall(pointerX,pointerY);
+      let endPoint=projectedEnd.distance<=16?{x:projectedEnd.x,y:projectedEnd.y}:{x:pointerX,y:pointerY};
+      const nearestEndVertex=project.walls.flatMap(w=>[{x:w.x1,y:w.y1},{x:w.x2,y:w.y2}]).reduce((best,p)=>{const distance=Math.hypot(p.x-endPoint.x,p.y-endPoint.y);return distance<=18&&(!best||distance<best.distance)?{...p,distance}:best;},null as ({x:number;y:number;distance:number}|null));
+      if(nearestEndVertex)endPoint={x:nearestEndVertex.x,y:nearestEndVertex.y};
+      const nearestStartVertex=project.walls.flatMap(w=>[{x:w.x1,y:w.y1},{x:w.x2,y:w.y2}]).reduce((best,p)=>{const distance=Math.hypot(p.x-startPoint.x,p.y-startPoint.y);return distance<=18&&(!best||distance<best.distance)?{...p,distance}:best;},null as ({x:number;y:number;distance:number}|null));
+      const wallStart=nearestStartVertex?{x:nearestStartVertex.x,y:nearestStartVertex.y}:startPoint;
+      if (Math.hypot(wallStart.x-endPoint.x,wallStart.y-endPoint.y)>1) {
         const newWall: WallSegment = {
-          id: `wall-${Date.now()}`,
-          x1: startPoint.x,
-          y1: startPoint.y,
-          x2: currentMouse.x,
-          y2: currentMouse.y,
+          id: ensureUuid('wall'),
+          x1: wallStart.x,
+          y1: wallStart.y,
+          x2: endPoint.x,
+          y2: endPoint.y,
           thickness: 15,
         };
         const nextWalls = [...project.walls, newWall];
@@ -941,7 +951,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         // from the new segment's end back to its start.
         const nodes: Array<{x:number;y:number;edges:number[]}> = [];
         const getNode = (x:number,y:number) => {
-          let index = nodes.findIndex(n => Math.hypot(n.x-x,n.y-y) <= 3);
+          let index = nodes.findIndex(n => Math.hypot(n.x-x,n.y-y) <= 10);
           if (index < 0) { index = nodes.length; nodes.push({x,y,edges:[]}); }
           return index;
         };
@@ -958,6 +968,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           for (const neighbor of nodes[node].edges) if (!parent.has(neighbor)) { parent.set(neighbor,node); queue.push(neighbor); }
         }
         let nextRooms = project.rooms ?? [];
+        let createdRoomId: string | null = null;
         if (parent.has(startNode)) {
           const path:number[] = [];
           let cursor:number|null = startNode;
@@ -965,14 +976,15 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           path.reverse(); // end -> ... -> start
           const polygon = [{x:newWall.x1,y:newWall.y1}, ...path.slice(0,-1).map(i=>({x:nodes[i].x,y:nodes[i].y}))];
           const area = Math.abs(polygon.reduce((sum,p,i)=>{const q=polygon[(i+1)%polygon.length];return sum+p.x*q.y-q.x*p.y;},0))/2;
-          const duplicate = nextRooms.some(room => room.vertices.length === polygon.length && room.vertices.every(p=>polygon.some(q=>Math.hypot(p.x-q.x,p.y-q.y)<=3)));
+          const duplicate = nextRooms.some(room => room.vertices.length === polygon.length && room.vertices.every(p=>polygon.some(q=>Math.hypot(p.x-q.x,p.y-q.y)<=10)));
           if (polygon.length >= 3 && area > 100 && !duplicate) {
             const room: FloorPlanRoom = {id:ensureUuid('room'),name:'Novo cômodo',vertices:polygon,material:'concrete'};
             nextRooms = [...nextRooms,room];
-            setPendingRoomId(room.id);
+            createdRoomId = room.id;
           }
         }
         updateProjectState({ ...project, walls: nextWalls, rooms: nextRooms });
+        if(createdRoomId)setPendingRoomId(createdRoomId);
       }
     }
     setIsDrawing(false);
@@ -1264,11 +1276,12 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
             if(kind==='wall') updateProjectState({...project,walls:project.walls.map(v=>v.id===id?{...v,locked:!v.locked}:v)});
             else if(kind==='opening') updateProjectState({...project,openings:project.openings.map(v=>v.id===id?{...v,locked:!v.locked}:v)});
             else if(kind==='electrical') updateProjectState({...project,electrical:project.electrical.map(v=>v.id===id?{...v,locked:!v.locked}:v)});
-            else updateProjectState({...project,hydraulic:project.hydraulic.map(v=>v.id===id?{...v,locked:!v.locked}:v)});
+            else if(kind==='hydraulic') updateProjectState({...project,hydraulic:project.hydraulic.map(v=>v.id===id?{...v,locked:!v.locked}:v)});
+            else updateProjectState({...project,furniture:(project.furniture??[]).map(v=>v.id===id?{...v,locked:!v.locked}:v)});
             dragRef.current=null;
           }} className="flex items-center gap-2 rounded-xl border border-[#2A3A55] px-3 py-2 text-sm text-white" title="Travar ou destravar elemento">
-            {((selectedObject.kind==='wall'?project.walls.find(v=>v.id===selectedObject.id):selectedObject.kind==='opening'?project.openings.find(v=>v.id===selectedObject.id):selectedObject.kind==='electrical'?project.electrical.find(v=>v.id===selectedObject.id):project.hydraulic.find(v=>v.id===selectedObject.id))?.locked) ? <Unlock className="h-4 w-4"/> : <Lock className="h-4 w-4"/>}
-            {((selectedObject.kind==='wall'?project.walls.find(v=>v.id===selectedObject.id):selectedObject.kind==='opening'?project.openings.find(v=>v.id===selectedObject.id):selectedObject.kind==='electrical'?project.electrical.find(v=>v.id===selectedObject.id):project.hydraulic.find(v=>v.id===selectedObject.id))?.locked) ? 'Destravar' : 'Travar'}
+            {((selectedObject.kind==='wall'?project.walls.find(v=>v.id===selectedObject.id):selectedObject.kind==='opening'?project.openings.find(v=>v.id===selectedObject.id):selectedObject.kind==='electrical'?project.electrical.find(v=>v.id===selectedObject.id):selectedObject.kind==='hydraulic'?project.hydraulic.find(v=>v.id===selectedObject.id):(project.furniture??[]).find(v=>v.id===selectedObject.id))?.locked) ? <Unlock className="h-4 w-4"/> : <Lock className="h-4 w-4"/>}
+            {((selectedObject.kind==='wall'?project.walls.find(v=>v.id===selectedObject.id):selectedObject.kind==='opening'?project.openings.find(v=>v.id===selectedObject.id):selectedObject.kind==='electrical'?project.electrical.find(v=>v.id===selectedObject.id):selectedObject.kind==='hydraulic'?project.hydraulic.find(v=>v.id===selectedObject.id):(project.furniture??[]).find(v=>v.id===selectedObject.id))?.locked) ? 'Destravar' : 'Travar'}
           </button>
           <button onClick={() => {
             const id = ensureUuid('clone');
@@ -1284,15 +1297,20 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
               const source = project.electrical.find(item => item.id === selectedObject.id); if (!source) return;
               const clone = { ...source, id, x: source.x + 20, y: source.y + 20 };
               updateProjectState({ ...project, electrical: [...project.electrical, clone] }); setSelectedObject({ kind: 'electrical', id }); setSelectedObjects([{ kind: 'electrical', id }]);
-            } else {
+            } else if(selectedObject.kind==='hydraulic') {
               const source = project.hydraulic.find(item => item.id === selectedObject.id); if (!source) return;
               const clone = { ...source, id, x: source.x + 20, y: source.y + 20 };
               updateProjectState({ ...project, hydraulic: [...project.hydraulic, clone] }); setSelectedObject({ kind: 'hydraulic', id }); setSelectedObjects([{ kind: 'hydraulic', id }]);
+            } else {
+              const source=(project.furniture??[]).find(item=>item.id===selectedObject.id);if(!source)return;
+              const clone={...source,id,x:source.x+20,y:source.y+20};
+              updateProjectState({...project,furniture:[...(project.furniture??[]),clone]});setSelectedObject({kind:'furniture',id});setSelectedObjects([{kind:'furniture',id}]);
             }
           }} className="min-h-[44px] rounded-lg border border-[#2A3A55] px-3 text-sm text-white flex items-center gap-2"><Copy className="h-4 w-4" /> Copiar</button>
           <button onClick={() => {
             if (selectedObject.kind === 'opening') updateProjectState({ ...project, openings: project.openings.map(o => o.id === selectedObject.id ? { ...o, rotation: ((o.rotation ?? 0) + 90) % 360 } : o) });
             else if (selectedObject.kind === 'electrical') updateProjectState({ ...project, electrical: project.electrical.map(o => o.id === selectedObject.id ? { ...o, rotation: ((o.rotation ?? 0) + 90) % 360 } : o) });
+            else if (selectedObject.kind === 'furniture') updateProjectState({...project,furniture:(project.furniture??[]).map(o=>o.id===selectedObject.id?{...o,rotation:(o.rotation+90)%360}:o)});
             else if (selectedObject.kind === 'wall') updateProjectState({ ...project, walls: project.walls.map(w => {
               if (w.id !== selectedObject.id) return w;
               const mx = (w.x1 + w.x2) / 2, my = (w.y1 + w.y2) / 2;
@@ -1304,7 +1322,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
             if (selectedObject.kind === 'opening') updateProjectState({ ...project, openings: project.openings.filter(o => o.id !== id) });
             else if (selectedObject.kind === 'wall') updateProjectState({ ...project, walls: project.walls.filter(o => o.id !== id) });
             else if (selectedObject.kind === 'electrical') updateProjectState({ ...project, electrical: project.electrical.filter(o => o.id !== id) });
-            else updateProjectState({ ...project, hydraulic: project.hydraulic.filter(o => o.id !== id) });
+            else if(selectedObject.kind==='hydraulic') updateProjectState({ ...project, hydraulic: project.hydraulic.filter(o => o.id !== id) });
+            else updateProjectState({...project,furniture:(project.furniture??[]).filter(o=>o.id!==id)});
             setSelectedObject(null);
           }} className="min-h-[44px] rounded-lg border border-red-400/40 px-3 text-sm text-red-300 flex items-center gap-2"><Trash2 className="h-4 w-4" /> Excluir</button>
         </div>
