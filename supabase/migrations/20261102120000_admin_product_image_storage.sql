@@ -8,11 +8,15 @@ set public = excluded.public,
     allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists admin_product_images_public_read on storage.objects;
-create policy admin_product_images_public_read
+drop policy if exists admin_product_images_admin_select on storage.objects;
+create policy admin_product_images_admin_select
 on storage.objects
 for select
-to public
-using (bucket_id = 'admin-product-images');
+to authenticated
+using (
+  bucket_id = 'admin-product-images'
+  and (select auth.jwt() -> 'app_metadata' ->> 'is_admin') = 'true'
+);
 
 drop policy if exists admin_product_images_admin_insert on storage.objects;
 create policy admin_product_images_admin_insert
