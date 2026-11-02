@@ -570,19 +570,6 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
               flushWater.scale.setScalar(0.45 + progress * 0.75 + Math.sin(elapsed * 10) * 0.08 * progress);
               flushWater.rotation.z = elapsed * 2.4;
             });
-          } else if (item.type === 'pool') {
-            const ripple = new THREE.Mesh(
-              new THREE.TorusGeometry(12, 0.55, 8, 48),
-              new THREE.MeshBasicMaterial({ color: 0x67e8f9, transparent: true, opacity: 0.55 })
-            );
-            ripple.rotation.x = Math.PI / 2;
-            ripple.position.y = 2;
-            hydraulicRoot.add(ripple);
-            addSceneInteraction(hydraulicRoot, 'pool', (progress, elapsed) => {
-              ripple.visible = progress > 0.02;
-              ripple.material.opacity = progress * 0.55;
-              ripple.scale.setScalar(0.5 + (elapsed % 2) * 0.55);
-            });
           } else if (item.type === 'heater') {
             addSceneInteraction(hydraulicRoot, 'water', progress => {
               (fixture.material as any).emissive = new THREE.Color(0xf97316);
