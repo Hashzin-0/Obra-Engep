@@ -80,23 +80,6 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
         fillLight.position.set(centerX + spanX, spanX * 0.7, centerZ + spanZ);
         scene.add(fillLight);
 
-        for (const floorProject of floorProjects) {
-          const floorGroup = new THREE.Group();
-          floorGroup.position.y = floorProject.elevation ?? 0;
-          scene.add(floorGroup);
-          const furniture = floorProject.furniture ?? [];
-        const addBox = (w: number, h: number, d: number, x: number, y: number, z: number, color: number, roughness = 0.85) => {
-          const mesh = new THREE.Mesh(
-            new THREE.BoxGeometry(Math.max(0.1, w), Math.max(0.1, h), Math.max(0.1, d)),
-            new THREE.MeshStandardMaterial({ color, roughness })
-          );
-          mesh.position.set(x, y, z);
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
-          floorGroup.add(mesh);
-          return mesh;
-        };
-
         type SceneInteraction = {
           root: any;
           kind: 'door' | 'window' | 'light' | 'switch' | 'water' | 'flush' | 'pool';
@@ -113,17 +96,17 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           floorGroup.position.y = floorProject.elevation ?? 0;
           scene.add(floorGroup);
           const furniture = floorProject.furniture ?? [];
-        const addBox = (w: number, h: number, d: number, x: number, y: number, z: number, color: number, roughness = 0.85) => {
-          const mesh = new THREE.Mesh(
-            new THREE.BoxGeometry(Math.max(0.1, w), Math.max(0.1, h), Math.max(0.1, d)),
-            new THREE.MeshStandardMaterial({ color, roughness })
-          );
-          mesh.position.set(x, y, z);
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
-          floorGroup.add(mesh);
-          return mesh;
-        };
+          const addBox = (w: number, h: number, d: number, x: number, y: number, z: number, color: number, roughness = 0.85) => {
+            const mesh = new THREE.Mesh(
+              new THREE.BoxGeometry(Math.max(0.1, w), Math.max(0.1, h), Math.max(0.1, d)),
+              new THREE.MeshStandardMaterial({ color, roughness })
+            );
+            mesh.position.set(x, y, z);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            floorGroup.add(mesh);
+            return mesh;
+          };
 
         const addSceneInteraction = (
           root: any,
