@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { FloorPlanProject } from '../types';
+import { buildWallJunctionPolygon } from '../utils/wallJunctionGeometry';
 
 interface Props { project: FloorPlanProject; isDark: boolean; isNightMode?: boolean; }
 
@@ -279,18 +280,41 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           cap.rotation.y = angle;
         });
 
-        // Fill shared junctions with a small wall-material core. This closes the
-        // diagonal corner gaps left by intersecting rotated wall boxes.
-        const junctions: Array<{x:number;z:number;count:number}> = [];
-        floorProject.walls.forEach(w => [{x:w.x1,z:w.y1},{x:w.x2,z:w.y2}].forEach(p => {
-          let node=junctions.find(v=>Math.hypot(v.x-p.x,v.z-p.z)<3);
-          if (!node) { node={x:p.x,z:p.z,count:0}; junctions.push(node); }
-          node.count++;
+        // Replace square corner plugs with a mitered footprint derived from
+        // every wall meeting at the same endpoint. The polygon follows diagonal
+        // and orthogonal wall edges, eliminating exposed cuts at the junction.
+        const junctions: Array<{ x: number; z: number }> = [];
+        floorProject.walls.forEach(w => [{ x: w.x1, z: w.y1 }, { x: w.x2, z: w.y2 }].forEach(point => {
+          if (!junctions.some(existing => Math.hypot(existing.x - point.x, existing.z - point.z) < 3)) {
+            junctions.push(point);
+          }
         }));
-        junctions.filter(p=>p.count>1).forEach(p => {
-          const thickness=Math.max(4,...floorProject.walls.filter(w=>Math.hypot(w.x1-p.x,w.y1-p.z)<3||Math.hypot(w.x2-p.x,w.y2-p.z)<3).map(w=>w.thickness||8));
-          addBox(thickness,100,thickness,p.x,50,p.z,isDark?0x94a3b8:0xcbd5e1);
-          addBox(thickness+1,2,thickness+1,p.x,101,p.z,isDark?0xcbd5e1:0xf8fafc);
+        junctions.forEach(point => {
+          const polygon = buildWallJunctionPolygon(floorProject.walls, point.x, point.z);
+          if (polygon.length < 3) return;
+
+          const shape = new THREE.Shape();
+          shape.moveTo(polygon[0].x, -polygon[0].y);
+          polygon.slice(1).forEach(vertex => shape.lineTo(vertex.x, -vertex.y));
+          shape.closePath();
+
+          const junctionBody = new THREE.Mesh(
+            new THREE.ExtrudeGeometry(shape, { depth: 100, bevelEnabled: false, curveSegments: 1 }),
+            new THREE.MeshStandardMaterial({ color: isDark ? 0x94a3b8 : 0xcbd5e1, roughness: 0.86, side: THREE.DoubleSide })
+          );
+          junctionBody.rotation.x = -Math.PI / 2;
+          junctionBody.castShadow = true;
+          junctionBody.receiveShadow = true;
+          floorGroup.add(junctionBody);
+
+          const junctionCap = new THREE.Mesh(
+            new THREE.ShapeGeometry(shape),
+            new THREE.MeshStandardMaterial({ color: isDark ? 0xcbd5e1 : 0xf8fafc, roughness: 0.72, side: THREE.DoubleSide })
+          );
+          junctionCap.rotation.x = -Math.PI / 2;
+          junctionCap.position.y = 101.1;
+          junctionCap.receiveShadow = true;
+          floorGroup.add(junctionCap);
         });
 
         // Batentes e folhas móveis. Cada abertura possui um controlador

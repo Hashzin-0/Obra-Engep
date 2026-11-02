@@ -73,14 +73,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
-  const [project, setProject] = useState<FloorPlanProject>(() => {
-    const saved = localStorage.getItem('obra_engep_active_project');
-    if (saved) {
-      const parsed = JSON.parse(saved) as FloorPlanProject;
-      return ensureProjectLevels({ ...parsed, id: ensureUuid(parsed.id) });
-    }
-    return ensureProjectLevels(projects[0] ?? createEmptyProject());
-  });
+  const [project, setProject] = useState<FloorPlanProject>(() =>
+    ensureProjectLevels(projects[0] ?? createEmptyProject())
+  );
 
   const [activeLevelId, setActiveLevelId] = useState(project.activeLevelId ?? 'ground-floor');
   const [isNightMode, setIsNightMode] = useState(project.isNightMode ?? false);
@@ -122,7 +117,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       const next = ensureProjectLevels(projects[0]);
       setProject(next); setActiveLevelId(next.activeLevelId ?? 'ground-floor'); setIsNightMode(next.isNightMode ?? false);
       setHistory([next]); setHistoryIndex(0); setStage(next.stage);
-      localStorage.setItem('obra_engep_active_project', JSON.stringify(next));
+      
     }
   }, [projects, project.id]);
 
@@ -144,7 +139,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     const normalized = ensureProjectLevels({ ...newProject, levels, activeLevelId: levelId, isNightMode });
     const newHistory = history.slice(0, historyIndex + 1); newHistory.push(normalized);
     setHistory(newHistory); setHistoryIndex(newHistory.length - 1); setProject(normalized); setActiveLevelId(levelId);
-    localStorage.setItem('obra_engep_active_project', JSON.stringify(normalized)); onSaveProject?.(normalized);
+     onSaveProject?.(normalized);
   };
   const handleCreateLevel = () => {
     const kindInput = window.prompt('Tipo de pavimento: subsolo, terreo ou superior', 'superior');
@@ -162,7 +157,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     if (levelId === activeLevelId) return; const levels = captureActiveLevel(project, activeLevelId); const target = levels.find(level=>level.id===levelId); if (!target) return;
     const next = { ...project, levels, activeLevelId: levelId, walls: target.walls, rooms: target.rooms ?? [], openings: target.openings, electrical: target.electrical, hydraulic: target.hydraulic, furniture: target.furniture ?? [] };
     setActiveLevelId(levelId); setProject(next); setHistory(current=>[...current.slice(0,historyIndex+1),next]); setHistoryIndex(index=>index+1);
-    localStorage.setItem('obra_engep_active_project',JSON.stringify(next)); onSaveProject?.(next); setSelectedObject(null); setSelectedObjects([]); setTool('select'); setWallSequencePoints([]); setRouteSequencePoints([]);
+     onSaveProject?.(next); setSelectedObject(null); setSelectedObjects([]); setTool('select'); setWallSequencePoints([]); setRouteSequencePoints([]);
   };
   const handleRenameLevel = () => {
     const current=project.levels?.find(level=>level.id===activeLevelId); if(!current) return; const name=window.prompt('Novo nome do pavimento:',current.name); if(!name?.trim()) return;
@@ -174,7 +169,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     const remaining=levels.filter(level=>level.id!==activeLevelId); const target=remaining.find(level=>level.kind==='terreo')??remaining[0];
     setActiveLevelId(target.id); updateProjectState({...project,levels:remaining,activeLevelId:target.id,walls:target.walls,rooms:target.rooms??[],openings:target.openings,electrical:target.electrical,hydraulic:target.hydraulic,furniture:target.furniture??[]});
   };
-  const toggleNightMode = () => { const next=!isNightMode; setIsNightMode(next); const updated={...project,isNightMode:next}; setProject(updated); localStorage.setItem('obra_engep_active_project',JSON.stringify(updated)); onSaveProject?.(updated); };
+  const toggleNightMode = () => { const next=!isNightMode; setIsNightMode(next); const updated={...project,isNightMode:next}; setProject(updated);  onSaveProject?.(updated); };
 
   const handleUndo = () => {
     if (historyIndex > 0) {
@@ -1014,7 +1009,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
                   const normalized = ensureProjectLevels(selected);
                   setProject(normalized); setActiveLevelId(normalized.activeLevelId ?? 'ground-floor'); setIsNightMode(normalized.isNightMode ?? false);
                   setHistory([normalized]); setHistoryIndex(0); setStage(normalized.stage);
-                  localStorage.setItem('obra_engep_active_project', JSON.stringify(normalized));
+                  
                 }
               }}
               className="bg-transparent text-sm font-bold text-white outline-none border border-[#2A3A55] rounded-lg px-2 py-1"
@@ -1073,7 +1068,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
               setHistory([created]);
               setHistoryIndex(0);
               setStage(created.stage);
-              localStorage.setItem('obra_engep_active_project', JSON.stringify(created));
+              
               onSaveProject?.(created);
             }}
             className="p-2 rounded-xl border border-[#2A3A55] text-[#9FB0C8] hover:text-white"
@@ -1083,7 +1078,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           </button>
           <button
             onClick={() => {
-              localStorage.setItem('obra_engep_active_project', JSON.stringify(project));
+              
               onSaveProject?.(project);
             }}
             className="p-2 rounded-xl bg-[#3DD68C] text-[#101827]"

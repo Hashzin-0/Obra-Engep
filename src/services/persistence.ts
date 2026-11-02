@@ -66,7 +66,7 @@ export function removeStored(key: string): void {
   localStorage.removeItem(key);
 }
 
-export function buildBackup(): BackupFile {
+export function buildBackup(userId?: string): BackupFile {
   return {
     app: 'OBra ENGEP',
     version: 2,
@@ -78,7 +78,7 @@ export function buildBackup(): BackupFile {
       notes: readStored(STORAGE_KEYS.notebook, []),
       products: readStored(STORAGE_KEYS.products, []),
       checklists: readStored(STORAGE_KEYS.nrChecks, {}),
-      projects: readStored(STORAGE_KEYS.projects, []),
+      projects: readStored(userId ? `${STORAGE_KEYS.projects}:${userId}` : STORAGE_KEYS.projects, []),
       theme: readText(STORAGE_KEYS.theme),
       fontScale: Number(readText(STORAGE_KEYS.fontScale, '100')),
       username: readText(STORAGE_KEYS.username),
@@ -86,7 +86,7 @@ export function buildBackup(): BackupFile {
   };
 }
 
-export function restoreBackup(raw: string): {
+export function restoreBackup(raw: string, userId?: string): {
   ok: boolean;
   message: string;
   data?: BackupFile['data'];
@@ -104,7 +104,7 @@ export function restoreBackup(raw: string): {
     if (data.notes) writeStored(STORAGE_KEYS.notebook, data.notes);
     if (data.products) writeStored(STORAGE_KEYS.products, data.products);
     if (data.checklists) writeStored(STORAGE_KEYS.nrChecks, data.checklists);
-    if (data.projects) writeStored(STORAGE_KEYS.projects, data.projects);
+    if (data.projects) writeStored(userId ? `${STORAGE_KEYS.projects}:${userId}` : STORAGE_KEYS.projects, data.projects);
     if (data.theme) writeText(STORAGE_KEYS.theme, data.theme);
     if (data.fontScale) writeText(STORAGE_KEYS.fontScale, String(data.fontScale));
     if (data.username) writeText(STORAGE_KEYS.username, data.username);
