@@ -97,6 +97,33 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           return mesh;
         };
 
+        type SceneInteraction = {
+          root: any;
+          kind: 'door' | 'window' | 'light' | 'switch' | 'water' | 'flush' | 'pool';
+          progress: number;
+          target: number;
+          circuit?: string;
+          update: (progress: number, elapsed: number) => void;
+        };
+        const sceneInteractions: SceneInteraction[] = [];
+        const addSceneInteraction = (
+          root: any,
+          kind: SceneInteraction['kind'],
+          update: SceneInteraction['update'],
+          circuit?: string,
+          initiallyActive = false
+        ) => {
+          const interaction: SceneInteraction = {
+            root, kind, progress: initiallyActive ? 1 : 0,
+            target: initiallyActive ? 1 : 0, circuit, update
+          };
+          root.userData.sceneInteraction = interaction;
+          sceneInteractions.push(interaction);
+          floorGroup.add(root);
+          update(interaction.progress, 0);
+          return interaction;
+        };
+
         // One floor surface shared with all scene objects.
         addBox(spanX + 180, 4, spanZ + 180, centerX, -3, centerZ, isDark ? 0x1e293b : 0xdbe4ee);
 
@@ -263,60 +290,118 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           addBox(thickness+1,2,thickness+1,p.x,101,p.z,isDark?0xcbd5e1:0xf8fafc);
         });
 
-        // Modela o batente dentro do vão real da parede, alinhado ao eixo da abertura.
+        // Batentes e folhas móveis. Cada abertura possui um controlador
+        // independente para que a interação não altere a geometria persistida.
         floorProject.openings.forEach(o => {
           const widthPx = Math.max(16, o.width * 0.5);
           const angle = -((o.rotation ?? 0) * Math.PI / 180);
           const hostWall = floorProject.walls.find(w => w.id === o.wallId);
           const frameDepth = Math.max(6, (hostWall?.thickness ?? 8) + 3);
-          const offsetOnWall = (distance: number) => ({ x: o.x + Math.cos(angle) * distance, z: o.y - Math.sin(angle) * distance });
+          const offsetOnWall = (distance: number) => ({
+            x: o.x + Math.cos(angle) * distance,
+            z: o.y - Math.sin(angle) * distance
+          });
+          const left = offsetOnWall(-widthPx / 2), right = offsetOnWall(widthPx / 2);
+          const frameColor = o.type === 'door'
+            ? (o.doorStyle === 'metal' ? 0x94a3b8 : o.doorStyle === 'glass' ? 0x64748b : 0x805333)
+            : 0x64748b;
+          const jambHeight = o.type === 'door' ? 80 : 42;
+          const jambY = o.type === 'door' ? 40 : 51;
+          const jambLeft = addBox(o.type === 'door' ? 4 : 3, jambHeight, frameDepth, left.x, jambY, left.z, frameColor);
+          const jambRight = addBox(o.type === 'door' ? 4 : 3, jambHeight, frameDepth, right.x, jambY, right.z, frameColor);
+          jambLeft.rotation.y = angle; jambRight.rotation.y = angle;
+
           if (o.type === 'door') {
             const style = o.doorStyle ?? 'wood';
-            const frameColor = style === 'metal' ? 0x94a3b8 : style === 'glass' ? 0x64748b : 0x805333;
+            const frameTop = addBox(widthPx + 4, 4, frameDepth, o.x, 80, o.y, frameColor);
+            frameTop.rotation.y = angle;
+            const doorRoot = new THREE.Group();
+            doorRoot.position.set(o.x, 0, o.y);
+            doorRoot.rotation.y = angle;
             const material = style === 'glass'
-              ? new THREE.MeshStandardMaterial({ color: 0x93c5fd, transparent: true, opacity: 0.55, metalness: 0.1, roughness: 0.15 })
-              : new THREE.MeshStandardMaterial({ color: style === 'metal' ? 0x94a3b8 : style === 'sliding' ? 0xb08968 : 0x9a6b3f, roughness: 0.72 });
-            const left = offsetOnWall(-widthPx / 2), right = offsetOnWall(widthPx / 2);
-            const jambLeft = addBox(4, 80, frameDepth, left.x, 40, left.z, frameColor);
-            const jambRight = addBox(4, 80, frameDepth, right.x, 40, right.z, frameColor);
-            const header = addBox(widthPx + 4, 4, frameDepth, o.x, 80, o.y, frameColor);
-            jambLeft.rotation.y = angle; jambRight.rotation.y = angle; header.rotation.y = angle;
-            const leaf = new THREE.Mesh(new THREE.BoxGeometry(widthPx * (style === 'double' ? 0.46 : 0.92), 78, 3, 1, 1, 1), material);
-            leaf.position.set(o.x, 39, o.y);
-            leaf.rotation.y = angle;
-            floorGroup.add(leaf);
-            if (style === 'double') {
-              const leaf2 = new THREE.Mesh(new THREE.BoxGeometry(widthPx * 0.46, 78, 3), material.clone());
-              leaf2.position.set(o.x, 39, o.y);
-              leaf2.rotation.y = angle;
-              floorGroup.add(leaf2);
+              ? new THREE.MeshStandardMaterial({ color: 0x93c5fd, transparent: true, opacity: 0.62, metalness: 0.12, roughness: 0.16 })
+              : new THREE.MeshStandardMaterial({ color: style === 'metal' ? 0x94a3b8 : style === 'sliding' ? 0xb08968 : 0x9a6b3f, roughness: 0.68, metalness: style === 'metal' ? 0.55 : 0.05 });
+
+            if (style === 'sliding') {
+              const sash = new THREE.Group();
+              const leaf = new THREE.Mesh(new THREE.BoxGeometry(widthPx * 0.9, 78, 3), material);
+              leaf.position.y = 39;
+              sash.add(leaf);
+              const railTop = new THREE.Mesh(new THREE.BoxGeometry(widthPx + 2, 1.5, 5), new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.65, roughness: 0.3 }));
+              railTop.position.y = 79;
+              sash.add(railTop);
+              doorRoot.add(sash);
+              addSceneInteraction(doorRoot, 'door', progress => {
+                sash.position.x = progress * widthPx * 0.82;
+              });
+            } else if (style === 'double') {
+              const leftPivot = new THREE.Group();
+              leftPivot.position.x = -widthPx / 2;
+              const leftLeaf = new THREE.Mesh(new THREE.BoxGeometry(widthPx / 2, 78, 3), material);
+              leftLeaf.position.set(widthPx / 4, 39, 0);
+              leftPivot.add(leftLeaf);
+              const rightPivot = new THREE.Group();
+              rightPivot.position.x = widthPx / 2;
+              const rightLeaf = new THREE.Mesh(new THREE.BoxGeometry(widthPx / 2, 78, 3), material.clone());
+              rightLeaf.position.set(-widthPx / 4, 39, 0);
+              rightPivot.add(rightLeaf);
+              doorRoot.add(leftPivot, rightPivot);
+              addSceneInteraction(doorRoot, 'door', progress => {
+                leftPivot.rotation.y = -progress * Math.PI / 2;
+                rightPivot.rotation.y = progress * Math.PI / 2;
+              });
+            } else {
+              const hinge = new THREE.Group();
+              hinge.position.x = -widthPx / 2;
+              const leaf = new THREE.Mesh(new THREE.BoxGeometry(widthPx * 0.92, 78, 3), material);
+              leaf.position.set(widthPx * 0.46, 39, 0);
+              hinge.add(leaf);
+              const handleMaterial = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.82, roughness: 0.24 });
+              [-1, 1].forEach(side => {
+                const handleX = widthPx * 0.72;
+                const handleZ = side * 3;
+                const rosette = new THREE.Mesh(new THREE.CylinderGeometry(2.8, 2.8, 1.4, 16), handleMaterial);
+                rosette.rotation.x = Math.PI / 2;
+                rosette.position.set(handleX, 40, handleZ);
+                hinge.add(rosette);
+                const knob = new THREE.Mesh(new THREE.SphereGeometry(2.5, 16, 12), handleMaterial);
+                knob.position.set(handleX, 40, side * 5);
+                hinge.add(knob);
+              });
+              doorRoot.add(hinge);
+              addSceneInteraction(doorRoot, 'door', progress => {
+                hinge.rotation.y = progress * Math.PI / 2;
+              });
             }
-            // Maçaneta metálica com roseta e pomo nos dois lados da folha.
-            // O vetor normal acompanha a rotação da porta e evita deslocamento
-            // incorreto em portas diagonais.
-            const handleX = o.x + Math.cos(angle) * widthPx * 0.32;
-            const handleZ = o.y - Math.sin(angle) * widthPx * 0.32;
-            const handleMaterial = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.82, roughness: 0.24 });
-            [-1, 1].forEach(side => {
-              const normal = new THREE.Vector3(Math.sin(angle) * side, 0, Math.cos(angle) * side);
-              const rosette = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 1.4, 16), handleMaterial.clone());
-              rosette.position.set(handleX + normal.x * 2, 40, handleZ + normal.z * 2);
-              rosette.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-              floorGroup.add(rosette);
-              const knob = new THREE.Mesh(new THREE.SphereGeometry(2.5, 16, 12), handleMaterial.clone());
-              knob.position.set(handleX + normal.x * 4.2, 40, handleZ + normal.z * 4.2);
-              floorGroup.add(knob);
+            doorRoot.traverse((node: any) => {
+              if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; }
             });
+            // addSceneInteraction attaches the root; traversal above also covers
+            // children added later because the root is populated before registration.
           } else {
-            const frameColor = 0x64748b;
-            const left = offsetOnWall(-widthPx / 2), right = offsetOnWall(widthPx / 2);
-            const jambLeft = addBox(3, 42, frameDepth, left.x, 51, left.z, frameColor);
-            const jambRight = addBox(3, 42, frameDepth, right.x, 51, right.z, frameColor);
             const sill = addBox(widthPx + 3, 3, frameDepth, o.x, 30, o.y, frameColor);
             const header = addBox(widthPx + 3, 3, frameDepth, o.x, 72, o.y, frameColor);
-            jambLeft.rotation.y = angle; jambRight.rotation.y = angle; sill.rotation.y = angle; header.rotation.y = angle;
-            const glazing = new THREE.Mesh(new THREE.BoxGeometry(Math.max(1, widthPx - 3), 39, 1.5), new THREE.MeshStandardMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.32, metalness: 0.12, roughness: 0.16 }));
-            glazing.position.set(o.x, 51, o.y); glazing.rotation.y = angle; floorGroup.add(glazing);
+            sill.rotation.y = angle; header.rotation.y = angle;
+            const windowRoot = new THREE.Group();
+            windowRoot.position.set(o.x, 0, o.y);
+            windowRoot.rotation.y = angle;
+            const sash = new THREE.Group();
+            const glazing = new THREE.Mesh(
+              new THREE.BoxGeometry(Math.max(1, widthPx - 3), 39, 1.5),
+              new THREE.MeshStandardMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.38, metalness: 0.12, roughness: 0.16 })
+            );
+            glazing.position.y = 51;
+            sash.add(glazing);
+            const sashFrame = new THREE.Mesh(
+              new THREE.BoxGeometry(widthPx - 1, 2, 2),
+              new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.35, roughness: 0.45 })
+            );
+            sashFrame.position.y = 51;
+            sash.add(sashFrame);
+            windowRoot.add(sash);
+            addSceneInteraction(windowRoot, 'window', progress => {
+              sash.position.x = progress * widthPx * 0.42;
+            });
           }
         });
 
@@ -329,19 +414,32 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
             return;
           }
           const isLight = item.type === 'light';
-          const color = isLight ? 0xfacc15 : item.type === 'panel' ? 0x2563eb : 0xfb7185;
-          const point = new THREE.Mesh(new THREE.SphereGeometry(isLight ? 6 : 4, 16, 12), new THREE.MeshStandardMaterial({ color: isLight && isNightMode ? 0xffe4a3 : color, emissive: isLight ? 0xffb84d : color, emissiveIntensity: isLight ? (isNightMode ? 2.2 : 0.65) : 0.12 }));
+          const isSwitch = item.type === 'switch';
+          const color = isLight ? 0xfacc15 : isSwitch ? 0x22c55e : item.type === 'panel' ? 0x2563eb : 0xfb7185;
+          const point = new THREE.Mesh(
+            new THREE.SphereGeometry(isLight ? 6 : 4, 16, 12),
+            new THREE.MeshStandardMaterial({
+              color: isLight && isNightMode ? 0xffe4a3 : color,
+              emissive: isLight ? 0xffb84d : color,
+              emissiveIntensity: isLight ? 0.9 : 0.12
+            })
+          );
           point.position.set(item.x, isLight ? 102 : 7, item.y);
-          floorGroup.add(point);
-          // Point lights are active in both day and night modes so the 3D fixture
-          // visibly illuminates nearby walls and furniture, not only its own bulb.
           if (isLight) {
-            // A escala da planta é menor que a unidade física assumida pelo
-            // Three.js; intensidades pequenas praticamente não iluminam nada.
-            // Aumentamos a intensidade e posicionamos a luminária abaixo do teto.
             const lamp = new THREE.PointLight(0xffc66d, isNightMode ? 26000 : 18000, 420, 2);
             lamp.position.set(item.x, 86, item.y);
-            floorGroup.add(lamp);
+            const lightRoot = new THREE.Group();
+            lightRoot.add(point, lamp);
+            addSceneInteraction(lightRoot, 'light', progress => {
+              (point.material as any).emissiveIntensity = 0.08 + progress * (isNightMode ? 2.2 : 0.9);
+              lamp.intensity = (isNightMode ? 26000 : 18000) * progress;
+            }, item.circuit, true);
+          } else if (isSwitch) {
+            const switchRoot = new THREE.Group();
+            switchRoot.add(point);
+            addSceneInteraction(switchRoot, 'switch', () => {}, item.circuit);
+          } else {
+            floorGroup.add(point);
           }
         });
         floorProject.hydraulic.forEach(item => {
@@ -352,9 +450,67 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
             return;
           }
           const color = item.type === 'sewage' || item.type === 'drain' || item.type === 'sewage_pipe' || item.type === 'grease_trap' || item.type === 'inspection_box' ? 0x92400e : item.type === 'rain_pipe' ? 0x2563eb : item.type === 'vent_pipe' ? 0xa78bfa : 0x0ea5e9;
-          const point = new THREE.Mesh(new THREE.CylinderGeometry(['sink','faucet','shower','toilet','floor_drain','cleanout','inspection_box','tank','heater','grease_trap'].includes(item.type)?8:5, ['sink','faucet','shower','toilet'].includes(item.type)?8:5, 5, 16), new THREE.MeshStandardMaterial({ color }));
-          point.position.set(item.x, 5, item.y);
-          floorGroup.add(point);
+          const hydraulicRoot = new THREE.Group();
+          hydraulicRoot.position.set(item.x, 0, item.y);
+          const fixture = new THREE.Mesh(
+            new THREE.CylinderGeometry(['sink','faucet','shower','toilet','floor_drain','cleanout','inspection_box','tank','heater','grease_trap'].includes(item.type) ? 8 : 5, ['sink','faucet','shower','toilet'].includes(item.type) ? 8 : 5, 5, 16),
+            new THREE.MeshStandardMaterial({ color, metalness: ['faucet','shower'].includes(item.type) ? 0.62 : 0.12, roughness: 0.38 })
+          );
+          fixture.position.y = 5;
+          hydraulicRoot.add(fixture);
+
+          if (item.type === 'faucet' || item.type === 'shower') {
+            const isShower = item.type === 'shower';
+            const waterMaterial = new THREE.MeshBasicMaterial({
+              color: 0x38bdf8, transparent: true, opacity: 0.82,
+              depthWrite: false
+            });
+            const water = isShower
+              ? new THREE.Mesh(new THREE.ConeGeometry(10, 28, 18, 1, true), waterMaterial)
+              : new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.8, 20, 10), waterMaterial);
+            water.position.y = isShower ? -4 : -6;
+            if (isShower) water.rotation.x = Math.PI;
+            hydraulicRoot.add(water);
+            addSceneInteraction(hydraulicRoot, 'water', (progress, elapsed) => {
+              water.visible = progress > 0.02;
+              water.material.opacity = 0.18 + progress * 0.64;
+              water.scale.setScalar(0.92 + Math.sin(elapsed * 9) * 0.035 * progress);
+            });
+          } else if (item.type === 'toilet') {
+            const flushWater = new THREE.Mesh(
+              new THREE.TorusGeometry(5, 0.7, 8, 32),
+              new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.75 })
+            );
+            flushWater.rotation.x = Math.PI / 2;
+            flushWater.position.y = 8;
+            hydraulicRoot.add(flushWater);
+            addSceneInteraction(hydraulicRoot, 'flush', (progress, elapsed) => {
+              flushWater.visible = progress > 0.02;
+              flushWater.material.opacity = progress * 0.72;
+              flushWater.scale.setScalar(0.45 + progress * 0.75 + Math.sin(elapsed * 10) * 0.08 * progress);
+              flushWater.rotation.z = elapsed * 2.4;
+            });
+          } else if (item.type === 'pool') {
+            const ripple = new THREE.Mesh(
+              new THREE.TorusGeometry(12, 0.55, 8, 48),
+              new THREE.MeshBasicMaterial({ color: 0x67e8f9, transparent: true, opacity: 0.55 })
+            );
+            ripple.rotation.x = Math.PI / 2;
+            ripple.position.y = 2;
+            hydraulicRoot.add(ripple);
+            addSceneInteraction(hydraulicRoot, 'pool', (progress, elapsed) => {
+              ripple.visible = progress > 0.02;
+              ripple.material.opacity = progress * 0.55;
+              ripple.scale.setScalar(0.5 + (elapsed % 2) * 0.55);
+            });
+          } else if (item.type === 'heater') {
+            addSceneInteraction(hydraulicRoot, 'water', progress => {
+              (fixture.material as any).emissive = new THREE.Color(0xf97316);
+              (fixture.material as any).emissiveIntensity = progress * 0.8;
+            });
+          } else {
+            floorGroup.add(hydraulicRoot);
+          }
         });
 
         // Load genuine GLB geometry into the same scene, normalized to catalog dimensions.
@@ -401,9 +557,40 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
         let active = new Map<number, { x: number; y: number }>();
         let start: { x: number; y: number; yaw: number; pitch: number; distance: number; tx: number; ty: number; tz: number } | null = null;
         let pinchStart: { distance: number; zoom: number; cx: number; cy: number; tx: number; ty: number; tz: number } | null = null;
+        const pointerOrigins = new Map<number, { x: number; y: number }>();
+        const raycaster = new THREE.Raycaster();
+        const normalizedPointer = new THREE.Vector2();
+        const activateInteraction = (event: PointerEvent) => {
+          const rect = renderer.domElement.getBoundingClientRect();
+          normalizedPointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+          normalizedPointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+          raycaster.setFromCamera(normalizedPointer, camera);
+          const hits = raycaster.intersectObjects(scene.children, true);
+          let interaction: SceneInteraction | undefined;
+          for (const hit of hits) {
+            let node = hit.object;
+            while (node && !node.userData?.sceneInteraction) node = node.parent;
+            if (node?.userData?.sceneInteraction) {
+              interaction = node.userData.sceneInteraction as SceneInteraction;
+              break;
+            }
+          }
+          if (!interaction) return;
+          if (interaction.kind === 'switch') {
+            const circuit = interaction.circuit;
+            if (!circuit) return;
+            const circuitLights = sceneInteractions.filter(candidate => candidate.kind === 'light' && candidate.circuit === circuit);
+            if (!circuitLights.length) return;
+            const shouldTurnOn = circuitLights.some(light => light.target < 0.5);
+            circuitLights.forEach(light => { light.target = shouldTurnOn ? 1 : 0; });
+            return;
+          }
+          interaction.target = interaction.target > 0.5 ? 0 : 1;
+        };
         const onDown = (e: PointerEvent) => {
           (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
           active.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          pointerOrigins.set(e.pointerId, { x: e.clientX, y: e.clientY });
           if (!controls) return;
           const pts = [...active.values()];
           if (pts.length === 1) start = { x: e.clientX, y: e.clientY, yaw: controls.yaw, pitch: controls.pitch, distance: controls.distance, tx: controls.targetX, ty: controls.targetY, tz: controls.targetZ };
@@ -430,7 +617,15 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           }
           updateCamera();
         };
-        const onUp = (e: PointerEvent) => { active.delete(e.pointerId); if (active.size < 2) pinchStart = null; if (!active.size) start = null; };
+        const onUp = (e: PointerEvent) => {
+          const origin = pointerOrigins.get(e.pointerId);
+          const wasClick = origin && active.size === 1 && Math.hypot(e.clientX - origin.x, e.clientY - origin.y) < 7;
+          if (wasClick) activateInteraction(e);
+          pointerOrigins.delete(e.pointerId);
+          active.delete(e.pointerId);
+          if (active.size < 2) pinchStart = null;
+          if (!active.size) start = null;
+        };
         const onWheel = (e: WheelEvent) => { e.preventDefault(); if (controls) { controls.distance = Math.max(80, Math.min(5000, controls.distance * (e.deltaY > 0 ? 1.1 : 0.9))); updateCamera(); } };
         renderer.domElement.addEventListener('pointerdown', onDown);
         renderer.domElement.addEventListener('pointermove', onMove);
@@ -452,9 +647,24 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
         });
         resizeObserver.observe(host);
 
+        let previousFrameTime = performance.now();
+        let elapsedSceneTime = 0;
         const animate = () => {
           if (disposed) return;
           frame = requestAnimationFrame(animate);
+          const now = performance.now();
+          const delta = Math.min(0.05, (now - previousFrameTime) / 1000);
+          previousFrameTime = now;
+          elapsedSceneTime += delta;
+          sceneInteractions.forEach(interaction => {
+            const difference = interaction.target - interaction.progress;
+            if (Math.abs(difference) > 0.001) {
+              interaction.progress += Math.sign(difference) * Math.min(Math.abs(difference), delta * 2.8);
+            } else {
+              interaction.progress = interaction.target;
+            }
+            interaction.update(interaction.progress, elapsedSceneTime);
+          });
           renderer.render(scene, camera);
         };
         animate();
