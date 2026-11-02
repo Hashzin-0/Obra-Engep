@@ -145,9 +145,13 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
           }
         });
 
-        const grid = new THREE.GridHelper(Math.max(spanX, spanZ) + 160, Math.max(10, Math.round(Math.max(spanX, spanZ) / 20)), isDark ? 0x475569 : 0x94a3b8, isDark ? 0x334155 : 0xcbd5e1);
-        grid.position.set(centerX, -0.7, centerZ);
-        floorGroup.add(grid);
+        // The reference grid belongs to the ground floor only. Upper floors
+        // and basements retain their geometry without duplicating the grid.
+        if (floorProject.kind === 'terreo' || floorProject.level === 0) {
+          const grid = new THREE.GridHelper(Math.max(spanX, spanZ) + 160, Math.max(10, Math.round(Math.max(spanX, spanZ) / 20)), isDark ? 0x475569 : 0x94a3b8, isDark ? 0x334155 : 0xcbd5e1);
+          grid.position.set(centerX, -0.7, centerZ);
+          floorGroup.add(grid);
+        }
 
         // Assign both doors and windows to their host wall. Openings are real
         // gaps in the wall mesh, not decorative markers laid over a solid wall.
