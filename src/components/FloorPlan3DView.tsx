@@ -502,7 +502,7 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
             switchRoot.add(point);
             addSceneInteraction(switchRoot, 'switch', progress => {
               point.rotation.x = progress * 0.24;
-              (point.material as THREE.MeshStandardMaterial).color.setHex(progress > 0.5 ? 0x22c55e : 0x64748b);
+              (point.material as any).color.setHex(progress > 0.5 ? 0x22c55e : 0x64748b);
             }, item.circuit ? `${floorProject.id}::${item.circuit}` : undefined, false, getWireNetworks(item));
           } else {
             floorGroup.add(point);
