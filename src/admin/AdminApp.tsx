@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import {
   Activity, AlertCircle, Archive, ArrowDownToLine, BarChart3, Check, CheckCircle2,
@@ -125,6 +125,8 @@ export default function AdminApp() {
   const [recentUsers, setRecentUsers] = useState<AdminProfile[]>([]);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [loading, setLoading] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const refreshInFlight = useRef(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [feedbackFilter, setFeedbackFilter] = useState<'todos' | FeedbackStatus>('todos');
@@ -180,31 +182,75 @@ export default function AdminApp() {
   const isAdmin = user?.app_metadata?.is_admin === true;
 
   const loadAdminData = useCallback(async () => {
-    if (!isAdmin) return;
+    if (!isAdmin || refreshInFlight.current) return;
+    refreshInFlight.current = true;
     setLoading(true);
-    setError('');
+
+    const requests = [
+      {
+        label: 'indicadores',
+        load: () => adminApi<{ data: DashboardStats }>('/api/admin/data?resource=stats'),
+        apply: (result: { data: DashboardStats }) => setStats(result.data ?? {}),
+      },
+      {
+        label: 'feedbacks',
+        load: () => adminApi<{ data: FeedbackItem[] }>('/api/admin/data?resource=feedback'),
+        apply: (result: { data: FeedbackItem[] }) => setFeedbacks(result.data ?? []),
+      },
+      {
+        label: 'catálogo de produtos',
+        load: () => adminApi<{ data: CatalogProduct[] }>('/api/admin/data?resource=products'),
+        apply: (result: { data: CatalogProduct[] }) => setProducts(result.data ?? []),
+      },
+      {
+        label: 'usuários recentes',
+        load: () => adminApi<{ data: AdminProfile[] }>('/api/admin/data?resource=users'),
+        apply: (result: { data: AdminProfile[] }) => setRecentUsers(result.data ?? []),
+      },
+    ];
+
     try {
-      const [statsResult, feedbackResult, productResult, usersResult] = await Promise.all([
-        adminApi<{ data: DashboardStats }>('/api/admin/data?resource=stats'),
-        adminApi<{ data: FeedbackItem[] }>('/api/admin/data?resource=feedback'),
-        adminApi<{ data: CatalogProduct[] }>('/api/admin/data?resource=products'),
-        adminApi<{ data: AdminProfile[] }>('/api/admin/data?resource=users'),
-      ]);
-      setStats(statsResult.data ?? {});
-      setFeedbacks(feedbackResult.data ?? []);
-      setProducts(productResult.data ?? []);
-      setRecentUsers(usersResult.data ?? []);
-    } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : 'Não foi possível carregar os dados administrativos.';
-      setError(message);
-      if (message.toLowerCase().includes('sessão')) setUser(null);
+      const results = await Promise.allSettled(requests.map((request) => request.load()));
+      const failures: string[] = [];
+      let successfulRequests = 0;
+
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          requests[index].apply(result.value as never);
+          successfulRequests += 1;
+          return;
+        }
+        const message = result.reason instanceof Error ? result.reason.message : 'Falha não identificada';
+        failures.push(`${requests[index].label}: ${message}`);
+        if (message.toLowerCase().includes('sessão')) setUser(null);
+      });
+
+      if (successfulRequests > 0) setLastUpdatedAt(new Date().toISOString());
+      setError(failures.length
+        ? `Algumas informações não puderam ser atualizadas. ${failures.join(' · ')}`
+        : '');
     } finally {
+      refreshInFlight.current = false;
       setLoading(false);
     }
   }, [isAdmin]);
 
   useEffect(() => {
-    if (isAdmin) void loadAdminData();
+    if (!isAdmin) return;
+    void loadAdminData();
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void loadAdminData();
+    };
+    const intervalId = window.setInterval(refreshWhenVisible, 60_000);
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
   }, [isAdmin, loadAdminData]);
 
   const filteredFeedbacks = useMemo(() => feedbacks.filter((item) => {
@@ -358,7 +404,7 @@ export default function AdminApp() {
 
       <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-300">Visão administrativa</p><h1 className="mt-1 text-2xl font-bold sm:text-3xl">Central de controle</h1><p className="mt-1 text-sm text-slate-400">Indicadores operacionais, atendimento e catálogo de produtos.</p></div>
+          <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-300">Visão administrativa</p><h1 className="mt-1 text-2xl font-bold sm:text-3xl">Central de controle</h1><p className="mt-1 text-sm text-slate-400">Indicadores operacionais, atendimento e catálogo de produtos.</p><p className="mt-1 text-[11px] text-slate-500">{lastUpdatedAt ? 'Última atualização: ' + formatDate(lastUpdatedAt) : loading ? 'Carregando informações…' : 'Aguardando atualização dos dados'}</p></div>
           <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-300">Sessão administrativa ativa</span>
         </div>
 
