@@ -276,13 +276,6 @@ const groups: FormulaGroup[] = [
     ],
   },
 
-    subtitle: 'Capacidade, energia nominal e corrente média de descarga',
-    symbol: '🔋',
-    cards: [
-      { title: 'Energia da bateria', formula: 'Wh = V × Ah', explanation: 'V = tensão nominal (V); Ah = capacidade nominal (Ah); resultado em Wh.' },
-      { title: 'Corrente média de descarga', formula: 'I = Ah ÷ t', explanation: 'Ah = capacidade considerada; t = tempo (h). Estimativa ideal, sem efeito de Peukert, temperatura ou limite de descarga.' },
-    ],
-  },
 ];
 
 export const ElectricalFormulasView: React.FC = () => (
