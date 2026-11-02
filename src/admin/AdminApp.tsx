@@ -262,7 +262,7 @@ export default function AdminApp() {
     }
   };
 
-  const saveProduct = async (form: Omit<CatalogProduct, 'id'> & { id?: string }) => {
+  const saveProduct = async (form: Omit<CatalogProduct, 'id'> & { id?: string; image_file?: { data: string; mime_type: string } }) => {
     setError('');
     const payload = {
       ...form,
@@ -280,7 +280,9 @@ export default function AdminApp() {
       setNotice('Produto salvo no catálogo.');
       await loadAdminData();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Não foi possível salvar o produto.');
+      const message = saveError instanceof Error ? saveError.message : 'Não foi possível salvar o produto.';
+      setError(message);
+      throw saveError instanceof Error ? saveError : new Error(message);
     }
   };
 
