@@ -29,8 +29,18 @@ jobs:
           node-version: 24
           cache: npm
 
+      - name: Refresh lockfile with reviewed security overrides
+        run: npm install --package-lock-only --ignore-scripts
+
       - name: Install locked dependencies
         run: npm ci
+
+      - name: Upload refreshed dependency lockfile
+        uses: actions/upload-artifact@v7
+        with:
+          name: refreshed-package-lock
+          path: package-lock.json
+          if-no-files-found: error
 
       - name: Generate full dependency audit report
         run: npm audit --json > npm-audit.json || true
