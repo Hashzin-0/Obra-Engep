@@ -1,4 +1,6 @@
 import { Buffer } from 'node:buffer';
+import { randomUUID } from 'node:crypto';
+import sharp from 'sharp';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { env } from 'node:process';
 import { createClient, type User } from '@supabase/supabase-js';
@@ -6,11 +8,13 @@ import { getAdminSessionId, validateAdminSession } from './sessionSecurity.js';
 import { safeHttpsUrl } from './urlSafety.js';
 
 type AdminRequest = IncomingMessage & { body?: unknown; query?: Record<string, string | string[] | undefined> };
-export const config = { api: { bodyParser: { sizeLimit: '32kb' } } };
+export const config = { api: { bodyParser: { sizeLimit: '4.5mb' } } };
 
 const COOKIE_NAME = '__Host-obra-admin';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const MAX_BODY_BYTES = 32 * 1024;
+const MAX_BODY_BYTES = Math.floor(4.5 * 1024 * 1024);
+const MAX_PRODUCT_IMAGE_BYTES = 3 * 1024 * 1024;
+const PRODUCT_IMAGE_BUCKET = 'admin-product-images';
 type FeedbackStatus = 'aberto' | 'em_analise' | 'resolvido';
 
 function json(res: ServerResponse, status: number, body: Record<string, unknown>) {
@@ -103,6 +107,71 @@ function validDate(value: unknown): string | null {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const date = new Date(`${value}T00:00:00.000Z`);
   return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value ? null : value;
+}
+
+type ProductImageInput = { data: string; mime_type: string };
+
+function parseProductImage(value: unknown): ProductImageInput | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate.data !== 'string' || typeof candidate.mime_type !== 'string') return null;
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(candidate.mime_type)) return null;
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(candidate.data) || candidate.data.length > Math.ceil(MAX_PRODUCT_IMAGE_BYTES * 4 / 3) + 8) return null;
+  const buffer = Buffer.from(candidate.data, 'base64');
+  if (!buffer.length || buffer.length > MAX_PRODUCT_IMAGE_BYTES || buffer.toString('base64').replace(/=+$/, '') !== candidate.data.replace(/=+$/, '')) return null;
+  return { data: candidate.data, mime_type: candidate.mime_type };
+}
+
+async function uploadProductImage(client: ReturnType<typeof getClient>, input: ProductImageInput) {
+  const source = Buffer.from(input.data, 'base64');
+  let output: Buffer;
+  try {
+    const metadata = await sharp(source, { limitInputPixels: 25_000_000, animated: false }).metadata();
+    const expectedMime = metadata.format === 'jpeg' ? 'image/jpeg' : metadata.format === 'png' ? 'image/png' : metadata.format === 'webp' ? 'image/webp' : null;
+    if (!expectedMime || expectedMime !== input.mime_type || (metadata.pages ?? 1) > 1) {
+      throw new Error('Arquivo de imagem inválido. Envie um JPG, PNG ou WebP estático.');
+    }
+    output = await sharp(source, { limitInputPixels: 25_000_000 })
+      .rotate()
+      .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 82, effort: 4 })
+      .toBuffer();
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Arquivo de imagem inválido')) throw error;
+    throw new Error('Arquivo de imagem inválido ou corrompido.');
+  }
+  const path = `${randomUUID()}.webp`;
+  const { error } = await client.storage.from(PRODUCT_IMAGE_BUCKET).upload(path, output, {
+    contentType: 'image/webp',
+    cacheControl: '31536000',
+    upsert: false,
+  });
+  if (error) throw error;
+  const { data } = client.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(path);
+  return { path, url: data.publicUrl };
+}
+
+function productImagePath(imageUrl: string | null): string | null {
+  if (!imageUrl) return null;
+  const baseUrl = env.VITE_SUPABASE_URL;
+  if (!baseUrl) return null;
+  try {
+    const image = new URL(imageUrl);
+    const base = new URL(baseUrl);
+    const prefix = `/storage/v1/object/public/${PRODUCT_IMAGE_BUCKET}/`;
+    if (image.origin !== base.origin || !image.pathname.startsWith(prefix)) return null;
+    const path = decodeURIComponent(image.pathname.slice(prefix.length));
+    return /^[0-9a-f-]{36}\.webp$/i.test(path) ? path : null;
+  } catch {
+    return null;
+  }
+}
+
+async function removeProductImage(client: ReturnType<typeof getClient>, imageUrl: string | null) {
+  const path = productImagePath(imageUrl);
+  if (!path) return;
+  const { error } = await client.storage.from(PRODUCT_IMAGE_BUCKET).remove([path]);
+  if (error) console.error('Admin product image cleanup failed:', error.message);
 }
 
 function productPayload(body: Record<string, unknown>) {
@@ -229,18 +298,51 @@ export default async function handler(req: AdminRequest, res: ServerResponse) {
     if (body.action === 'save_product') {
       const product = body.product;
       if (!product || typeof product !== 'object' || Array.isArray(product)) return json(res, 400, { error: 'Ficha de produto inválida.' });
-      const productData = product as Record<string, unknown>;
-      const payload = productPayload(productData);
-      if (!payload) return json(res, 400, { error: 'Ficha de produto inválida. Revise os campos e URLs HTTPS.' });
+      const productData = { ...(product as Record<string, unknown>) };
+      const imageInput = productData.image_file === undefined ? null : parseProductImage(productData.image_file);
+      if (productData.image_file !== undefined && !imageInput) return json(res, 400, { error: 'Imagem inválida ou acima do limite de 3 MB.' });
+      delete productData.image_file;
       const id = productData.id;
       if (id !== undefined && (typeof id !== 'string' || !UUID_PATTERN.test(id))) return json(res, 400, { error: 'Identificador do produto inválido.' });
-      const query = id
-        ? verified.client.from('automotive_catalog').update(payload).eq('id', id).select('id').maybeSingle()
-        : verified.client.from('automotive_catalog').insert({ ...payload, created_by: verified.user.id }).select('id').single();
-      const { data, error } = await query;
-      if (error) throw error;
-      if (!data) return json(res, 404, { error: 'Produto não encontrado.' });
-      return json(res, 200, { ok: true, id: data.id });
+
+      let uploadedImageUrl: string | null = null;
+      let uploadedImagePath: string | null = null;
+      const previousImageUrl = typeof productData.image_url === 'string' ? productData.image_url : null;
+      try {
+        if (imageInput) {
+          const uploaded = await uploadProductImage(verified.client, imageInput);
+          uploadedImageUrl = uploaded.url;
+          uploadedImagePath = uploaded.path;
+          productData.image_url = uploaded.url;
+        }
+
+        const payload = productPayload(productData);
+        if (!payload) {
+          if (uploadedImagePath) await verified.client.storage.from(PRODUCT_IMAGE_BUCKET).remove([uploadedImagePath]);
+          return json(res, 400, { error: 'Ficha de produto inválida. Revise os campos e URLs HTTPS.' });
+        }
+
+        const query = id
+          ? verified.client.from('automotive_catalog').update(payload).eq('id', id).select('id').maybeSingle()
+          : verified.client.from('automotive_catalog').insert({ ...payload, created_by: verified.user.id }).select('id').single();
+        const { data, error } = await query;
+        if (error) throw error;
+        if (!data) {
+          if (uploadedImagePath) await verified.client.storage.from(PRODUCT_IMAGE_BUCKET).remove([uploadedImagePath]);
+          return json(res, 404, { error: 'Produto não encontrado.' });
+        }
+
+        if (previousImageUrl && previousImageUrl !== uploadedImageUrl && previousImageUrl !== payload.image_url) {
+          await removeProductImage(verified.client, previousImageUrl);
+        }
+        return json(res, 200, { ok: true, id: data.id });
+      } catch (error) {
+        if (uploadedImagePath) await verified.client.storage.from(PRODUCT_IMAGE_BUCKET).remove([uploadedImagePath]);
+        if (error instanceof Error && error.message.startsWith('Arquivo de imagem inválido')) {
+          return json(res, 400, { error: error.message });
+        }
+        throw error;
+      }
     }
 
     if (body.action === 'toggle_published') {
@@ -258,7 +360,12 @@ export default async function handler(req: AdminRequest, res: ServerResponse) {
     return json(res, 400, { error: 'Ação inválida.' });
   } catch (error) {
     const code = typeof error === 'object' && error && 'code' in error ? String((error as { code: unknown }).code) : 'unknown';
-    console.error('Admin data endpoint failed:', code);
+    const resource = typeof req.query?.resource === 'string' ? req.query.resource : 'write';
+    const action = req.body && typeof req.body === 'object' && !Array.isArray(req.body)
+      && typeof (req.body as Record<string, unknown>).action === 'string'
+      ? (req.body as Record<string, unknown>).action as string
+      : 'none';
+    console.error('Admin data endpoint failed:', { method, resource, action, code });
     return json(res, 500, { error: 'Não foi possível concluir a operação administrativa.' });
   }
 }
