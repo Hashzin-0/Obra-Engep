@@ -420,18 +420,6 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
 
   return (
     <div className="space-y-5 pb-24">
-      {selectedToolId && (
-        <div className="flex justify-end">
-          <button
-            onClick={() => setSelectedToolId(null)}
-            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#17243A] hover:bg-[#1E2E48] text-xs font-medium text-[#9FB0C8] hover:text-white border border-[#2A3A55] transition"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Ver Todas</span>
-          </button>
-        </div>
-      )}
-
       {/* Top Category Filter Pills (Exact order from Board 3: Elétrica, Hidráulica, Estrutural, Outras) */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
         {[
@@ -551,7 +539,7 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
               className="flex items-center gap-2 text-xs font-semibold text-[#5B9BFF] hover:text-white transition"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>← Voltar à lista de {activeCategory}</span>
+              <span>Voltar</span>
             </button>
 
             <div className="flex items-center gap-2">
