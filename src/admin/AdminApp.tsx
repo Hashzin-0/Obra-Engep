@@ -3,7 +3,7 @@ import type { User } from '@supabase/supabase-js';
 import {
   Activity, AlertCircle, Archive, ArrowDownToLine, BarChart3, Check, CheckCircle2,
   ChevronDown, Clock3, ExternalLink, Eye, EyeOff, LayoutDashboard, LogOut,
-  MessageSquareText, Package, Plus, RefreshCw, Search, ShieldCheck, Trash2,
+  ImagePlus, MessageSquareText, Package, Plus, RefreshCw, Search, ShieldCheck, Trash2,
   Users, X
 } from 'lucide-react';
 import { adminAuthClient } from './adminAuth';
@@ -473,25 +473,53 @@ export default function AdminApp() {
 function ProductEditor({ initial, onClose, onSave }: {
   initial: CatalogProduct | null;
   onClose: () => void;
-  onSave: (value: Omit<CatalogProduct, 'id'> & { id?: string }) => void;
+  onSave: (value: Omit<CatalogProduct, 'id'> & { id?: string; image_file?: { data: string; mime_type: string } }) => Promise<void>;
 }) {
   const [form, setForm] = useState(() => initial ? { ...initial } : { ...EMPTY_PRODUCT });
   const [surfaces, setSurfaces] = useState((initial?.target_surfaces ?? []).join(', '));
   const [cautions, setCautions] = useState((initial?.cautions ?? []).join('\n'));
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(initial?.image_url ?? null);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  useEffect(() => {
+    if (!selectedImage) return;
+    const objectUrl = URL.createObjectURL(selectedImage);
+    setPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [selectedImage]);
   const update = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((current) => ({ ...current, [key]: value }));
-  const submit = (event: React.FormEvent) => {
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!form.name.trim()) return;
-    if (form.source_url && !/^https:\/\//i.test(form.source_url)) return;
-    if (form.image_url && !/^https:\/\//i.test(form.image_url)) return;
-    onSave({
-      ...form,
-      id: initial?.id,
-      target_surfaces: surfaces.split(',').map((item) => item.trim()).filter(Boolean),
-      cautions: cautions.split('\n').map((item) => item.trim()).filter(Boolean),
-      dilution_number: Number(form.dilution_number) || 1,
-      verified_date: form.verified_date || null,
-    });
+    if (saving) return;
+    setFormError('');
+    if (!form.name.trim()) { setFormError('Informe o nome do produto.'); return; }
+    if (form.source_url && !/^https:\/\//i.test(form.source_url)) { setFormError('A URL da fonte deve começar com https://.'); return; }
+    if (selectedImage && !['image/jpeg', 'image/png', 'image/webp'].includes(selectedImage.type)) { setFormError('Selecione uma imagem JPG, PNG ou WebP.'); return; }
+    if (selectedImage && selectedImage.size > 3 * 1024 * 1024) { setFormError('A imagem deve ter no máximo 3 MB.'); return; }
+    setSaving(true);
+    try {
+      let image_file: { data: string; mime_type: string } | undefined;
+      if (selectedImage) {
+        const bytes = new Uint8Array(await selectedImage.arrayBuffer());
+        let binary = '';
+        for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+        image_file = { data: btoa(binary), mime_type: selectedImage.type };
+      }
+      await onSave({
+        ...form,
+        id: initial?.id,
+        image_file,
+        target_surfaces: surfaces.split(',').map((item) => item.trim()).filter(Boolean),
+        cautions: cautions.split('\n').map((item) => item.trim()).filter(Boolean),
+        dilution_number: Number(form.dilution_number) || 1,
+        verified_date: form.verified_date || null,
+      });
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Não foi possível salvar o produto.');
+    } finally {
+      setSaving(false);
+    }
   };
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 p-3 sm:p-6">
@@ -510,14 +538,27 @@ function ProductEditor({ initial, onClose, onSave }: {
             <Field label="Rendimento"><input value={form.yield_info} onChange={(e) => update('yield_info', e.target.value)} className={inputClass} /></Field>
             <Field label="Data de verificação"><input type="date" value={form.verified_date ?? ''} onChange={(e) => update('verified_date', e.target.value || null)} className={inputClass} /></Field>
             <Field label="URL da fonte (HTTPS)"><input type="url" value={form.source_url ?? ''} onChange={(e) => update('source_url', e.target.value || null)} className={inputClass} placeholder="https://" /></Field>
-            <Field label="URL da imagem (HTTPS)"><input type="url" value={form.image_url ?? ''} onChange={(e) => update('image_url', e.target.value || null)} className={inputClass} placeholder="https://" /></Field>
+            <div className="space-y-2 sm:col-span-2">
+              <span className="text-xs font-medium text-slate-300">Imagem do produto</span>
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-600 bg-slate-950/40 px-4 py-5 text-center transition hover:border-blue-400 hover:bg-slate-900/70">
+                <ImagePlus className="h-6 w-6 text-blue-300" />
+                <span className="text-sm font-medium text-slate-200">Selecionar imagem</span>
+                <span className="text-xs text-slate-500">JPG, PNG ou WebP · até 3 MB</span>
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (file) { setSelectedImage(file); setFormError(""); } event.currentTarget.value = ""; }} />
+              </label>
+              {previewUrl && <div className="relative overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-2">
+                <img src={previewUrl} alt="Pré-visualização da imagem do produto" className="mx-auto max-h-56 max-w-full rounded-lg object-contain" />
+                <button type="button" onClick={() => { setSelectedImage(null); setPreviewUrl(null); update("image_url", null); }} className="absolute right-3 top-3 rounded-lg border border-slate-600 bg-slate-900/90 px-2.5 py-1.5 text-xs text-red-300 hover:bg-red-950">Remover imagem</button>
+              </div>}
+            </div>
           </div>
           <Field label="Instruções de uso"><textarea value={form.instructions} onChange={(e) => update('instructions', e.target.value)} className={textareaClass} /></Field>
           <Field label="Cautelas (uma por linha)"><textarea value={cautions} onChange={(e) => setCautions(e.target.value)} className={textareaClass} /></Field>
           <Field label="Fonte / identificação do rótulo ou FISPQ"><input value={form.source_label} onChange={(e) => update('source_label', e.target.value)} className={inputClass} /></Field>
+          {formError && <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{formError}</p>}
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-4">
             <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={form.is_published} onChange={(e) => update('is_published', e.target.checked)} /> Publicar para os usuários</label>
-            <div className="flex gap-2"><button type="button" onClick={onClose} className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm">Cancelar</button><button type="submit" className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold hover:bg-blue-500">Salvar produto</button></div>
+            <div className="flex gap-2"><button type="button" onClick={onClose} className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm">Cancelar</button><button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60">{saving && <RefreshCw className="h-4 w-4 animate-spin" />}{saving ? "Salvando…" : "Salvar produto"}</button></div>
           </div>
         </form>
       </div>
