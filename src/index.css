@@ -1,1 +1,154 @@
 @import "tailwindcss";
+
+/*
+ * OBra ENGEP visual system
+ * Brand palette sampled from the supplied mark:
+ * powder blue, sage green and warm sand.
+ */
+:root {
+  color-scheme: light;
+  --brand-blue: #b7c8cc;
+  --brand-blue-strong: #78969f;
+  --brand-sage: #aab9b0;
+  --brand-sage-strong: #718b7d;
+  --brand-sand: #d9c9b8;
+  --brand-sand-strong: #a78f78;
+  --page: #f5f2ec;
+  --surface: #f5f2ec;
+  --surface-raised: #f8f6f1;
+  --surface-inset: #e9e5dd;
+  --ink: #344149;
+  --muted: #718087;
+  --line: #d8d5cc;
+  --clay-shadow: 9px 9px 20px rgba(154, 145, 130, .20), -8px -8px 20px rgba(255, 255, 255, .88);
+  --clay-shadow-small: 5px 5px 12px rgba(154, 145, 130, .18), -5px -5px 12px rgba(255, 255, 255, .82);
+}
+
+:root.dark {
+  color-scheme: dark;
+  --brand-blue: #9db5bb;
+  --brand-blue-strong: #c0d1d4;
+  --brand-sage: #91a99b;
+  --brand-sage-strong: #b5c8bb;
+  --brand-sand: #c9b39d;
+  --brand-sand-strong: #e0cbb5;
+  --page: #252c2c;
+  --surface: #2c3534;
+  --surface-raised: #333d3b;
+  --surface-inset: #202827;
+  --ink: #edf0e9;
+  --muted: #b4c0b8;
+  --line: #46524d;
+  --clay-shadow: 9px 9px 20px rgba(12, 17, 16, .30), -7px -7px 18px rgba(77, 91, 84, .14);
+  --clay-shadow-small: 5px 5px 12px rgba(12, 17, 16, .26), -4px -4px 10px rgba(77, 91, 84, .12);
+}
+
+html, body, #root { min-height: 100%; }
+html { background: var(--page); }
+body {
+  margin: 0;
+  background: var(--page) !important;
+  color: var(--ink) !important;
+  transition: background-color .25s ease, color .25s ease;
+}
+#root { background: var(--page); }
+::selection { background: var(--brand-blue); color: #26343a; }
+
+/* Migrate the established utility palette without changing component behavior. */
+:root.light [class*="bg-[#101827]"],
+:root.light [class*="bg-[#17243A]"],
+:root.light [class*="bg-[#1a2842]"],
+:root.light [class*="bg-[#1C2C47]"] {
+  background-color: var(--surface) !important;
+  background-image: none !important;
+}
+:root.light [class*="bg-[#101B2D]"] { background-color: var(--surface-inset) !important; }
+:root.light [class*="bg-[#F0F4FA]"],
+:root.light [class*="bg-[#F5F7FB]"] { background-color: var(--surface-raised) !important; }
+:root.light [class*="border-[#2A3A55]"],
+:root.light [class*="border-[#6B7F9E]"] { border-color: var(--line) !important; }
+:root.light [class*="text-[#E8EDF5]"],
+:root.light [class*="text-white"] { color: var(--ink) !important; }
+:root.light [class*="text-[#9FB0C8]"],
+:root.light [class*="text-[#8191A8]"],
+:root.light [class*="text-[#5B6B82]"] { color: var(--muted) !important; }
+
+:root.light [class*="bg-[#1F66D6]"] {
+  background-color: var(--brand-blue) !important;
+  color: #293b41 !important;
+}
+:root.light [class*="border-[#1F66D6]"] { border-color: var(--brand-blue-strong) !important; }
+:root.light [class*="text-[#1F66D6]"],
+:root.light [class*="text-[#5B9BFF]"] { color: var(--brand-blue-strong) !important; }
+:root.light [class*="text-[#3DD68C]"],
+:root.light [class*="text-[#3DD68C]"] { color: var(--brand-sage-strong) !important; }
+:root.light [class*="bg-[#3DD68C]"] { background-color: var(--brand-sage) !important; }
+:root.light [class*="bg-[#F5B93A]"] { background-color: var(--brand-sand) !important; }
+:root.light [class*="text-[#F5B93A]"] { color: var(--brand-sand-strong) !important; }
+:root.light [class*="border-[#D9E0EC]"] { border-color: var(--line) !important; }
+
+/* Claymorphism: soft, tactile surfaces rather than flat white cards. */
+:root.light .rounded-2xl.border,
+:root.light .rounded-xl.border {
+  border-color: rgba(191, 185, 173, .62);
+  box-shadow: var(--clay-shadow);
+}
+:root.light button.rounded-xl,
+:root.light button.rounded-2xl,
+:root.light a.rounded-xl,
+:root.light a.rounded-2xl {
+  transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease;
+}
+:root.light button.rounded-xl:not(:disabled):active,
+:root.light button.rounded-2xl:not(:disabled):active {
+  transform: translateY(1px);
+  box-shadow: inset 3px 3px 7px rgba(154, 145, 130, .18), inset -3px -3px 7px rgba(255,255,255,.72);
+}
+:root.light input,
+:root.light textarea,
+:root.light select {
+  background-color: var(--surface-inset) !important;
+  color: var(--ink) !important;
+  border-color: var(--line) !important;
+}
+:root.light input::placeholder,
+:root.light textarea::placeholder { color: #87918e !important; }
+
+/* Keep the same brand palette legible when the user explicitly selects dark mode. */
+:root.dark [class*="bg-[#101827]"],
+:root.dark [class*="bg-[#17243A]"],
+:root.dark [class*="bg-[#1a2842]"],
+:root.dark [class*="bg-[#1C2C47]"] {
+  background-color: var(--surface) !important;
+  background-image: none !important;
+}
+:root.dark [class*="bg-[#101B2D]"] { background-color: var(--surface-inset) !important; }
+:root.dark [class*="border-[#2A3A55]"],
+:root.dark [class*="border-[#6B7F9E]"] { border-color: var(--line) !important; }
+:root.dark [class*="text-[#5B9BFF]"],
+:root.dark [class*="text-[#1F66D6]"] { color: var(--brand-blue-strong) !important; }
+:root.dark [class*="text-[#3DD68C]"] { color: var(--brand-sage-strong) !important; }
+:root.dark [class*="text-[#F5B93A]"] { color: var(--brand-sand-strong) !important; }
+:root.dark [class*="bg-[#1F66D6]"] { background-color: var(--brand-blue) !important; color: #26343a !important; }
+:root.dark [class*="bg-[#3DD68C]"] { background-color: var(--brand-sage) !important; color: #26342e !important; }
+:root.dark [class*="bg-[#F5B93A]"] { background-color: var(--brand-sand) !important; color: #3b3026 !important; }
+:root.dark .rounded-2xl.border,
+:root.dark .rounded-xl.border {
+  border-color: rgba(113, 132, 120, .30);
+  box-shadow: var(--clay-shadow);
+}
+:root.dark input,
+:root.dark textarea,
+:root.dark select {
+  background-color: var(--surface-inset) !important;
+  color: var(--ink) !important;
+  border-color: var(--line) !important;
+}
+
+/* The floor-plan canvas keeps its own technical drawing colors and contrast. */
+.floor-plan-canvas,
+.floor-plan-canvas * { color-scheme: light; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
