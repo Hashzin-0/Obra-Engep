@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="title">
   <title id="title">Obra ENGEP</title>
   <rect width="512" height="512" fill="#F5F2EC"/>
-  <g transform="translate(27 73)" stroke-linejoin="round">
+  <g transform="translate(42 101) scale(0.88)" stroke-linejoin="round">
     <path d="M57 147 130 92v141c-22 9-46 15-73 18Z" fill="#B7C8CC"/>
     <path d="m144 73 71-54v160c-23 23-47 43-71 55Z" fill="#AAB9B0"/>
     <path d="m230-3 72-55v164l-72 58Z" fill="#D9C9B8"/>
