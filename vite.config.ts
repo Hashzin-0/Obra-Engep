@@ -4,8 +4,11 @@ import path from 'path';
 import {defineConfig} from 'vite';
 import {VitePWA} from 'vite-plugin-pwa';
 
+const projectRoot = process.cwd();
+
 export default defineConfig(() => {
   return {
+    root: projectRoot,
     plugins: [
       react(),
       tailwindcss(),
@@ -57,14 +60,14 @@ export default defineConfig(() => {
     build: {
       rolldownOptions: {
         input: {
-          app: path.resolve(import.meta.dirname, 'index.html'),
-          bd710978848ee7599c9b7f24858aac90607361e767bda6c33: path.resolve(import.meta.dirname, 'bd710978848ee7599c9b7f24858aac90607361e767bda6c33.html'),
+          app: path.resolve(projectRoot, 'index.html'),
+          bd710978848ee7599c9b7f24858aac90607361e767bda6c33: path.resolve(projectRoot, 'bd710978848ee7599c9b7f24858aac90607361e767bda6c33.html'),
         },
       },
     },
     resolve: {
       alias: {
-        '@': path.resolve(import.meta.dirname, '.'),
+        '@': projectRoot,
       },
     },
     server: {
