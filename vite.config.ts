@@ -58,7 +58,7 @@ export default defineConfig(() => {
       rolldownOptions: {
         input: {
           app: path.resolve(import.meta.dirname, 'index.html'),
-          bd710978848ee7599c9b7f24858aac90607361e767bda6c33: path.resolve(import.meta.dirname, 'bd710978848ee7599c9b7f24858aac90607361e767bda6c33.html'),
+          bd710978848ee759c9b7f24858aac90607361e767bda6c33: path.resolve(import.meta.dirname, 'bd710978848ee759c9b7f24858aac90607361e767bda6c33.html'),
         },
       },
     },
