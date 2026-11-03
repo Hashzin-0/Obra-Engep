@@ -20,8 +20,9 @@
   --ink: #344149;
   --muted: #718087;
   --line: #d8d5cc;
-  --clay-shadow: 9px 9px 20px rgba(154, 145, 130, .20), -8px -8px 20px rgba(255, 255, 255, .88);
-  --clay-shadow-small: 5px 5px 12px rgba(154, 145, 130, .18), -5px -5px 12px rgba(255, 255, 255, .82);
+  --clay-card-face: radial-gradient(ellipse at 18% 8%, rgba(255, 255, 255, .88), transparent 52%), linear-gradient(145deg, #fbf9f4 0%, #f2eee6 68%, #eae5da 100%);
+  --clay-shadow: inset 0 1px 0 rgba(255, 255, 255, .92), inset 0 -3px 7px rgba(154, 145, 130, .12), 0 4px 9px rgba(115, 103, 84, .07);
+  --clay-shadow-small: inset 0 1px 0 rgba(255, 255, 255, .88), inset 0 -2px 5px rgba(154, 145, 130, .10);
 }
 
 :root.dark {
@@ -32,15 +33,16 @@
   --brand-sage-strong: #b5c8bb;
   --brand-sand: #c9b39d;
   --brand-sand-strong: #e0cbb5;
-  --page: #252c2c;
-  --surface: #2c3534;
-  --surface-raised: #333d3b;
-  --surface-inset: #202827;
-  --ink: #edf0e9;
-  --muted: #b4c0b8;
-  --line: #46524d;
-  --clay-shadow: 9px 9px 20px rgba(12, 17, 16, .30), -7px -7px 18px rgba(77, 91, 84, .14);
-  --clay-shadow-small: 5px 5px 12px rgba(12, 17, 16, .26), -4px -4px 10px rgba(77, 91, 84, .12);
+  --page: #101614;
+  --surface: #1a2420;
+  --surface-raised: #222e28;
+  --surface-inset: #141d19;
+  --ink: #e8eee9;
+  --muted: #a7b5ac;
+  --line: #34443b;
+  --clay-card-face: radial-gradient(ellipse at 18% 8%, rgba(225, 242, 230, .075), transparent 52%), linear-gradient(145deg, #26332c 0%, #202a24 68%, #1b241f 100%);
+  --clay-shadow: inset 0 1px 0 rgba(220, 239, 226, .10), inset 0 -3px 7px rgba(0, 0, 0, .22), 0 4px 10px rgba(0, 0, 0, .16);
+  --clay-shadow-small: inset 0 1px 0 rgba(220, 239, 226, .08), inset 0 -2px 5px rgba(0, 0, 0, .20);
 }
 
 html, body, #root { min-height: 100%; }
@@ -90,26 +92,33 @@ body {
 /* Claymorphism: soft, tactile surfaces rather than flat white cards. */
 :root.light .rounded-2xl.border,
 :root.light .rounded-xl.border {
-  border-color: rgba(191, 185, 173, .62);
+  border-color: rgba(191, 185, 173, .48);
+  border-radius: 24px;
+  background: var(--clay-card-face);
   box-shadow: var(--clay-shadow);
 }
 :root.light button.rounded-xl,
 :root.light button.rounded-2xl,
 :root.light a.rounded-xl,
 :root.light a.rounded-2xl {
+  border-radius: 18px;
+  background-image: linear-gradient(145deg, rgba(255, 255, 255, .28), transparent 68%);
+  box-shadow: var(--clay-shadow-small);
   transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease;
 }
 :root.light button.rounded-xl:not(:disabled):active,
 :root.light button.rounded-2xl:not(:disabled):active {
-  transform: translateY(1px);
-  box-shadow: inset 3px 3px 7px rgba(154, 145, 130, .18), inset -3px -3px 7px rgba(255,255,255,.72);
+  transform: scale(.985);
+  box-shadow: inset 2px 2px 5px rgba(154, 145, 130, .16), inset -2px -2px 5px rgba(255,255,255,.72);
 }
 :root.light input,
 :root.light textarea,
 :root.light select {
-  background-color: var(--surface-inset) !important;
+  background: linear-gradient(145deg, #e7e2d9, #efebe3) !important;
   color: var(--ink) !important;
   border-color: var(--line) !important;
+  border-radius: 14px;
+  box-shadow: inset 2px 2px 5px rgba(154, 145, 130, .12), inset -1px -1px 3px rgba(255, 255, 255, .75);
 }
 :root.light input::placeholder,
 :root.light textarea::placeholder { color: #87918e !important; }
@@ -134,15 +143,19 @@ body {
 :root.dark [class*="bg-[#F5B93A]"] { background-color: var(--brand-sand) !important; color: #3b3026 !important; }
 :root.dark .rounded-2xl.border,
 :root.dark .rounded-xl.border {
-  border-color: rgba(113, 132, 120, .30);
+  border-color: rgba(137, 164, 146, .20);
+  border-radius: 24px;
+  background: var(--clay-card-face);
   box-shadow: var(--clay-shadow);
 }
 :root.dark input,
 :root.dark textarea,
 :root.dark select {
-  background-color: var(--surface-inset) !important;
+  background: linear-gradient(145deg, #131c18, #17211c) !important;
   color: var(--ink) !important;
   border-color: var(--line) !important;
+  border-radius: 14px;
+  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, .20), inset -1px -1px 3px rgba(220, 239, 226, .045);
 }
 
 /* The floor-plan canvas keeps its own technical drawing colors and contrast. */
