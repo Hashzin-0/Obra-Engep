@@ -1,15 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#17243A"/>
-      <stop offset="100%" stop-color="#101827"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <rect x="12" y="12" width="488" height="488" rx="100" fill="none" stroke="#2A3A55" stroke-width="6"/>
-  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M 96 278 L 256 118 L 416 278" stroke="#1F66D6" stroke-width="34"/>
-    <path d="M 165 310 L 256 219 L 347 310" stroke="#F5B93A" stroke-width="28"/>
-    <path d="M 318 143 L 318 204" stroke="#1F66D6" stroke-width="22"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="title">
+  <title id="title">Obra ENGEP</title>
+  <rect width="512" height="512" fill="#F5F2EC"/>
+  <g transform="translate(27 73)" stroke-linejoin="round">
+    <path d="M57 147 130 92v141c-22 9-46 15-73 18Z" fill="#B7C8CC"/>
+    <path d="m144 73 71-54v160c-23 23-47 43-71 55Z" fill="#AAB9B0"/>
+    <path d="m230-3 72-55v164l-72 58Z" fill="#D9C9B8"/>
+    <path d="M9 251c51 23 105 22 158-1 66-29 112-98 164-145 18-16 35-26 52-29-35 3-60 20-85 47-54 58-94 119-157 145-48 20-95 14-132-17Z" fill="#AAB9B0"/>
+    <path d="M291 18c57-1 104 35 120 92 17 61-7 124-55 152-39 23-91 23-144 7 52 10 101-4 132-37 37-39 49-91 30-141-14-37-43-63-83-73Z" fill="#D9C9B8"/>
   </g>
 </svg>
