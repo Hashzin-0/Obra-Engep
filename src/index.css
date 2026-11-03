@@ -152,3 +152,35 @@ body {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+/* Consolidate former one-off accent colors into the three brand families. */
+:root.light [class*="text-[#06B6D4]"],
+:root.light [class*="text-[#38BDF8]"],
+:root.light [class*="text-[#5B9BFF]"] { color: var(--brand-blue-strong) !important; }
+:root.light [class*="text-[#A855F7]"],
+:root.light [class*="text-[#3DD68C]"],
+:root.light [class*="text-[#3DD68C]"] { color: var(--brand-sage-strong) !important; }
+:root.light [class*="text-[#EAB308]"],
+:root.light [class*="text-[#F5B93A]"] { color: var(--brand-sand-strong) !important; }
+:root.light [class*="bg-[#06B6D4]"],
+:root.light [class*="bg-[#38BDF8]"],
+:root.light [class*="bg-[#5B9BFF]"] { background-color: var(--brand-blue) !important; }
+:root.light [class*="bg-[#A855F7]"],
+:root.light [class*="bg-[#3DD68C]"] { background-color: var(--brand-sage) !important; }
+:root.light [class*="bg-[#EAB308]"],
+:root.light [class*="bg-[#F5B93A]"] { background-color: var(--brand-sand) !important; }
+
+:root.dark [class*="text-[#06B6D4]"],
+:root.dark [class*="text-[#38BDF8]"],
+:root.dark [class*="text-[#5B9BFF]"] { color: var(--brand-blue-strong) !important; }
+:root.dark [class*="text-[#A855F7]"],
+:root.dark [class*="text-[#3DD68C]"] { color: var(--brand-sage-strong) !important; }
+:root.dark [class*="text-[#EAB308]"],
+:root.dark [class*="text-[#F5B93A]"] { color: var(--brand-sand-strong) !important; }
+:root.dark [class*="bg-[#06B6D4]"],
+:root.dark [class*="bg-[#38BDF8]"],
+:root.dark [class*="bg-[#5B9BFF]"] { background-color: var(--brand-blue) !important; color: #26343a !important; }
+:root.dark [class*="bg-[#A855F7]"],
+:root.dark [class*="bg-[#3DD68C]"] { background-color: var(--brand-sage) !important; color: #26342e !important; }
+:root.dark [class*="bg-[#EAB308]"],
+:root.dark [class*="bg-[#F5B93A]"] { background-color: var(--brand-sand) !important; color: #3b3026 !important; }
