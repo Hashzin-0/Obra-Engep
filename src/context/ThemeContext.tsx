@@ -20,7 +20,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [theme, setThemeState] = useState<ThemeMode>(() => {
     const saved = localStorage.getItem('obra_engep_theme');
     if (saved === 'dark' || saved === 'light' || saved === 'system') return saved;
-    return 'dark'; // PDF specification: dark default
+    return 'light';
   });
 
   const [fontScale, setFontScaleState] = useState<number>(() => {
@@ -32,7 +32,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (typeof window !== 'undefined' && window.matchMedia) {
       return window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
-    return true;
+    return false;
   });
 
   useEffect(() => {
@@ -48,17 +48,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     const root = document.documentElement;
-    if (resolvedTheme === 'dark') {
-      root.classList.add('dark');
-      root.classList.remove('light');
-      document.body.style.backgroundColor = '#101827';
-      document.body.style.color = '#E8EDF5';
-    } else {
-      root.classList.add('light');
-      root.classList.remove('dark');
-      document.body.style.backgroundColor = '#F5F7FB';
-      document.body.style.color = '#101827';
-    }
+    root.classList.toggle('dark', resolvedTheme === 'dark');
+    root.classList.toggle('light', resolvedTheme === 'light');
+    document.body.style.backgroundColor = 'var(--page)';
+    document.body.style.color = 'var(--ink)';
     root.style.fontSize = `${(16 * fontScale) / 100}px`;
   }, [resolvedTheme, fontScale]);
 
