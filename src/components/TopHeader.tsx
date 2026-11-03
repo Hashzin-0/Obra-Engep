@@ -13,25 +13,21 @@ interface TopHeaderProps {
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenVoiceAssistant, onBackToHome }) => (
-  <header className="sticky top-0 z-30 px-4 py-2.5 border-b border-[#2A3A55] bg-[#101827]/95 text-[#E8EDF5] backdrop-blur-md">
+  <header className="sticky top-0 z-30 px-4 py-2.5 border-b border-[var(--line)] bg-[var(--surface)]/90 text-[var(--ink)] backdrop-blur-md">
     <div className="max-w-4xl mx-auto grid grid-cols-3 items-center gap-3">
       <div className="flex items-center justify-start gap-2 min-w-0">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#101827] to-[#17243A] flex items-center justify-center border border-[#2A3A55] shrink-0 shadow-sm p-1">
-          <svg viewBox="0 0 40 40" className="w-full h-full" fill="none" aria-hidden="true">
-            <path d="M 6 22 L 20 8 L 34 22" stroke="#1F66D6" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M 12 25 L 20 17 L 28 25" stroke="#F5B93A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-            <rect x="25" y="10" width="3" height="6" fill="#1F66D6" rx="1"/>
-          </svg>
+        <div className="w-9 h-9 rounded-xl bg-[var(--surface)] flex items-center justify-center border border-[var(--line)] shrink-0 shadow-sm p-1">
+          <img src="/icon.svg" alt="" aria-hidden="true" className="w-full h-full object-contain" />
         </div>
-        <h1 className="font-bold text-base leading-tight truncate tracking-tight text-white">OBra ENGEP</h1>
+        <h1 className="font-bold text-base leading-tight truncate tracking-tight">OBra ENGEP</h1>
       </div>
       <div className="flex items-center justify-center">
         {onOpenVoiceAssistant && (
           <button onClick={onOpenVoiceAssistant} aria-label="Abrir assistente de voz" title="Assistente de voz"
-            className="relative group p-1.5 rounded-xl border border-[#1F66D6]/40 bg-gradient-to-r from-[#17243A] to-[#101827] hover:border-[#5B9BFF] transition min-h-[44px] min-w-[44px] flex items-center justify-center overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-[#1F66D6]/30 via-[#A855F7]/30 to-[#06B6D4]/30 animate-pulse rounded-xl" />
-            <div className="relative flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-[#1F66D6] via-[#A855F7] to-[#06B6D4] shadow-md shadow-[#1F66D6]/50 group-hover:scale-110 transition-transform">
-              <Mic className="w-3.5 h-3.5 text-white animate-pulse" />
+            className="relative group p-1.5 rounded-xl border border-[var(--brand-blue-strong)] bg-[var(--surface-raised)] hover:border-[var(--brand-sage-strong)] transition min-h-[44px] min-w-[44px] flex items-center justify-center overflow-hidden">
+            <div className="absolute inset-0 bg-[var(--brand-sage)]/25 rounded-xl" />
+            <div className="relative flex items-center justify-center w-7 h-7 rounded-full bg-[var(--brand-blue)] shadow-md group-hover:scale-110 transition-transform">
+              <Mic className="w-3.5 h-3.5 text-[#293b41]" />
             </div>
           </button>
         )}
@@ -42,7 +38,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenVoiceAssistant, onBa
             <button
               type="button"
               onClick={onBackToHome}
-              className="min-h-10 inline-flex items-center rounded-xl border border-[#2A3A55] bg-[#17243A] px-2.5 text-xs font-semibold text-[#E8EDF5] hover:bg-[#1E2E48] transition"
+              className="min-h-10 inline-flex items-center rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] px-2.5 text-xs font-semibold hover:bg-[var(--surface-inset)] transition"
             >
               <ArrowLeft className="w-4 h-4 shrink-0" />
               <span className="whitespace-nowrap">Voltar ao início</span>
