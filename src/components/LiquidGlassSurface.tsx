@@ -48,7 +48,7 @@ export const LiquidGlassSurface: React.FC<LiquidGlassSurfaceProps> = ({
     borderColor="rgba(255,255,255,0.24)"
     radius={18}
     className={['liquid-glass-surface', className].filter(Boolean).join(' ')}
-    style={{ backgroundColor: 'transparent', ...style }}
+    style={{ width: 'auto', height: 'auto', backgroundColor: 'transparent', ...style }}
     {...props}
   >
     {children}
