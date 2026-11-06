@@ -1,7 +1,7 @@
 # Plano de privacidade, segurança e conformidade — OBra ENGEP
 
 **Estado:** implementação técnica em andamento; identificação do controlador e validação jurídica final pendentes.  
-**Escopo:** PWA React/TypeScript, Vercel, Supabase Auth/PostgreSQL, Google OAuth, Gemini, Web Push e armazenamento local/IndexedDB.
+**Escopo:** PWA React/TypeScript, Vercel, Supabase Auth/PostgreSQL, Google OAuth, Gemini, Web Push e armazenamento local (localStorage).
 
 > Documento de engenharia e minuta operacional. Não substitui análise jurídica, inventário contratual nem decisão do controlador sobre bases legais. Não afirmar conformidade integral até que as evidências e configurações externas sejam verificadas.
 
@@ -18,7 +18,7 @@ Não demonstradas no código examinado: checkout, cobrança, assinaturas, Google
 | Autenticação Google | ID do provedor, nome, e-mail, avatar | Criar e manter conta | Execução de contrato/procedimentos preliminares; validar | Supabase Auth / Google |
 | Sessão anônima | ID aleatório e sessão | Salvar/sincronizar sem login Google | Execução de funcionalidades solicitadas; avaliar legítimo interesse | Supabase Auth |
 | Projetos e editor | Plantas, instalações, objetos e metadados | Criar, armazenar e sincronizar | Execução de contrato | Supabase / armazenamento local |
-| Cálculos, favoritos, notas, checklists e prazos | Dados inseridos e histórico funcional | Persistência e continuidade | Execução de contrato | Supabase / localStorage / IndexedDB |
+| Cálculos, favoritos, notas, checklists e prazos | Dados inseridos e histórico funcional | Persistência e continuidade | Execução de contrato | Supabase / localStorage |
 | Feedback | Mensagem, usuário e e-mail opcional | Suporte e correção | Execução de contrato ou legítimo interesse conforme contexto | Supabase |
 | Push | Endpoint, chaves Web Push, user-agent e usuário | Entregar notificações solicitadas | Permissão específica e base legal a validar | Navegador / Supabase |
 | Segurança e rate limiting | IP em processamento, hash HMAC, método, rota, bucket e usuário | Prevenir abuso e proteger API | Legítimo interesse com teste de balanceamento; obrigação legal quando aplicável | Vercel / Supabase |
@@ -249,3 +249,6 @@ Um requisito só pode ser marcado como implementado quando houver evidência no 
 - Solicitações não são marcadas como concluídas automaticamente. A equipe responsável deve verificar identidade proporcionalmente, avaliar a hipótese legal, responder e atualizar o status.
 - A exclusão apaga registros vinculados à conta; cópias de segurança do provedor seguem a retenção contratual própria e não são apagadas instantaneamente por esta função.
 - A exportação inclui dados locais do navegador atual, que são armazenados por algumas chaves globais do aplicativo e não possuem metadado de titular independente para cada item. O arquivo identifica esse bloco como `deviceData`; revisar manualmente se o dispositivo foi usado por mais de uma conta.
+
+
+**Nota de inventário:** a dependência `idb-keyval` consta no `package.json`, mas não foram encontrados usos de IndexedDB no código-fonte consultado. O fluxo de exclusão remove as chaves `obra_engep_*` do localStorage e remove bancos IndexedDB apenas se algum banco futuro usar esse prefixo; não apaga bancos de outras aplicações.
