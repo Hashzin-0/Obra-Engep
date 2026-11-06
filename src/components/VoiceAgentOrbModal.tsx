@@ -35,9 +35,10 @@ interface VoiceAgentOrbModalProps {
   isOpen: boolean;
   onClose: () => void;
   onStatusChange?: (state: 'idle' | 'listening' | 'thinking' | 'speaking' | 'working' | 'happy' | 'error') => void;
+  onGuidingChange?: (guiding: boolean) => void;
 }
 
-export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, onClose, onStatusChange }) => {
+export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, onClose, onStatusChange, onGuidingChange }) => {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
@@ -267,7 +268,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
 
   const startFormGuide = () => {
     const fields = Array.from(document.querySelectorAll< HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement >(
-      'main input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="password"]):not([disabled]), main textarea:not([disabled]), main select:not([disabled])'
+      'main input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="password"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="date"]):not([type="time"]):not([type="month"]):not([type="week"]):not([disabled]), main textarea:not([disabled]), main select:not([disabled])'
     )).filter((field) => field.getClientRects().length > 0 && !(field instanceof HTMLInputElement && field.readOnly) && !(field instanceof HTMLTextAreaElement && field.readOnly));
     if (fields.length === 0) {
       const message = 'Não encontrei campos de formulário disponíveis nesta tela.';
@@ -285,6 +286,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     guideFieldIndexRef.current = 0;
     isFormGuidingRef.current = true;
     setIsFormGuiding(true);
+    onGuidingChange?.(true);
     updateGuideTarget(fields[0]);
     speakGuidePrompt(fields[0], 0);
   };
@@ -295,6 +297,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     setGuideTargetRect(null);
     isFormGuidingRef.current = false;
     setIsFormGuiding(false);
+    onGuidingChange?.(false);
     setIsListening(false);
     try { speechRecognitionRef.current?.stop(); } catch {}
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
@@ -476,7 +479,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
 
         {/* Robot companion follows the active form field without intercepting page gestures. */}
         {guideTargetRect && isFormGuiding && (
-          <div className="fixed z-[70] pointer-events-none flex items-end gap-2" style={{ top: guideTargetRect.top, left: guideTargetRect.left }}>
+          <div className="fixed z-[70] pointer-events-none flex items-end gap-2 robot-guide-companion" style={{ top: guideTargetRect.top, left: guideTargetRect.left }}>
             <RobotHeadAvatar state={isListening ? 'listening' : connectionStatus === 'speaking' ? 'speaking' : 'working'} size={76} />
             <div className="max-w-[190px] rounded-2xl border border-[#8da6b7]/50 bg-[#101827]/95 px-3 py-2 text-[11px] text-white shadow-xl">
               Campo {guideFieldIndex + 1} de {guideFieldsRef.current.length}
