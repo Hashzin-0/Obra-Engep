@@ -114,6 +114,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   const [selectionRect, setSelectionRect] = useState<{x1:number;y1:number;x2:number;y2:number}|null>(null);
   const selectionStartRef = useRef<{x:number;y:number}|null>(null);
   const [canvasPan, setCanvasPan] = useState({ x: 0, y: 0 });
+  const [canvasViewportVersion, setCanvasViewportVersion] = useState(0);
   const activePointersRef = useRef(new Map<number, { x: number; y: number }>());
   const panGestureRef = useRef<{ x: number; y: number; centerX: number; centerY: number; distance:number; zoom:number } | null>(null);
   const [stage, setStage] = useState<'estudo_preliminar' | 'executivo'>(project.stage);
@@ -130,6 +131,13 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
 
   // Drawing state
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    const container = canvasRef.current?.parentElement;
+    if (!container || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => setCanvasViewportVersion(version => version + 1));
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
   const [currentMouse, setCurrentMouse] = useState<{ x: number; y: number } | null>(null);
@@ -204,7 +212,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     // Handle high DPI
     const dpr = window.devicePixelRatio || 1;
     const width = canvas.parentElement?.clientWidth || 600;
-    const height = 440;
+    const height = canvas.parentElement?.clientHeight || window.innerHeight;
     canvas.width = width * dpr;
     canvas.height = height * dpr;
     canvas.style.width = `${width}px`;
@@ -598,6 +606,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     gapEnabled,
     gapDistance,
     isNightMode,
+    canvasViewportVersion,
   ]);
 
   const snap = (coord: number) => gapEnabled ? Math.round(coord / gapDistance) * gapDistance : coord;
