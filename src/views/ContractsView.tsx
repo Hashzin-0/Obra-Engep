@@ -204,7 +204,7 @@ export const ContractsView: React.FC<Props> = ({ userId, onBack }) => {
     {screen === 'document' && activeContract && <>
       <header className="space-y-2"><h1 className={titleClass}>{activeContract.title}</h1><p className="text-xs text-[#9FB0C8]">{isSaved ? 'Documento salvo' : 'Rascunho não salvo — entre com Google para guardar na sua conta'} · {new Date(activeContract.updatedAt).toLocaleString('pt-BR')}</p></header>
       <div className={panelClass + ' flex flex-wrap gap-2'}>
-        <button onClick={() => downloadPdf({ ...activeContract, content: editedContent })} className="inline-flex items-center gap-2 rounded-xl bg-[#1F66D6] px-4 py-2.5 text-xs font-bold text-white"><Download size={16} /> Exportar PDF</button>
+        <button onClick={() => downloadPdf({ ...activeContract, content: editedContent })} data-robot-guide="export-contract" data-robot-label="Exportar PDF" data-robot-description="Clique para baixar a minuta revisada em PDF." className="inline-flex items-center gap-2 rounded-xl bg-[#1F66D6] px-4 py-2.5 text-xs font-bold text-white"><Download size={16} /> Exportar PDF</button>
         <button disabled={saving} onClick={() => void saveEditedDocument()} className="inline-flex items-center gap-2 rounded-xl border border-[#2A3A55] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-50">{saving ? 'Salvando...' : isSaved ? 'Salvar alterações' : 'Salvar na conta'}</button>
         <button onClick={() => { setSelected(contractModels.find((model) => model.id === activeContract.modelId) ?? null); setFields({ ...activeContract.fields }); setScreen('editor'); }} className="inline-flex items-center gap-2 rounded-xl border border-[#2A3A55] px-4 py-2.5 text-xs font-semibold text-white">Editar dados</button>
       </div>
