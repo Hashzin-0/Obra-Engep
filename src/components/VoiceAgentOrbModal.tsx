@@ -51,6 +51,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const [expandedThoughts, setExpandedThoughts] = useState<Record<string, boolean>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'listening' | 'thinking' | 'speaking' | 'working' | 'happy' | 'error'>('idle');
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [isFormGuiding, setIsFormGuiding] = useState(false);
   const [isTouringControls, setIsTouringControls] = useState(false);
   const isTouringControlsRef = useRef(false);
@@ -73,15 +74,16 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   }, [messages, connectionStatus, isOpen]);
 
   useEffect(() => {
-    const state = isListening ? 'listening' : connectionStatus;
+    const state = !isOpen ? 'sleeping' : isListening ? 'listening' : connectionStatus;
     onStatusChange?.(state);
-  }, [connectionStatus, isListening, onStatusChange]);
+  }, [connectionStatus, isListening, isOpen, onStatusChange]);
 
   useEffect(() => {
     if (isOpen) return;
     try { speechRecognitionRef.current?.stop(); } catch {}
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     setIsListening(false);
+    setIsVoiceMode(false);
     isFormGuidingRef.current = false;
     guideFieldsRef.current.forEach((field) => field.classList.remove('robot-guide-highlight'));
     guideFieldsRef.current = [];
@@ -93,6 +95,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     onGuidingChange?.(false);
     setGuideTargetRect(null);
     setConnectionStatus('idle');
+    setIsVoiceMode(false);
   }, [isOpen, onGuidingChange]);
 
   useEffect(() => {
@@ -298,6 +301,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   };
 
   const startFormGuide = () => {
+    setIsVoiceMode(true);
     const fields = Array.from(document.querySelectorAll< HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement >(
       'main input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="password"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="date"]):not([type="time"]):not([type="month"]):not([type="week"]):not([disabled]), main textarea:not([disabled]), main select:not([disabled])'
     )).filter((field) => field.getClientRects().length > 0 && !(field instanceof HTMLInputElement && field.readOnly) && !(field instanceof HTMLTextAreaElement && field.readOnly));
@@ -383,6 +387,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   };
 
   const startControlTour = () => {
+    setIsVoiceMode(true);
     const targets = Array.from(document.querySelectorAll<HTMLElement>('main [data-robot-guide]'))
       .filter((target) => target.getClientRects().length > 0 && !(target instanceof HTMLButtonElement && target.disabled));
     if (targets.length === 0) {
@@ -527,6 +532,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   };
 
   const toggleVoiceMode = () => {
+    setIsVoiceMode(true);
     if (isListening) {
       try { speechRecognitionRef.current?.stop(); } catch {}
       setIsListening(false);
@@ -534,6 +540,12 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       return;
     }
     startVoiceCapture();
+  };
+
+  const exitVoiceMode = () => {
+    cancelFormGuide();
+    setIsVoiceMode(false);
+    setConnectionStatus('idle');
   };
 
   const sampleVoicePrompts = [
@@ -556,15 +568,17 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         <div className="p-3 border-b border-[#2A3A55]/60 flex items-center justify-between gap-3 bg-gradient-to-r from-[#17243A] via-[#101827] to-[#17243A]">
           <div className="flex items-center gap-3">
             {!isFormGuiding && !isTouringControls && <RobotHeadAvatar state={isListening ? 'listening' : connectionStatus} size={42} />}
-            <div>
+            {!isVoiceMode && <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-sm text-white leading-tight">Assistente OBra ENGEP</h3>
-                <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-[#1F66D6] text-white font-bold">Ativo</span>
+                <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-[#1F66D6] text-white font-bold">Aguardando</span>
               </div>
               <p className="text-[11px] text-[#9FB0C8]">Mesmo agente, agora com orientação visual</p>
-            </div>
+            </div>}
+            {isVoiceMode && <span className="text-xs font-semibold text-white">Modo voz</span>}
           </div>
           <div className="flex items-center gap-1.5">
+            {isVoiceMode && <button onClick={exitVoiceMode} className="px-2.5 py-2 rounded-xl border border-[#5B9BFF]/40 text-[#9FC4FF] text-[11px] font-semibold">Voltar ao chat</button>}
             {(isFormGuiding || isTouringControls) && (
               <button onClick={cancelFormGuide} className="px-2.5 py-2 rounded-xl border border-[#F5B93A]/40 text-[#F5B93A] text-[11px] font-semibold">
                 Encerrar guia
@@ -612,7 +626,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         </div>}
 
         {/* Quick Voice Prompts and contextual page guidance */}
-        <div className="px-3 py-2 bg-[#17243A]/40 border-b border-[#2A3A55]/30 flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs">
+        {!isVoiceMode && <div className="px-3 py-2 bg-[#17243A]/40 border-b border-[#2A3A55]/30 flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs">
           <button
             type="button"
             onClick={isFormGuiding || isTouringControls ? cancelFormGuide : startFormGuide}
@@ -635,10 +649,10 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
               {p}
             </button>
           ))}
-        </div>
+        </div>}
 
         {/* Conversation transcript & Extended thinking */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[350px]">
+        {!isVoiceMode && <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[350px]">
           {messages.length === 0 && (
             <div className="rounded-2xl border border-[#2A3A55] bg-[#17243A] p-4 text-xs text-[#9FB0C8]">
               Faça uma pergunta técnica por texto ou voz para receber orientações e esclarecer dúvidas.
@@ -726,10 +740,10 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             </div>
           ))}
           <div ref={messagesEndRef} />
-        </div>
+        </div>}
 
         {/* Input Bar */}
-        <div className="p-3 border-t border-[#2A3A55]/60 bg-[#17243A]/40">
+        {!isVoiceMode && <div className="p-3 border-t border-[#2A3A55]/60 bg-[#17243A]/40">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -753,7 +767,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
               {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enviar'}
             </button>
           </form>
-        </div>
+        </div>}
       </div>
     </div>
   );
