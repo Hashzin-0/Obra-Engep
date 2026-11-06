@@ -399,3 +399,12 @@ body {
   .floor-plan-workspace .project-level-switcher { --liquid-glass-width: 100%; }
   .floor-plan-workspace .project-layer-switcher { --liquid-glass-width: calc(100vw - 16px); }
 }
+
+@media (min-width: 900px) {
+  .floor-plan-workspace .project-layer-switcher > div:last-child {
+    flex-direction: column;
+    align-items: stretch;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+}
