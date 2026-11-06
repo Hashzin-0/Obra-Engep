@@ -281,3 +281,100 @@ body {
   background: rgba(185,210,195,.16) !important;
   border-color: rgba(185,210,195,.24) !important;
 }
+
+/* Keep the floor-plan overlays positioned by the drafting workspace while the
+   glass renderer supplies its own internal content wrapper. */
+.floor-plan-workspace .liquid-glass-surface.project-header,
+.floor-plan-workspace .liquid-glass-surface.project-level-switcher,
+.floor-plan-workspace .liquid-glass-surface.project-layer-switcher,
+.floor-plan-workspace .liquid-glass-surface.project-tool-dock,
+.floor-plan-workspace .liquid-glass-surface.project-selection-panel,
+.floor-plan-workspace .liquid-glass-surface.project-settings-panel,
+.floor-plan-workspace .liquid-glass-surface.project-furniture-panel,
+.floor-plan-workspace .liquid-glass-surface.project-wall-options {
+  position: fixed !important;
+}
+.floor-plan-workspace .project-header > div:last-child {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.floor-plan-workspace .project-header > div:last-child > div:first-child { min-width: 0; }
+.floor-plan-workspace .project-header > div:last-child > div:first-child > span { display: none; }
+.floor-plan-workspace .project-header > div:last-child > div:last-child { gap: 2px; }
+
+.floor-plan-workspace .project-level-switcher > div:last-child {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 8px;
+}
+.floor-plan-workspace .project-level-switcher > div:last-child > div:first-child {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+}
+.floor-plan-workspace .project-level-switcher > div:last-child > div:first-child > div:first-child { display: none !important; }
+.floor-plan-workspace .project-level-switcher > div:last-child > div:first-child > div:last-child { width: 100%; }
+
+.floor-plan-workspace .project-layer-switcher > div:last-child {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+}
+.floor-plan-workspace .project-layer-switcher > div:last-child > span { display: none; }
+
+.floor-plan-workspace .project-tool-dock > div:last-child {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 3px;
+  overflow-x: auto;
+}
+.floor-plan-workspace .project-selection-panel > div:last-child {
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.floor-plan-workspace .project-settings-panel > div:last-child,
+.floor-plan-workspace .project-wall-options > div:last-child {
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.floor-plan-workspace .project-furniture-panel > div:last-child {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.floor-plan-workspace .project-canvas-stage > .liquid-glass-surface.absolute {
+  position: absolute !important;
+}
+.floor-plan-workspace .project-canvas-stage > .liquid-glass-surface.absolute > div:last-child {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+}
+.floor-plan-workspace .project-canvas-stage > .liquid-glass-surface.absolute.bottom-3 > div:last-child {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 8px;
+}
+.floor-plan-workspace .project-canvas-stage > .liquid-glass-surface.absolute.z-10 > div:last-child {
+  flex-wrap: wrap;
+  gap: 8px;
+}
