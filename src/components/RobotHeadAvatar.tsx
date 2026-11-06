@@ -12,7 +12,7 @@ interface RobotHeadAvatarProps {
 }
 
 export const RobotHeadAvatar: React.FC<RobotHeadAvatarProps> = ({
-  state = 'idle',
+  state = 'sleeping',
   size = 44,
   className,
   label,
