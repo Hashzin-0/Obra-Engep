@@ -736,6 +736,7 @@ function AppShell() {
         isOpen={isVoiceModalOpen}
         onClose={() => {
           setIsVoiceModalOpen(false);
+          setIsAgentGuiding(false);
           setAgentState('idle');
         }}
         onStatusChange={setAgentState}
