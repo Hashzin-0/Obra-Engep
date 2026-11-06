@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer';
 import { env } from 'node:process';
 import { ipAddress } from '@vercel/functions';
 import { NextResponse } from 'next/server';
-import { matchesAdminEntryPath } from './api/admin/sessionSecurity.js';
+import { matchesAdminEntryPath } from './api/admin/sessionSecurity.ts';
 
 export const config = {
   matcher: [
