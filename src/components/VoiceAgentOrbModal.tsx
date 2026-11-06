@@ -64,6 +64,8 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const guideFieldsRef = useRef<Array<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>>([]);
 
   const speechRecognitionRef = useRef<any>(null);
+  // Prevent SpeechRecognition.onend from overwriting the Gemini processing state.
+  const isProcessingRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   // Auto-scroll messages
@@ -150,7 +152,9 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   // Stream query to serverless backend `/api/gemini/realtime-chat`
   const handleSendMessage = async (textToSend?: string) => {
     const prompt = (textToSend || inputQuery).trim();
-    if (!prompt || isGenerating) return;
+    if (!prompt || isGenerating || isProcessingRef.current) return;
+
+    // Set synchronously: recognition.onend can fire immediately after onresult.
 
     const userMsgId = `u-${Date.now()}`;
     const geminiMsgId = `g-${Date.now()}`;
@@ -173,6 +177,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
 
     setMessages((prev) => [...prev, userMsg, initialGeminiMsg]);
     setInputQuery('');
+    isProcessingRef.current = true;
     setIsGenerating(true);
     setConnectionStatus('thinking');
     setExpandedThoughts((prev) => ({ ...prev, [geminiMsgId]: true }));
@@ -274,6 +279,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       );
       setConnectionStatus('error');
     } finally {
+      isProcessingRef.current = false;
       setIsGenerating(false);
     }
   };
@@ -537,17 +543,24 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     };
 
     recognition.onerror = (event: any) => {
-      console.warn('Erro microfone:', event);
+      console.warn('[VoiceAgent] Speech recognition failed:', event?.error || 'unknown');
       setIsListening(false);
-      setConnectionStatus('error');
+      if (!isProcessingRef.current) setConnectionStatus('error');
     };
     recognition.onend = () => {
       setIsListening(false);
-      if (!isFormGuidingRef.current) setConnectionStatus('idle');
+      // A final transcript may already have started a Gemini request. Do not
+      // let the browser's end event reset the assistant while that request runs.
+      if (!isFormGuidingRef.current && !isProcessingRef.current) {
+        setConnectionStatus('idle');
+      }
     };
-    try { recognition.start(); } catch {
+    try {
+      recognition.start();
+    } catch (error) {
+      console.warn('[VoiceAgent] Could not start speech recognition:', error instanceof Error ? error.name : 'unknown');
       setIsListening(false);
-      setConnectionStatus('idle');
+      setConnectionStatus('error');
     }
   };
 
