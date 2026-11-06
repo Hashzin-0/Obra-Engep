@@ -50,6 +50,16 @@ body {
 #root { background: var(--page); }
 ::selection { background: var(--brand-blue); color: #26343a; }
 
+/* Keyboard users always receive a visible, high-contrast focus indicator. */
+:focus-visible {
+  outline: 3px solid var(--brand-blue-strong);
+  outline-offset: 3px;
+}
+[aria-invalid="true"] {
+  outline: 2px solid #d92d20;
+  outline-offset: 2px;
+}
+
 /* Migrate the established utility palette without changing component behavior. */
 :root.light [class*="bg-[#101827]"],
 :root.light [class*="bg-[#17243A]"],
