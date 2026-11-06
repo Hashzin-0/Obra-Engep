@@ -221,7 +221,19 @@ export async function deleteOwnAccount(): Promise<void> {
   const { error } = await db.functions.invoke('delete-account', {
     body: { confirmation: 'DELETE_ACCOUNT', userId: authData.user.id },
   });
-  if (error) throw new Error(error.message || 'A exclusão não foi concluída. Tente novamente.');
+  if (error) {
+    let message = error.message || 'A exclusão não foi concluída. Tente novamente.';
+    const context = (error as { context?: unknown }).context;
+    if (context instanceof Response) {
+      try {
+        const payload = await context.json() as { error?: string };
+        if (typeof payload.error === 'string' && payload.error.trim()) message = payload.error;
+      } catch {
+        // Keep the SDK error when the response body is unavailable.
+      }
+    }
+    throw new Error(message);
+  }
 
   clearLocalAccountData();
   await db.auth.signOut({ scope: 'local' });
