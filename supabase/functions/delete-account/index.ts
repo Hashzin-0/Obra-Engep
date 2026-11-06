@@ -1,11 +1,49 @@
-import { corsHeaders, isAllowedOrigin, json, readJsonLimited } from '../_shared/cors.ts';
-import { adminClient, requireUser } from '../_shared/supabase.ts';
+import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const BUCKET = 'user-media';
 const PAGE_SIZE = 100;
+const allowedOrigins = new Set([
+  'https://obra-engep.vercel.app',
+  'https://obra-engep-aymatsu00-2333s-projects.vercel.app',
+  'http://localhost:3000',
+]);
+
+function approvedOrigin(origin: string): boolean {
+  return allowedOrigins.has(origin)
+    || /^https:\/\/obra-engep-[a-z0-9-]+-aymatsu00-2333s-projects\.vercel\.app$/.test(origin);
+}
+
+function response(req: Request, body: unknown, status = 200): Response {
+  const origin = req.headers.get('origin') ?? '';
+  const headers = new Headers({
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+    'Vary': 'Origin',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  });
+  if (approvedOrigin(origin)) headers.set('Access-Control-Allow-Origin', origin);
+  return new Response(JSON.stringify(body), { status, headers });
+}
+
+async function readBody(req: Request): Promise<Record<string, unknown> | null> {
+  const declaredLength = Number(req.headers.get('content-length') ?? '0');
+  if (Number.isFinite(declaredLength) && declaredLength > 2048) return null;
+  const raw = await req.text();
+  if (new TextEncoder().encode(raw).byteLength > 2048) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 async function collectUserStoragePaths(
-  admin: ReturnType<typeof adminClient>,
+  admin: ReturnType<typeof createClient>,
   userId: string
 ): Promise<string[]> {
   const queue = [userId];
@@ -23,7 +61,7 @@ async function collectUserStoragePaths(
         offset,
         sortBy: { column: 'name', order: 'asc' },
       });
-      if (error) throw new Error('Não foi possível verificar os arquivos da conta.');
+      if (error) throw new Error('Não foi possível verificar os arquivos privados da conta.');
 
       const entries = data ?? [];
       for (const entry of entries) {
@@ -43,72 +81,76 @@ async function collectUserStoragePaths(
   return objectPaths;
 }
 
-async function removeUserStorage(
-  admin: ReturnType<typeof adminClient>,
-  userId: string
-): Promise<number> {
-  const paths = await collectUserStoragePaths(admin, userId);
-  for (let offset = 0; offset < paths.length; offset += 1000) {
-    const batch = paths.slice(offset, offset + 1000);
-    const { error } = await admin.storage.from(BUCKET).remove(batch);
-    if (error) throw new Error('Não foi possível remover todos os arquivos privados da conta.');
-  }
-  return paths.length;
-}
-
 Deno.serve(async (req) => {
-  if (!isAllowedOrigin(req)) return json({ error: 'Origem não autorizada.' }, 403, req);
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders(req) });
-  }
-  if (req.method !== 'POST') return json({ error: 'Método não permitido.' }, 405, req);
+  const origin = req.headers.get('origin') ?? '';
+  if (origin && !approvedOrigin(origin)) return response(req, { error: 'Origem não autorizada.' }, 403);
+  if (req.method === 'OPTIONS') return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Max-Age': '600',
+      'Vary': 'Origin',
+    },
+  });
+  if (req.method !== 'POST') return response(req, { error: 'Método não permitido.' }, 405);
   if (req.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
-    return json({ error: 'Content-Type inválido.' }, 415, req);
-  }
-
-  const parsed = await readJsonLimited(req, 2048);
-  if (!parsed.ok) {
-    return json({ error: parsed.status === 413 ? 'Requisição excede 2 KB.' : 'JSON inválido.' }, parsed.status, req);
+    return response(req, { error: 'Content-Type inválido.' }, 415);
   }
 
   try {
-    const user = await requireUser(req);
-    if (parsed.value.confirmation !== 'DELETE_ACCOUNT' || parsed.value.userId !== user.id) {
-      return json({ error: 'Confirmação de exclusão inválida.' }, 400, req);
-    }
-
-    const admin = adminClient();
-    const storageObjectsRemoved = await removeUserStorage(admin, user.id);
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const url = Deno.env.get('SUPABASE_URL');
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
-    const authorization = req.headers.get('Authorization');
-    if (!supabaseUrl || !anonKey || !authorization) {
-      return json({ error: 'Configuração de autenticação indisponível.' }, 503, req);
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const authorization = req.headers.get('Authorization') ?? '';
+    const token = authorization.match(/^Bearer\s+([A-Za-z0-9._-]{20,4096})$/i)?.[1];
+    if (!url || !anonKey || !serviceKey || !token || token.split('.').length !== 3) {
+      return response(req, { error: 'Sessão inválida.' }, 401);
     }
 
-    const signOutResponse = await fetch(`${supabaseUrl}/auth/v1/logout?scope=global`, {
+    const userClient = createClient(url, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const { data: authData, error: authError } = await userClient.auth.getUser(token);
+    if (authError || !authData.user) return response(req, { error: 'Sessão inválida.' }, 401);
+
+    const body = await readBody(req);
+    if (!body || body.confirmation !== 'DELETE_ACCOUNT' || body.userId !== authData.user.id) {
+      return response(req, { error: 'Confirmação de exclusão inválida.' }, 400);
+    }
+
+    const admin = createClient(url, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
+    const paths = await collectUserStoragePaths(admin, authData.user.id);
+
+    for (let offset = 0; offset < paths.length; offset += 1000) {
+      const { error } = await admin.storage.from(BUCKET).remove(paths.slice(offset, offset + 1000));
+      if (error) return response(req, { error: 'Não foi possível remover todos os arquivos privados. A conta foi preservada.' }, 503);
+    }
+
+    const signOutResponse = await fetch(`${url}/auth/v1/logout?scope=global`, {
       method: 'POST',
       headers: { apikey: anonKey, Authorization: authorization },
     });
     if (!signOutResponse.ok) {
-      return json({ error: 'Não foi possível invalidar as sessões da conta. Nenhum registro foi excluído.' }, 503, req);
+      return response(req, { error: 'Não foi possível invalidar as sessões. A conta foi preservada.' }, 503);
     }
 
-    const { error: deleteError } = await admin.auth.admin.deleteUser(user.id, false);
+    const { error: deleteError } = await admin.auth.admin.deleteUser(authData.user.id, false);
     if (deleteError) {
       console.error('[delete-account] Auth deletion failed:', deleteError.message);
-      return json({
-        error: 'As sessões foram encerradas, mas a exclusão da conta não foi concluída. Entre novamente e tente de novo.',
-        storageObjectsRemoved,
-      }, 503, req);
+      return response(req, {
+        error: 'As sessões foram encerradas, mas a exclusão não foi concluída. Entre novamente e solicite nova tentativa.',
+        storageObjectsRemoved: paths.length,
+      }, 503);
     }
 
-    return json({ success: true, storageObjectsRemoved }, 200, req);
+    return response(req, { success: true, storageObjectsRemoved: paths.length });
   } catch (error) {
-    const message = error instanceof Error ? error.message : '';
-    const status = message.includes('Sessão inválida') ? 401 : 503;
-    if (status !== 401) console.error('[delete-account] Request failed:', message);
-    return json({ error: status === 401 ? 'Sessão inválida.' : (message || 'Não foi possível concluir a exclusão.') }, status, req);
+    console.error('[delete-account] Request failed:', error instanceof Error ? error.message : 'unknown');
+    return response(req, { error: 'Não foi possível concluir a exclusão da conta.' }, 503);
   }
 });
