@@ -996,9 +996,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   };
 
   return (
-    <div className="space-y-4 pb-24">
+    <div className="floor-plan-workspace">
       {/* Top Project Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 rounded-2xl bg-[#17243A] border border-[#2A3A55]">
+      <div className="project-header liquid-glass-bar flex items-center justify-between gap-2 p-2 rounded-2xl bg-[#17243A] border border-[#2A3A55]">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <select
@@ -1114,10 +1114,10 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         </div>
       </div>
 
-      <div className="rounded-xl bg-[#17243A] border border-[#2A3A55] p-2.5 space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 text-xs font-bold text-white"><Building2 className="w-4 h-4 text-[#5B9BFF]"/> Pavimentos</div><div className="flex flex-wrap gap-1.5"><button type="button" onClick={handleCreateLevel} className="rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white flex items-center gap-1"><Plus className="w-3.5 h-3.5"/> Novo piso</button><button type="button" onClick={handleRenameLevel} className="rounded-lg border border-[#2A3A55] px-2.5 py-1.5 text-xs text-[#CBD5E1]">Renomear</button><button type="button" onClick={handleDeleteLevel} disabled={(project.levels?.length??1)<=1} className="rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs text-red-300 disabled:opacity-30">Excluir piso</button></div></div><div className="flex gap-1.5 overflow-x-auto no-scrollbar">{(project.levels??[]).slice().sort((a,b)=>a.level-b.level).map(level=><button key={level.id} type="button" onClick={()=>handleSelectLevel(level.id)} aria-pressed={activeLevelId===level.id} className={'shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold '+(activeLevelId===level.id?'bg-blue-600 border-blue-500 text-white':'border-[#2A3A55] text-[#9FB0C8] hover:text-white')}>{level.kind==='subsolo'?'−'+Math.abs(level.level)+' · ':level.kind==='superior'?'+'+level.level+' · ':''}{level.name}</button>)}</div><p className="text-[10px] text-[#9FB0C8]">Editando: {project.levels?.find(level=>level.id===activeLevelId)?.name??'Térreo'} · Os demais pavimentos permanecem preservados.</p></div>
+      <div className="project-level-switcher liquid-glass-bar rounded-xl bg-[#17243A] border border-[#2A3A55] p-2 space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 text-xs font-bold text-white"><Building2 className="w-4 h-4 text-[#5B9BFF]"/> Pavimentos</div><div className="flex flex-wrap gap-1.5"><button type="button" onClick={handleCreateLevel} className="rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white flex items-center gap-1"><Plus className="w-3.5 h-3.5"/> Novo piso</button><button type="button" onClick={handleRenameLevel} className="rounded-lg border border-[#2A3A55] px-2.5 py-1.5 text-xs text-[#CBD5E1]">Renomear</button><button type="button" onClick={handleDeleteLevel} disabled={(project.levels?.length??1)<=1} className="rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs text-red-300 disabled:opacity-30">Excluir piso</button></div></div><div className="flex gap-1.5 overflow-x-auto no-scrollbar">{(project.levels??[]).slice().sort((a,b)=>a.level-b.level).map(level=><button key={level.id} type="button" onClick={()=>handleSelectLevel(level.id)} aria-pressed={activeLevelId===level.id} className={'shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold '+(activeLevelId===level.id?'bg-blue-600 border-blue-500 text-white':'border-[#2A3A55] text-[#9FB0C8] hover:text-white')}>{level.kind==='subsolo'?'−'+Math.abs(level.level)+' · ':level.kind==='superior'?'+'+level.level+' · ':''}{level.name}</button>)}</div><p className="text-[10px] text-[#9FB0C8]">Editando: {project.levels?.find(level=>level.id===activeLevelId)?.name??'Térreo'} · Os demais pavimentos permanecem preservados.</p></div>
 
       {/* Layer Toggles Bar (Page 7: Camadas liga/desliga) */}
-      <div className="flex items-center gap-2 p-2 rounded-xl bg-[#17243A] border border-[#2A3A55] overflow-x-auto no-scrollbar text-xs">
+      <div className="project-layer-switcher liquid-glass-bar flex items-center gap-2 p-2 rounded-xl bg-[#17243A] border border-[#2A3A55] overflow-x-auto no-scrollbar text-xs">
         <span className="text-[#9FB0C8] font-bold text-[11px] px-2 uppercase tracking-wider flex items-center gap-1">
           <Layers className="w-3.5 h-3.5" />
           Camadas:
@@ -1178,9 +1178,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       </div>
 
       {/* Real Interactive Canvas (Page 6: "Canvas com grade, escala, paredes, portas, janelas, cotas...") */}
-      <div className="relative w-full min-w-0 rounded-2xl border border-[#2A3A55] overflow-hidden shadow-inner bg-[#101827]">
+      <div className="project-canvas-stage floor-plan-canvas relative w-full min-w-0 overflow-hidden bg-[#101827]">
         <div className="absolute z-10 left-3 top-3 flex flex-wrap gap-2"><button type="button" onClick={()=>setShow3D(false)} className={'rounded-lg px-3 py-2 text-xs font-semibold '+(!show3D?'bg-blue-600 text-white':'bg-slate-900/80 text-slate-200')}>Planta 2D</button><button type="button" onClick={()=>setShow3D(true)} className={'rounded-lg px-3 py-2 text-xs font-semibold '+(show3D?'bg-blue-600 text-white':'bg-slate-900/80 text-slate-200')}>Vista 3D</button><button type="button" onClick={toggleNightMode} aria-pressed={isNightMode} className={'rounded-lg px-3 py-2 text-xs font-semibold flex items-center gap-1.5 '+(isNightMode?'bg-indigo-600 text-white':'bg-slate-900/80 text-slate-200')}>{isNightMode?<Moon className="w-3.5 h-3.5"/>:<Sun className="w-3.5 h-3.5"/>}{isNightMode?'Noite':'Dia'}</button></div>
-        {show3D ? <div className="h-[min(68vh,680px)] min-h-[320px]"><FloorPlan3DView project={project} isDark={isDark} isNightMode={isNightMode} /></div> : <canvas
+        {show3D ? <div className="h-full min-h-0 w-full"><FloorPlan3DView project={project} isDark={isDark} isNightMode={isNightMode} /></div> : <canvas
           ref={canvasRef}
           onPointerDown={handleMouseDown}
           onPointerMove={handleMouseMove}
@@ -1252,7 +1252,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       </div>
 
       {selectedObject?.kind === 'opening' && project.openings.some(o => o.id === selectedObject.id && o.type === 'door') && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#2A3A55] bg-[#17243A] p-3">
+        <div className="project-inspector-panel flex flex-wrap items-center gap-3 rounded-xl border border-[#2A3A55] bg-[#17243A] p-3">
           <label className="text-sm text-[#DCE6F5]" htmlFor="door-style">Modelo da porta</label>
           <select id="door-style" value={project.openings.find(o => o.id === selectedObject.id)?.doorStyle ?? 'wood'}
             onChange={e => updateProjectState({...project, openings: project.openings.map(o => o.id === selectedObject.id ? {...o, doorStyle: e.target.value as OpeningItem['doorStyle']} : o)})}
@@ -1264,7 +1264,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         </div>
       )}
       {selectedObject && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#2A3A55] bg-[#17243A] p-2">
+        <div className="project-selection-panel liquid-glass-bar flex flex-wrap items-center gap-2 rounded-xl border border-[#2A3A55] bg-[#17243A] p-2">
           <span className="px-2 text-xs text-[#9FB0C8]">Elemento selecionado</span>
           <button type="button" onClick={() => {
             const kind=selectedObject.kind,id=selectedObject.id;
@@ -1324,7 +1324,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#2A3A55] bg-[#17243A] px-3 py-2 text-xs text-[#DCE6F5]">
+      <div className="project-settings-panel liquid-glass-bar flex flex-wrap items-center gap-3 rounded-xl border border-[#2A3A55] bg-[#17243A] px-3 py-2 text-xs text-[#DCE6F5]">
         <label className="flex items-center gap-2 cursor-pointer select-none">
           <input type="checkbox" checked={gapEnabled} onChange={e => setGapEnabled(e.target.checked)} className="h-3.5 w-3.5 accent-[#1F66D6]" />
           <span>Gap</span>
@@ -1340,7 +1340,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         </label>
       </div>
 
-      {showFurnitureLayer && (<div className="rounded-xl border border-[#2A3A55] bg-[#17243A] p-3">
+      {showFurnitureLayer && (<div className="project-furniture-panel liquid-glass-bar rounded-xl border border-[#2A3A55] bg-[#17243A] p-3">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="min-w-0"><div className="text-sm font-semibold text-white">Mobiliário e objetos</div><p className="text-xs text-[#9FB0C8]">{(project.furniture ?? []).length} inserido(s) · escolha um item para adicionar à planta</p></div>
           <button type="button" onClick={() => setShowFurnitureCatalog(true)} className="flex min-h-10 shrink-0 items-center gap-2 rounded-xl bg-[#1F66D6] px-3 text-sm font-semibold text-white hover:bg-[#1A57B8]" aria-label="Abrir catálogo completo de mobiliário"><Plus className="h-4 w-4" /> Ver todos</button>
@@ -1409,7 +1409,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       })()}
 
       {/* Bottom Tools Toolbar (Page 6 briefing: "Barra de ferramentas inferior") */}
-      <div className="p-2.5 rounded-2xl bg-[#17243A] border border-[#2A3A55] grid grid-cols-2 sm:flex sm:items-center sm:justify-between gap-1">
+      <div className="project-tool-dock liquid-glass-bar p-1.5 rounded-2xl bg-[#17243A] border border-[#2A3A55] flex items-center gap-1 overflow-x-auto no-scrollbar">
         {[
           { id: 'select' as ToolMode, label: 'Mover/Selecionar', icon: Maximize2 },
           ...(showArchLayer ? [{ id: 'wall' as ToolMode, label: '+ Parede', icon: Square }, { id: 'door' as ToolMode, label: '+ Porta', icon: DoorOpen }, { id: 'window' as ToolMode, label: '+ Janela', icon: Maximize2 }] : []),
@@ -1418,6 +1418,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         ].map(({ id, label, icon: Icon }) => (
           <button
             key={id}
+            title={label}
+            aria-label={label}
+            aria-pressed={tool === id}
             onClick={() => { setTool(id); if (id !== 'wall') { setWallSequencePoints([]); setCurrentMouse(null); } }}
             className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 min-h-[40px] ${
               tool === id
@@ -1432,7 +1435,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       </div>
 
       {tool === 'wall' && showArchLayer && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#2A3A55] bg-[#17243A] p-3 text-xs text-[#DCE6F5]">
+        <div className="project-wall-options liquid-glass-bar flex flex-wrap items-center gap-2 rounded-xl border border-[#2A3A55] bg-[#17243A] p-3 text-xs text-[#DCE6F5]">
           <span className="font-semibold text-[#9FB0C8]">Desenho de paredes:</span>
           <button type="button" onClick={() => { setWallDrawMode('segment'); setWallSequencePoints([]); setIsDrawing(false); setStartPoint(null); }} className={`rounded-lg border px-3 py-2 ${wallDrawMode === 'segment' ? 'border-blue-500 bg-blue-600 text-white' : 'border-[#2A3A55] text-[#9FB0C8]'}`}>Linha única</button>
           <button type="button" onClick={() => { setWallDrawMode('sequence'); setWallSequencePoints([]); setIsDrawing(false); setStartPoint(null); }} className={`rounded-lg border px-3 py-2 ${wallDrawMode === 'sequence' ? 'border-blue-500 bg-blue-600 text-white' : 'border-[#2A3A55] text-[#9FB0C8]'}`}>Sequência por vértices</button>
@@ -1441,7 +1444,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       )}
 
       {/* Project Milestones and Calendar Sync Section */}
-      <div className="p-4 rounded-2xl bg-[#17243A] border border-[#2A3A55] space-y-3">
+      <div className="project-milestones p-4 rounded-2xl bg-[#17243A] border border-[#2A3A55] space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CalendarCheck className="w-4 h-4 text-[#F5B93A]" />
