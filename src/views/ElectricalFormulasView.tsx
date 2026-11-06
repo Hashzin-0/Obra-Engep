@@ -1,5 +1,6 @@
 import React from 'react';
 import { LimitBar } from '../components/LimitBar';
+import { CalculationFlowchart } from '../components/CalculationFlowchart';
 
 type FormulaCard = {
   title: string;
@@ -312,6 +313,18 @@ export const ElectricalFormulasView: React.FC = () => (
                 <span className="font-mono text-base sm:text-lg font-semibold break-words">{card.formula}</span>
               </div>
               <p className="text-xs leading-relaxed text-[#B8C9E2]">{card.explanation}</p>
+              <details className="mt-3 group">
+                <summary className="cursor-pointer list-none text-xs font-semibold text-[#78AEFF] hover:text-white">Ver fluxograma desta fórmula</summary>
+                <div className="mt-3">
+                  <CalculationFlowchart
+                    title={`Como aplicar: ${card.title}`}
+                    formula={card.formula}
+                    inputs={['Identificar as grandezas e unidades descritas na fórmula']}
+                    outputs={['Grandeza calculada conforme a expressão']}
+                    compact
+                  />
+                </div>
+              </details>
             </article>
           ))}
         </div>
