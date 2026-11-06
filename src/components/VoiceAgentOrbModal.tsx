@@ -527,7 +527,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         {/* Header bar */}
         <div className="p-3 border-b border-[#2A3A55]/60 flex items-center justify-between gap-3 bg-gradient-to-r from-[#17243A] via-[#101827] to-[#17243A]">
           <div className="flex items-center gap-3">
-            <RobotHeadAvatar state={isListening ? 'listening' : connectionStatus} size={42} />
+            {!isFormGuiding && !isTouringControls && <RobotHeadAvatar state={isListening ? 'listening' : connectionStatus} size={42} />}
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-sm text-white leading-tight">Assistente OBra ENGEP</h3>
@@ -567,7 +567,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         )}
 
         {/* Central Robot Head: tap to speak, same SpeechRecognition pipeline as before. */}
-        <div className="py-4 px-4 bg-gradient-to-b from-[#17243A]/50 to-transparent flex flex-col items-center justify-center border-b border-[#2A3A55]/40 relative">
+        {!isFormGuiding && !isTouringControls && <div className="py-4 px-4 bg-gradient-to-b from-[#17243A]/50 to-transparent flex flex-col items-center justify-center border-b border-[#2A3A55]/40 relative">
           <button
             onClick={toggleVoiceMode}
             aria-label={isListening ? 'Parar captura de voz' : 'Falar com o assistente'}
@@ -581,7 +581,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             </div>
             <p className="text-[10px] text-[#9FB0C8]">O estado do robô acompanha o estado real da conversa.</p>
           </div>
-        </div>
+        </div>}
 
         {/* Quick Voice Prompts and contextual page guidance */}
         <div className="px-3 py-2 bg-[#17243A]/40 border-b border-[#2A3A55]/30 flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs">
