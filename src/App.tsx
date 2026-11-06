@@ -86,7 +86,7 @@ function AppShell() {
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
-  const [agentState, setAgentState] = useState<'idle' | 'listening' | 'thinking' | 'speaking' | 'working' | 'happy' | 'error'>('idle');
+  const [agentState, setAgentState] = useState<'sleeping' | 'idle' | 'listening' | 'thinking' | 'speaking' | 'working' | 'happy' | 'error'>('sleeping');
   const [isAgentGuiding, setIsAgentGuiding] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(
     () => localStorage.getItem('obra_engep_onboarded') !== 'true'
@@ -584,7 +584,7 @@ function AppShell() {
     <LiquidGlassScene className={`min-h-screen flex flex-col transition-colors selection:bg-[#1F66D6] selection:text-white ${activeModuleView === 'projetos' ? 'h-dvh overflow-hidden' : ''}`}>
       {activeModuleView !== 'projetos' && <TopHeader
         onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)}
-        agentState={isVoiceModalOpen ? agentState : 'idle'}
+        agentState={isVoiceModalOpen ? agentState : 'sleeping'}
         isAgentGuiding={isAgentGuiding}
         onBackToHome={isNonHomeView ? () => {
           setActiveModuleView(null);
@@ -739,7 +739,7 @@ function AppShell() {
         onClose={() => {
           setIsVoiceModalOpen(false);
           setIsAgentGuiding(false);
-          setAgentState('idle');
+          setAgentState('sleeping');
         }}
         onStatusChange={setAgentState}
         onGuidingChange={setIsAgentGuiding}
