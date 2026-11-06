@@ -86,6 +86,7 @@ function AppShell() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [agentState, setAgentState] = useState<'idle' | 'listening' | 'thinking' | 'speaking' | 'working' | 'happy' | 'error'>('idle');
+  const [isAgentGuiding, setIsAgentGuiding] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(
     () => localStorage.getItem('obra_engep_onboarded') !== 'true'
   );
@@ -583,6 +584,7 @@ function AppShell() {
       {activeModuleView !== 'projetos' && <TopHeader
         onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)}
         agentState={isVoiceModalOpen ? agentState : 'idle'}
+        isAgentGuiding={isAgentGuiding}
         onBackToHome={isNonHomeView ? () => {
           setActiveModuleView(null);
           setCurrentTab('inicio');
@@ -737,6 +739,7 @@ function AppShell() {
           setAgentState('idle');
         }}
         onStatusChange={setAgentState}
+        onGuidingChange={setIsAgentGuiding}
       />
 
       <OnboardingModal
