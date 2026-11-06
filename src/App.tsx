@@ -85,7 +85,7 @@ function AppShell() {
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
-  const [agentState, setAgentState] = useState<'idle' | 'listening' | 'thinking' | 'speaking' | 'happy' | 'error'>('idle');
+  const [agentState, setAgentState] = useState<'idle' | 'listening' | 'thinking' | 'speaking' | 'working' | 'happy' | 'error'>('idle');
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(
     () => localStorage.getItem('obra_engep_onboarded') !== 'true'
   );
