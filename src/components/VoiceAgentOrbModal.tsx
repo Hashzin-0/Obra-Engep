@@ -52,6 +52,10 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'listening' | 'thinking' | 'speaking' | 'working' | 'happy' | 'error'>('idle');
   const [isFormGuiding, setIsFormGuiding] = useState(false);
+  const [isTouringControls, setIsTouringControls] = useState(false);
+  const isTouringControlsRef = useRef(false);
+  const tourTargetsRef = useRef<HTMLElement[]>([]);
+  const tourIndexRef = useRef(0);
   const [guideFieldIndex, setGuideFieldIndex] = useState(0);
   const guideFieldIndexRef = useRef(0);
   const isFormGuidingRef = useRef(false);
@@ -82,6 +86,10 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     guideFieldsRef.current.forEach((field) => field.classList.remove('robot-guide-highlight'));
     guideFieldsRef.current = [];
     setIsFormGuiding(false);
+    isTouringControlsRef.current = false;
+    setIsTouringControls(false);
+    tourTargetsRef.current.forEach((target) => target.classList.remove('robot-guide-highlight'));
+    tourTargetsRef.current = [];
     onGuidingChange?.(false);
     setGuideTargetRect(null);
     setConnectionStatus('idle');
@@ -229,13 +237,14 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     }
   };
 
-  const getGuideFieldLabel = (field: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, index: number) => {
-    const explicit = field.getAttribute('aria-label') || field.labels?.[0]?.textContent?.trim();
+  const getGuideFieldLabel = (field: HTMLElement, index: number) => {
+    const labelList = (field as HTMLInputElement).labels;
+    const explicit = field.getAttribute('aria-label') || labelList?.[0]?.textContent?.trim();
     const wrappingLabel = field.closest('label')?.textContent?.trim();
-    return explicit || wrappingLabel || field.getAttribute('placeholder') || field.name || `Campo ${index + 1}`;
+    return explicit || wrappingLabel || field.getAttribute('data-robot-label') || field.getAttribute('placeholder') || field.textContent?.trim() || (field as HTMLInputElement).name || `Campo ${index + 1}`;
   };
 
-  const updateGuideTarget = (field: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement) => {
+  const updateGuideTarget = (field: HTMLElement) => {
     field.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
     field.focus({ preventScroll: true });
     field.classList.add('robot-guide-highlight');
@@ -246,7 +255,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     });
   };
 
-  const speakGuidePrompt = (field: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, index: number) => {
+  const speakGuidePrompt = (field: HTMLElement, index: number) => {
     const label = getGuideFieldLabel(field, index);
     const prompt = `Vamos preencher juntos. Qual valor devo colocar em ${label}?`;
     if (!audioFeedbackEnabled || !('speechSynthesis' in window)) {
@@ -306,6 +315,67 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     try { speechRecognitionRef.current?.stop(); } catch {}
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     setConnectionStatus('idle');
+  };
+
+  const speakControlTourStep = (target: HTMLElement, index: number) => {
+    const label = getGuideFieldLabel(target, index);
+    const description = target.getAttribute('data-robot-description') || 'Este controle está disponível nesta tela.';
+    if (!audioFeedbackEnabled || !('speechSynthesis' in window)) {
+      advanceControlTour();
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(`${label}. ${description}`);
+    utterance.lang = 'pt-BR';
+    utterance.rate = 0.98;
+    utterance.onstart = () => setConnectionStatus('speaking');
+    utterance.onend = () => advanceControlTour();
+    utterance.onerror = () => advanceControlTour();
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const advanceControlTour = () => {
+    if (!isTouringControlsRef.current) return;
+    const nextIndex = tourIndexRef.current + 1;
+    const nextTarget = tourTargetsRef.current[nextIndex];
+    if (!nextTarget) {
+      isTouringControlsRef.current = false;
+      setIsTouringControls(false);
+      tourTargetsRef.current.forEach((target) => target.classList.remove('robot-guide-highlight'));
+      tourTargetsRef.current = [];
+      setGuideTargetRect(null);
+      onGuidingChange?.(false);
+      setConnectionStatus('happy');
+      window.setTimeout(() => setConnectionStatus('idle'), 1800);
+      return;
+    }
+    tourIndexRef.current = nextIndex;
+    tourTargetsRef.current[nextIndex - 1]?.classList.remove('robot-guide-highlight');
+    updateGuideTarget(nextTarget);
+    speakControlTourStep(nextTarget, nextIndex);
+  };
+
+  const startControlTour = () => {
+    const targets = Array.from(document.querySelectorAll<HTMLElement>('main [data-robot-guide]'))
+      .filter((target) => target.getClientRects().length > 0 && !(target instanceof HTMLButtonElement && target.disabled));
+    if (targets.length === 0) {
+      const message = 'Não encontrei controles com orientação visual nesta tela.';
+      setMessages((prev) => [...prev, {
+        id: `g-${Date.now()}`, sender: 'gemini', text: message,
+        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        modelBadge: 'Assistente',
+      }]);
+      speakResponse(message);
+      return;
+    }
+    cancelFormGuide();
+    tourTargetsRef.current = targets;
+    tourIndexRef.current = 0;
+    isTouringControlsRef.current = true;
+    setIsTouringControls(true);
+    onGuidingChange?.(true);
+    updateGuideTarget(targets[0]);
+    speakControlTourStep(targets[0], 0);
   };
 
   const applyGuidedAnswer = (answer: string) => {
@@ -463,7 +533,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            {isFormGuiding && (
+            {(isFormGuiding || isTouringControls) && (
               <button onClick={cancelFormGuide} className="px-2.5 py-2 rounded-xl border border-[#F5B93A]/40 text-[#F5B93A] text-[11px] font-semibold">
                 Encerrar guia
               </button>
@@ -486,7 +556,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           <div className="fixed z-[70] pointer-events-none flex items-end gap-2 robot-guide-companion" style={{ top: guideTargetRect.top, left: guideTargetRect.left }}>
             <RobotHeadAvatar state={isListening ? 'listening' : connectionStatus === 'speaking' ? 'speaking' : 'working'} size={76} />
             <div className="max-w-[190px] rounded-2xl border border-[#8da6b7]/50 bg-[#101827]/95 px-3 py-2 text-[11px] text-white shadow-xl">
-              Campo {guideFieldIndex + 1} de {guideFieldsRef.current.length}
+              {isTouringControls ? `Controle ${tourIndexRef.current + 1} de ${tourTargetsRef.current.length}` : `Campo ${guideFieldIndex + 1} de ${guideFieldsRef.current.length}`}
               <div className="text-[#c7d7df]">{guideFieldsRef.current[guideFieldIndex] ? getGuideFieldLabel(guideFieldsRef.current[guideFieldIndex], guideFieldIndex) : 'Preparando próximo campo'}</div>
             </div>
           </div>
@@ -503,7 +573,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           </button>
           <div className="mt-2 text-center space-y-1">
             <div className="text-xs font-semibold text-[#c7d7df]">
-              {isListening ? 'Ouvindo você…' : connectionStatus === 'thinking' ? 'Analisando sua solicitação…' : connectionStatus === 'speaking' ? 'Falando com você…' : isFormGuiding ? 'Preenchimento guiado ativo' : 'Toque no robô para conversar'}
+              {isListening ? 'Ouvindo você…' : connectionStatus === 'thinking' ? 'Analisando sua solicitação…' : connectionStatus === 'speaking' ? 'Falando com você…' : isFormGuiding ? 'Preenchimento guiado ativo' : isTouringControls ? 'Orientação da tela ativa' : 'Toque no robô para conversar'}
             </div>
             <p className="text-[10px] text-[#9FB0C8]">O estado do robô acompanha o estado real da conversa.</p>
           </div>
@@ -517,8 +587,9 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             disabled={isGenerating}
             className="px-2.5 py-1.5 rounded-lg bg-[#1F66D6]/20 border border-[#5B9BFF]/40 text-[#c7d7df] whitespace-nowrap font-semibold disabled:opacity-50"
           >
-            {isFormGuiding ? 'Cancelar guia' : 'Guiar formulário por voz'}
+            {isFormGuiding || isTouringControls ? 'Cancelar guia' : 'Guiar formulário por voz'}
           </button>
+          <button type="button" onClick={startControlTour} disabled={isGenerating || isFormGuiding || isTouringControls} className="px-2.5 py-1.5 rounded-lg bg-[#3DD68C]/10 border border-[#3DD68C]/30 text-[#c7d7df] whitespace-nowrap font-semibold disabled:opacity-50">Mostrar controles</button>
           <span className="text-[10px] text-[#9FB0C8] font-bold uppercase shrink-0 flex items-center gap-1">
             <Zap className="w-3 h-3 text-[#F5B93A]" /> Pergunta rápida:
           </span>
