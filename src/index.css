@@ -545,3 +545,444 @@ a.liquid-glass-action,
   background-image: linear-gradient(145deg, rgba(230,244,234,.14), rgba(230,244,234,.025)) !important;
   border-color: rgba(220,238,228,.18) !important;
 }
+
+
+/* -------------------------------------------------------------------------
+   Obra-Engep immersive drafting workspace + pastel clay material system.
+   The drawing surface is the full viewport; controls float above it.
+   ------------------------------------------------------------------------- */
+html:has(.floor-plan-workspace--immersive),
+body:has(.floor-plan-workspace--immersive),
+#root:has(.floor-plan-workspace--immersive) {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+#root:has(.floor-plan-workspace--immersive) .liquid-glass-bar,
+#root:has(.floor-plan-workspace--immersive) section[aria-label="Navegação e ações rápidas"] {
+  display: none !important;
+}
+#root:has(.floor-plan-workspace--immersive) main:has(.floor-plan-workspace--immersive) {
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.floor-plan-workspace--immersive {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  max-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 18% 12%, rgba(211,185,255,.22), transparent 36%),
+    radial-gradient(ellipse at 86% 78%, rgba(255,190,202,.16), transparent 38%),
+    linear-gradient(145deg, #f4efff 0%, #eee9fa 48%, #f9eff0 100%);
+}
+:root.dark .floor-plan-workspace--immersive {
+  background:
+    radial-gradient(ellipse at 18% 12%, rgba(119,91,168,.17), transparent 36%),
+    radial-gradient(ellipse at 86% 78%, rgba(91,65,85,.14), transparent 38%),
+    linear-gradient(145deg, #11151d 0%, #171722 52%, #1a171e 100%);
+}
+.floor-plan-workspace--immersive > .project-canvas-stage {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 0;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 0;
+  border: 0;
+  border-radius: 0 !important;
+  overflow: hidden;
+  background: transparent !important;
+  flex: none !important;
+}
+.floor-plan-workspace--immersive > .project-canvas-stage > canvas,
+.floor-plan-workspace--immersive > .project-canvas-stage > div:not(.liquid-glass-surface) {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+}
+.floor-plan-workspace--immersive > .project-canvas-stage > .liquid-glass-surface {
+  z-index: 20;
+}
+.floor-plan-workspace--immersive > .liquid-glass-surface.project-header,
+.floor-plan-workspace--immersive > .liquid-glass-surface.project-level-switcher,
+.floor-plan-workspace--immersive > .liquid-glass-surface.project-layer-switcher,
+.floor-plan-workspace--immersive > .liquid-glass-surface.project-tool-dock,
+.floor-plan-workspace--immersive > .liquid-glass-surface.project-selection-panel,
+.floor-plan-workspace--immersive > .liquid-glass-surface.project-settings-panel,
+.floor-plan-workspace--immersive > .liquid-glass-surface.project-furniture-panel,
+.floor-plan-workspace--immersive > .liquid-glass-surface.project-wall-options {
+  position: absolute !important;
+  z-index: 30;
+  max-width: calc(100vw - 24px);
+  margin: 0;
+}
+.floor-plan-workspace--immersive > .project-header {
+  top: 14px;
+  left: 14px;
+  --liquid-glass-width: min(390px, calc(100vw - 28px));
+}
+.floor-plan-workspace--immersive > .project-level-switcher {
+  top: 104px;
+  left: 14px;
+  --liquid-glass-width: min(390px, calc(100vw - 28px));
+}
+.floor-plan-workspace--immersive > .project-layer-switcher {
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+  --liquid-glass-width: fit-content;
+}
+.floor-plan-workspace--immersive > .project-tool-dock {
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: max-content;
+  --liquid-glass-width: max-content;
+}
+.floor-plan-workspace--immersive > .project-selection-panel {
+  left: 14px;
+  bottom: 94px;
+  --liquid-glass-width: min(440px, calc(100vw - 28px));
+}
+.floor-plan-workspace--immersive > .project-settings-panel,
+.floor-plan-workspace--immersive > .project-wall-options {
+  right: 14px;
+  bottom: 94px;
+  --liquid-glass-width: min(360px, calc(100vw - 28px));
+}
+.floor-plan-workspace--immersive > .project-furniture-panel {
+  top: 150px;
+  right: 14px;
+  --liquid-glass-width: min(360px, calc(100vw - 28px));
+}
+.floor-plan-workspace--immersive .project-inspector-panel {
+  position: absolute;
+  z-index: 35;
+  top: 150px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 28px);
+}
+.floor-plan-workspace--immersive .project-milestones,
+.floor-plan-workspace--immersive .project-legal-note,
+.floor-plan-workspace--immersive .project-furniture-inventory {
+  display: none !important;
+}
+
+/* Clay: saturated pastel body, 32px corners, inset top light and one diffuse
+   tinted outer shadow. No stacked black elevation shadows. */
+:root {
+  --clay-lavender: #d9c2ff;
+  --clay-lavender-deep: #b99ae9;
+  --clay-mint: #a8e9cf;
+  --clay-peach: #ffd0b5;
+  --clay-lemon: #fff0a6;
+  --clay-coral: #ff8b86;
+  --clay-sky: #a9d5ff;
+  --clay-ink: #252044;
+}
+:root.dark {
+  --clay-lavender: #55466e;
+  --clay-lavender-deep: #3d3154;
+  --clay-mint: #315d50;
+  --clay-peach: #67483d;
+  --clay-lemon: #655c36;
+  --clay-coral: #874c50;
+  --clay-sky: #36536f;
+  --clay-ink: #f5efff;
+}
+.floor-plan-workspace--immersive .liquid-glass-surface {
+  color: var(--clay-ink) !important;
+  background: linear-gradient(145deg, var(--clay-lavender) 0%, #cbb0f4 100%) !important;
+  border: 1px solid rgba(255,255,255,.72) !important;
+  border-radius: 32px !important;
+  box-shadow:
+    inset 0 2px 3px rgba(255,255,255,.82),
+    inset 0 -2px 4px rgba(117,82,165,.16),
+    0 14px 28px rgba(137,103,190,.22) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  filter: none !important;
+}
+:root.dark .floor-plan-workspace--immersive .liquid-glass-surface {
+  background: linear-gradient(145deg, #40364f 0%, #30283e 100%) !important;
+  border-color: rgba(236,220,255,.18) !important;
+  box-shadow: inset 0 2px 3px rgba(255,255,255,.13), inset 0 -2px 4px rgba(0,0,0,.16), 0 14px 28px rgba(0,0,0,.26) !important;
+}
+.floor-plan-workspace--immersive .liquid-glass-surface > div:last-child {
+  border-radius: inherit;
+}
+.floor-plan-workspace--immersive button,
+.floor-plan-workspace--immersive a[role="button"] {
+  min-height: 40px;
+  border-radius: 16px !important;
+  border: 1px solid rgba(255,255,255,.68) !important;
+  background: linear-gradient(145deg, rgba(255,255,255,.68), rgba(202,177,239,.55)) !important;
+  color: var(--clay-ink) !important;
+  box-shadow: inset 0 2px 2px rgba(255,255,255,.86), inset 0 -2px 3px rgba(117,82,165,.13), 0 5px 10px rgba(137,103,190,.13) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+}
+.floor-plan-workspace--immersive button:active,
+.floor-plan-workspace--immersive a[role="button"]:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 5px rgba(117,82,165,.2) !important;
+}
+.floor-plan-workspace--immersive button[aria-pressed="true"],
+.floor-plan-workspace--immersive button[aria-current="page"] {
+  background: linear-gradient(145deg, #b9a0ec, #a98cdd) !important;
+  color: #241a42 !important;
+  box-shadow: inset 0 2px 3px rgba(255,255,255,.62), inset 0 -2px 3px rgba(93,64,142,.2), 0 5px 12px rgba(137,103,190,.18) !important;
+}
+.floor-plan-workspace--immersive button:disabled {
+  opacity: .42;
+  filter: saturate(.5);
+}
+.floor-plan-workspace--immersive .project-tool-dock {
+  border-radius: 32px !important;
+  padding: 8px !important;
+}
+.floor-plan-workspace--immersive .project-tool-dock button {
+  width: 46px;
+  min-width: 46px;
+  height: 46px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 50% !important;
+}
+.floor-plan-workspace--immersive .project-tool-dock button span:not(.sr-only) {
+  display: none;
+}
+.floor-plan-workspace--immersive .project-layer-switcher button {
+  width: 46px;
+  min-width: 46px;
+  height: 46px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 50% !important;
+}
+.floor-plan-workspace--immersive .project-level-switcher,
+.floor-plan-workspace--immersive .project-header,
+.floor-plan-workspace--immersive .project-selection-panel,
+.floor-plan-workspace--immersive .project-settings-panel,
+.floor-plan-workspace--immersive .project-furniture-panel,
+.floor-plan-workspace--immersive .project-wall-options {
+  padding: 12px !important;
+}
+.floor-plan-workspace--immersive .project-header,
+.floor-plan-workspace--immersive .project-level-switcher,
+.floor-plan-workspace--immersive .project-layer-switcher,
+.floor-plan-workspace--immersive .project-tool-dock,
+.floor-plan-workspace--immersive .project-selection-panel,
+.floor-plan-workspace--immersive .project-settings-panel,
+.floor-plan-workspace--immersive .project-furniture-panel,
+.floor-plan-workspace--immersive .project-wall-options {
+  --liquid-glass-height: auto;
+}
+.floor-plan-workspace--immersive .project-canvas-stage > .liquid-glass-surface.absolute {
+  background: linear-gradient(145deg, var(--clay-peach), #f6bfae) !important;
+  border-radius: 24px !important;
+}
+.floor-plan-workspace--immersive .project-canvas-stage > .liquid-glass-surface.absolute.top-3 {
+  top: 16px !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%);
+}
+.floor-plan-workspace--immersive .project-canvas-stage > .liquid-glass-surface.absolute.right-3 {
+  top: 16px !important;
+  right: 16px !important;
+}
+.floor-plan-workspace--immersive .project-canvas-stage > .liquid-glass-surface.absolute.bottom-3 {
+  bottom: 86px !important;
+  left: 16px !important;
+}
+@media (max-width: 640px) {
+  .floor-plan-workspace--immersive > .project-header {
+    top: max(8px, env(safe-area-inset-top));
+    left: 8px;
+    --liquid-glass-width: calc(100vw - 16px);
+  }
+  .floor-plan-workspace--immersive > .project-level-switcher {
+    top: 82px;
+    left: 8px;
+    --liquid-glass-width: calc(100vw - 16px);
+    padding: 8px !important;
+  }
+  .floor-plan-workspace--immersive > .project-level-switcher > div:last-child > div:first-child {
+    flex-wrap: wrap;
+  }
+  .floor-plan-workspace--immersive > .project-layer-switcher {
+    top: auto;
+    left: 8px;
+    bottom: 84px;
+    transform: none;
+    --liquid-glass-width: max-content;
+    padding: 6px !important;
+  }
+  .floor-plan-workspace--immersive > .project-layer-switcher > div:last-child {
+    flex-direction: row !important;
+    max-width: calc(100vw - 16px);
+  }
+  .floor-plan-workspace--immersive > .project-tool-dock {
+    left: 50%;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    --liquid-glass-width: calc(100vw - 16px);
+    padding: 6px !important;
+  }
+  .floor-plan-workspace--immersive .project-tool-dock > div:last-child {
+    justify-content: flex-start;
+    overflow-x: auto;
+    min-width: 0;
+    padding: 1px;
+  }
+  .floor-plan-workspace--immersive .project-tool-dock button {
+    flex: 0 0 42px;
+    width: 42px;
+    min-width: 42px;
+    height: 42px;
+  }
+  .floor-plan-workspace--immersive .project-canvas-stage > .liquid-glass-surface.absolute.top-3 {
+    top: 146px !important;
+    left: 8px !important;
+    right: auto !important;
+    transform: none;
+  }
+  .floor-plan-workspace--immersive .project-canvas-stage > .liquid-glass-surface.absolute.right-3 {
+    top: 146px !important;
+    right: 8px !important;
+  }
+  .floor-plan-workspace--immersive .project-canvas-stage > .liquid-glass-surface.absolute.bottom-3 {
+    bottom: 138px !important;
+    left: 8px !important;
+    max-width: calc(100vw - 16px);
+  }
+  .floor-plan-workspace--immersive > .project-selection-panel {
+    left: 8px;
+    right: 8px;
+    bottom: 138px;
+    --liquid-glass-width: calc(100vw - 16px);
+  }
+  .floor-plan-workspace--immersive > .project-settings-panel,
+  .floor-plan-workspace--immersive > .project-wall-options {
+    left: 8px;
+    right: 8px;
+    bottom: 138px;
+    --liquid-glass-width: calc(100vw - 16px);
+  }
+  .floor-plan-workspace--immersive > .project-furniture-panel {
+    top: 202px;
+    left: 8px;
+    right: 8px;
+    --liquid-glass-width: calc(100vw - 16px);
+    max-height: 42dvh;
+    overflow-y: auto;
+  }
+  .floor-plan-workspace--immersive .project-inspector-panel {
+    top: 202px;
+  }
+  .floor-plan-workspace--immersive .project-canvas-stage > .liquid-glass-surface.absolute.bottom-3 {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .floor-plan-workspace--immersive button { transition: none !important; }
+}
+
+
+/* Global claymorphism refresh: tactile pastel cards and molded controls. */
+:root {
+  --clay-surface: #e5d4ff;
+  --clay-surface-hi: #f0e6ff;
+  --clay-surface-lo: #d3bdf3;
+  --clay-shadow: rgba(135, 100, 184, .22);
+  --clay-text: #292343;
+}
+:root.dark {
+  --clay-surface: #30283d;
+  --clay-surface-hi: #40364f;
+  --clay-surface-lo: #211b2d;
+  --clay-shadow: rgba(0, 0, 0, .24);
+  --clay-text: #f2ebff;
+}
+:root.light .rounded-2xl.border:not(.liquid-glass-surface),
+:root.light .rounded-xl.border:not(.liquid-glass-surface) {
+  border: 1px solid rgba(255,255,255,.78);
+  border-radius: 30px;
+  background: linear-gradient(145deg, var(--clay-surface-hi), var(--clay-surface)) !important;
+  box-shadow: inset 0 2px 3px rgba(255,255,255,.9), inset 0 -2px 4px rgba(125,91,174,.12), 0 12px 24px var(--clay-shadow);
+}
+:root.dark .rounded-2xl.border:not(.liquid-glass-surface),
+:root.dark .rounded-xl.border:not(.liquid-glass-surface) {
+  border: 1px solid rgba(236,220,255,.16);
+  border-radius: 30px;
+  background: linear-gradient(145deg, var(--clay-surface-hi), var(--clay-surface)) !important;
+  box-shadow: inset 0 2px 3px rgba(255,255,255,.12), inset 0 -2px 4px rgba(0,0,0,.16), 0 12px 24px var(--clay-shadow);
+}
+button.liquid-glass-action,
+a.liquid-glass-action,
+[role="tab"].liquid-glass-action {
+  min-height: 40px;
+  border: 1px solid rgba(255,255,255,.78) !important;
+  border-radius: 18px !important;
+  background: linear-gradient(145deg, #f4eaff, #d9c4fa) !important;
+  color: #292343 !important;
+  box-shadow: inset 0 2px 2px rgba(255,255,255,.92), inset 0 -2px 3px rgba(126,91,174,.14), 0 5px 11px rgba(135,100,184,.16) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+}
+button.liquid-glass-action:active,
+a.liquid-glass-action:active,
+[role="tab"].liquid-glass-action:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 5px rgba(126,91,174,.2) !important;
+}
+button.rounded-full.liquid-glass-action,
+a.rounded-full.liquid-glass-action {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 !important;
+  border-radius: 50% !important;
+}
+button.liquid-glass-action[aria-current="page"],
+[role="tab"].liquid-glass-action[aria-selected="true"] {
+  background: linear-gradient(145deg, #bba0ee, #a98bdd) !important;
+  color: #241a42 !important;
+  border-color: rgba(255,255,255,.9) !important;
+}
+:root.dark button.liquid-glass-action,
+:root.dark a.liquid-glass-action,
+:root.dark [role="tab"].liquid-glass-action {
+  border-color: rgba(236,220,255,.18) !important;
+  background: linear-gradient(145deg, #514363, #352b45) !important;
+  color: #f2ebff !important;
+  box-shadow: inset 0 2px 2px rgba(255,255,255,.14), inset 0 -2px 3px rgba(0,0,0,.18), 0 5px 11px rgba(0,0,0,.22) !important;
+}
+:root.dark button.liquid-glass-action[aria-current="page"],
+:root.dark [role="tab"].liquid-glass-action[aria-selected="true"] {
+  background: linear-gradient(145deg, #77649a, #5d4a80) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  button.liquid-glass-action, a.liquid-glass-action { transition: none !important; }
+}
