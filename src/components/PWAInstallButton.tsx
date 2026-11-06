@@ -22,10 +22,10 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({ compact = fa
       <button
         onClick={install}
         aria-label="Instalar aplicativo OBra ENGEP"
-        className={`flex items-center gap-1.5 font-medium transition active:scale-95 text-white bg-[#1F66D6] hover:bg-[#1A57B8] ${
+        className={`liquid-glass-action flex items-center gap-1.5 font-medium transition active:scale-95 text-[var(--ink)] border border-white/20 ${
           compact
-            ? 'px-2.5 py-1.5 text-xs rounded-xl shadow-sm'
-            : 'px-4 py-2.5 text-sm rounded-xl shadow-sm'
+            ? 'px-2.5 py-1.5 text-xs rounded-xl bg-white/10 hover:bg-white/20'
+            : 'px-4 py-2.5 text-sm rounded-xl bg-white/10 hover:bg-white/20'
         }`}
       >
         <Download className="w-4 h-4 shrink-0" />
@@ -41,7 +41,7 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({ compact = fa
         <button
           onClick={() => setShowIOSGuide(true)}
           aria-label="Como instalar no iOS"
-          className={`flex items-center gap-1.5 font-medium border transition active:scale-95 ${
+          className={`liquid-glass-action flex items-center gap-1.5 font-medium border transition active:scale-95 ${
             compact
               ? 'px-2.5 py-1.5 text-xs rounded-xl border-[#6B7F9E]/40 text-[#5B9BFF] hover:bg-[#1F66D6]/10'
               : 'px-3.5 py-2 text-xs rounded-xl border-[#6B7F9E]/40 text-[#5B9BFF] hover:bg-[#1F66D6]/10'
@@ -98,7 +98,7 @@ export const PWAInstallButton: React.FC<{ compact?: boolean }> = ({ compact = fa
         alert('Para instalar o app, utilize o ícone de instalação na barra de endereços do navegador ou o menu "Adicionar à tela inicial".');
       }}
       aria-label="Instalar OBra ENGEP PWA"
-      className={`hidden sm:flex items-center gap-1.5 font-medium transition active:scale-95 text-[#9FB0C8] hover:text-white border border-[#6B7F9E]/30 hover:border-[#6B7F9E] ${
+      className={`liquid-glass-action hidden sm:flex items-center gap-1.5 font-medium transition active:scale-95 text-[#9FB0C8] hover:text-white border border-[#6B7F9E]/30 hover:border-[#6B7F9E] ${
         compact ? 'px-2.5 py-1.5 text-xs rounded-xl' : 'px-3 py-2 text-xs rounded-xl'
       }`}
     >
