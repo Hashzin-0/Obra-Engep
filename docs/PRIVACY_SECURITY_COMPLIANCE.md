@@ -224,6 +224,7 @@ Um requisito só pode ser marcado como implementado quando houver evidência no 
 
 ### Exclusão
 - A Edge Function `delete-account` exige JWT válido, confirmação textual e correspondência entre o ID enviado e o usuário autenticado. A função usa service role exclusivamente no servidor.
+- Para contas não anônimas, exige `auth_time` de até 15 minutos; sessões antigas precisam de novo login antes da exclusão. Sessões anônimas exigem confirmação textual e JWT válido, pois não possuem credencial externa para reautenticação.
 - Antes da exclusão, lista e remove arquivos sob o prefixo do usuário no bucket privado `user-media`, encerra sessões globais via Auth e solicita exclusão do usuário pelo endpoint administrativo.
 - As tabelas pessoais com FK para `auth.users` usam `ON DELETE CASCADE`; registros de autoria de conteúdo compartilhado com `ON DELETE SET NULL` preservam o catálogo/avisos globais sem manter a associação ao autor.
 - A operação atravessa Storage e Auth e não é transacional entre serviços. Em falha de remoção de arquivos, a conta é preservada. Se o logout global ocorrer e a exclusão Auth falhar, o usuário precisará autenticar novamente para repetir a solicitação.
