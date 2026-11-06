@@ -76,19 +76,19 @@ export async function enablePushNotifications(): Promise<{ message: string }> {
     });
   }
 
-  await savePushSubscription(session.userId, subscription.toJSON(), navigator.userAgent);
-
-  if (supabase) {
-    const { error } = await supabase
-      .from('notification_preferences')
-      .upsert(
-        { user_id: session.userId, enabled: true, reminders_enabled: true, updates_enabled: true },
-        { onConflict: 'user_id' }
-      );
-    if (error) throw new Error(error.message);
-  }
-
   try {
+    await savePushSubscription(session.userId, subscription.toJSON(), navigator.userAgent);
+
+    if (supabase) {
+      const { error } = await supabase
+        .from('notification_preferences')
+        .upsert(
+          { user_id: session.userId, enabled: true, reminders_enabled: true, updates_enabled: true },
+          { onConflict: 'user_id' }
+        );
+      if (error) throw new Error(error.message);
+    }
+
     await recordPrivacyConsent(session.userId, 'granted');
   } catch (error) {
     await deletePushSubscription(session.userId, subscription.endpoint).catch(() => undefined);
@@ -98,7 +98,7 @@ export async function enablePushNotifications(): Promise<{ message: string }> {
         await supabase.from('notification_preferences')
           .upsert({ user_id: session.userId, enabled: false }, { onConflict: 'user_id' });
       } catch {
-        // The push subscription has already been removed locally and remotely.
+        // The subscription has already been removed locally and remote cleanup was attempted.
       }
     }
     throw error;
