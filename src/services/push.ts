@@ -1,4 +1,5 @@
 import { ensureAnonymousSession, isSupabaseConfigured, supabase } from '../lib/supabase';
+import { recordPrivacyConsent } from './privacy';
 import {
   deletePushSubscription,
   savePushSubscription,
@@ -87,6 +88,19 @@ export async function enablePushNotifications(): Promise<{ message: string }> {
     if (error) throw new Error(error.message);
   }
 
+  try {
+    await recordPrivacyConsent(session.userId, 'granted');
+  } catch (error) {
+    await deletePushSubscription(session.userId, subscription.endpoint).catch(() => undefined);
+    await subscription.unsubscribe().catch(() => false);
+    if (supabase) {
+      await supabase.from('notification_preferences')
+        .upsert({ user_id: session.userId, enabled: false }, { onConflict: 'user_id' })
+        .catch(() => undefined);
+    }
+    throw error;
+  }
+
   return { message: 'Notificações ativadas neste dispositivo.' };
 }
 
@@ -100,9 +114,15 @@ export async function disablePushNotifications(): Promise<{ message: string }> {
   }
 
   if (supabase && session) {
-    await supabase
+    const { error } = await supabase
       .from('notification_preferences')
       .upsert({ user_id: session.userId, enabled: false }, { onConflict: 'user_id' });
+    if (error) throw new Error('Notificações desativadas, mas não foi possível atualizar a preferência na conta.');
+    try {
+      await recordPrivacyConsent(session.userId, 'revoked');
+    } catch {
+      return { message: 'Notificações desativadas. O histórico da revogação não pôde ser sincronizado; tente novamente quando estiver online.' };
+    }
   }
 
   return { message: 'Notificações desativadas neste dispositivo.' };
