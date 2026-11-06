@@ -206,3 +206,46 @@ Manter inventário de código próprio e licença Apache-2.0 declarada, dependê
 
 ## 12. Critério de conclusão
 Um requisito só pode ser marcado como implementado quando houver evidência no código/configuração/contrato, teste reproduzível, responsável/procedimento quando necessário e ausência de dependência crítica não resolvida. A existência deste documento ou da tela de privacidade não equivale a conformidade integral.
+
+
+## 8. Fluxos LGPD implementados nesta etapa
+
+### Direitos e solicitações
+- A Central de Privacidade permite registrar pedidos de acesso/confirmação, correção, eliminação, portabilidade, informação sobre compartilhamentos e outros.
+- Cada solicitação é vinculada à sessão autenticada e recebe status inicial `received`. A equipe responsável deverá analisar e atualizar o status por fluxo administrativo autorizado; a interface não simula conclusão.
+- O histórico do titular é visível apenas à própria conta e a administradores com claim confiável em `app_metadata`.
+- Os registros de solicitação são eliminados junto com a conta por FK `ON DELETE CASCADE`. Se o controlador definir obrigação de retenção probatória após encerramento, deverá aprovar outro desenho de retenção/pseudonimização antes de ativá-lo.
+
+### Exportação
+- O usuário pode baixar JSON com perfil, dados em tabelas vinculadas à conta, conteúdo global de autoria própria que a política RLS permita consultar e backup local do OBra ENGEP no navegador atual.
+- As consultas são paginadas em blocos de 500 e dependem de RLS. Falhas de leitura interrompem a exportação; o sistema não gera arquivo parcial como se fosse completo.
+- O arquivo inclui chaves de inscrição push e dados de projeto pertencentes à própria conta; deve ser tratado como dado pessoal e guardado com segurança.
+- O Storage binário não é incorporado ao JSON. O bucket privado `user-media` está sem objetos e sem caminho de upload ativo no momento da inspeção; os metadados de `project_media` são exportados.
+
+### Exclusão
+- A Edge Function `delete-account` exige JWT válido, confirmação textual e correspondência entre o ID enviado e o usuário autenticado. A função usa service role exclusivamente no servidor.
+- Antes da exclusão, lista e remove arquivos sob o prefixo do usuário no bucket privado `user-media`, encerra sessões globais via Auth e solicita exclusão do usuário pelo endpoint administrativo.
+- As tabelas pessoais com FK para `auth.users` usam `ON DELETE CASCADE`; registros de autoria de conteúdo compartilhado com `ON DELETE SET NULL` preservam o catálogo/avisos globais sem manter a associação ao autor.
+- A operação atravessa Storage e Auth e não é transacional entre serviços. Em falha de remoção de arquivos, a conta é preservada. Se o logout global ocorrer e a exclusão Auth falhar, o usuário precisará autenticar novamente para repetir a solicitação.
+- Tokens de acesso já emitidos podem permanecer válidos até expirarem, conforme documentação Supabase; a exclusão das linhas e a revogação de refresh sessions reduzem o impacto, mas não prometem invalidação instantânea do JWT.
+
+### Registro de consentimento
+- O fluxo de ativar/desativar Web Push registra eventos imutáveis em `privacy_consent_events`, com finalidade, ação, versão do aviso, origem e data.
+- A tabela não registra consentimento para analytics, marketing ou cookies: esses tratamentos não foram identificados no código.
+- Eventos são apagados com a conta. A retenção pós-exclusão depende de decisão jurídica do controlador.
+
+## 9. Remediação dos Advisors
+
+- `app_updates_admin_read` e `app_updates_read` foram consolidadas em uma política SELECT única `app_updates_select_published_or_admin`, com `(select auth.jwt())` para avaliar o claim uma vez por statement.
+- O warning `auth_rls_initplan` e o warning `multiple_permissive_policies` deixaram de aparecer na leitura posterior do Performance Advisor.
+- Os seis avisos INFO de tabelas do schema privado permanecem intencionais: não há políticas de cliente e as tabelas são acessadas apenas por funções privilegiadas.
+- Os índices reportados como não utilizados foram preservados. Estatísticas de uso zeradas em um projeto com poucas linhas/tráfego não demonstram que os índices de FK ou de filtros sejam inúteis. Os dois índices novos de histórico LGPD também podem aparecer como não utilizados até haver consultas reais.
+- O warning de proteção contra senhas comprometidas continua pendente de configuração no painel Supabase. O conector disponível nesta execução não oferece operação de escrita para Auth Security settings; habilitar no Dashboard em Authentication → Settings → Password Security → Leaked Password Protection, se o plano do projeto oferecer o recurso, e executar novamente o Security Advisor.
+
+## 10. Limitações e ações do controlador
+
+- Os dados do responsável legal, CPF/CNPJ, endereço e canal oficial permanecem pendentes por decisão do responsável do Obra-Engep.
+- Não foi configurado prazo de retenção automática: ainda faltam bases legais finais, contratos de suboperadores, destinos internacionais e validação do responsável. Não excluir automaticamente registros de negócio com prazo arbitrário.
+- Solicitações não são marcadas como concluídas automaticamente. A equipe responsável deve verificar identidade proporcionalmente, avaliar a hipótese legal, responder e atualizar o status.
+- A exclusão apaga registros vinculados à conta; cópias de segurança do provedor seguem a retenção contratual própria e não são apagadas instantaneamente por esta função.
+- A exportação inclui dados locais do navegador atual, que são armazenados por algumas chaves globais do aplicativo e não possuem metadado de titular independente para cada item. O arquivo identifica esse bloco como `deviceData`; revisar manualmente se o dispositivo foi usado por mais de uma conta.
