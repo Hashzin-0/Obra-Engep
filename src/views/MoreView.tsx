@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, lazy } from 'react';
+const PrivacyCenter = lazy(() => import('../components/PrivacyCenter').then(({ PrivacyCenter }) => ({ default: PrivacyCenter })));
 import {
   History,
   BookMarked,
@@ -56,7 +57,7 @@ interface MoreViewProps {
   syncState?: SyncState;
 }
 
-type SubSection = 'menu' | 'caderno' | 'historico' | 'notificacoes' | 'configuracoes' | 'sobre' | 'ajuda';
+type SubSection = 'menu' | 'caderno' | 'historico' | 'notificacoes' | 'configuracoes' | 'sobre' | 'privacidade' | 'ajuda';
 
 export const MoreView: React.FC<MoreViewProps> = ({
   userId,
@@ -225,6 +226,13 @@ export const MoreView: React.FC<MoreViewProps> = ({
                 desc: 'Fontes oficiais, limites técnicos e ART/CREA',
                 icon: ShieldCheck,
                 color: '#5B9BFF',
+              },
+              {
+                id: 'privacidade' as SubSection,
+                title: 'Privacidade e LGPD',
+                desc: 'Dados pessoais, direitos, IA e legislação aplicável',
+                icon: ShieldCheck,
+                color: '#3DD68C',
               },
               {
                 id: 'ajuda' as SubSection,
@@ -750,6 +758,13 @@ export const MoreView: React.FC<MoreViewProps> = ({
 
           <LimitBar message="Versão 2.2 (25/10/2026). Todos os direitos reservados à identidade OBra ENGEP." />
         </div>
+      )}
+
+      {/* PRIVACIDADE E CONFORMIDADE */}
+      {activeSection === 'privacidade' && (
+        <React.Suspense fallback={<div className="text-xs text-[#9FB0C8]" role="status">Carregando informações de privacidade...</div>}>
+          <PrivacyCenter />
+        </React.Suspense>
       )}
 
       {/* AJUDA & SUPORTE */}
