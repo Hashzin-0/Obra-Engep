@@ -248,3 +248,36 @@ body {
     -webkit-backdrop-filter: none !important;
   }
 }
+
+/* Refractive tool surfaces used by the full-screen floor-plan editor. */
+.liquid-glass-panel {
+  min-width: 0;
+  color: inherit;
+}
+.liquid-glass-panel button:not([class*="bg-"]) {
+  background-color: rgba(255,255,255,.035);
+  background-image: none;
+  box-shadow: none;
+  border-color: rgba(255,255,255,.14);
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+.liquid-glass-panel button:not([class*="bg-"]):not(:disabled):hover {
+  background-color: rgba(255,255,255,.12);
+  border-color: rgba(255,255,255,.24);
+}
+.liquid-glass-panel button[aria-pressed="true"] {
+  background: rgba(120,150,160,.24) !important;
+  border-color: rgba(160,195,205,.34) !important;
+}
+:root.dark .liquid-glass-panel button:not([class*="bg-"]) {
+  background-color: rgba(230,244,234,.035);
+  border-color: rgba(230,244,234,.12);
+}
+:root.dark .liquid-glass-panel button:not([class*="bg-"]):not(:disabled):hover {
+  background-color: rgba(230,244,234,.10);
+  border-color: rgba(230,244,234,.20);
+}
+:root.dark .liquid-glass-panel button[aria-pressed="true"] {
+  background: rgba(185,210,195,.16) !important;
+  border-color: rgba(185,210,195,.24) !important;
+}
