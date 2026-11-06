@@ -94,9 +94,12 @@ export async function enablePushNotifications(): Promise<{ message: string }> {
     await deletePushSubscription(session.userId, subscription.endpoint).catch(() => undefined);
     await subscription.unsubscribe().catch(() => false);
     if (supabase) {
-      await supabase.from('notification_preferences')
-        .upsert({ user_id: session.userId, enabled: false }, { onConflict: 'user_id' })
-        .catch(() => undefined);
+      try {
+        await supabase.from('notification_preferences')
+          .upsert({ user_id: session.userId, enabled: false }, { onConflict: 'user_id' });
+      } catch {
+        // The push subscription has already been removed locally and remotely.
+      }
     }
     throw error;
   }
