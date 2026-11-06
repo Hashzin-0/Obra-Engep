@@ -771,7 +771,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
       {/* PRIVACIDADE E CONFORMIDADE */}
       {activeSection === 'privacidade' && (
         <React.Suspense fallback={<div className="text-xs text-[#9FB0C8]" role="status">Carregando informações de privacidade...</div>}>
-          <PrivacyCenter />
+          <PrivacyCenter userId={userId} />
         </React.Suspense>
       )}
 
