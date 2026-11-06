@@ -1123,3 +1123,7 @@ button.liquid-glass-action[aria-current="page"],
     transition: none !important;
   }
 }
+
+main:has(.advanced-electrical-calculator) {
+  background: var(--clay-surface) !important;
+}
