@@ -1376,7 +1376,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           ))}
           <button type="button" onClick={() => setShowFurnitureCatalog(true)} className="flex w-24 shrink-0 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-blue-400/60 bg-blue-500/10 text-blue-200 hover:bg-blue-500/20" aria-label="Ver catálogo completo"><Plus className="h-7 w-7" /><span className="text-xs font-semibold">Ver todos</span></button>
         </div>
-      </LiquidGlassSurface>))}
+      </LiquidGlassSurface>)}
 
       {(project.furniture ?? []).length > 0 && (
         <div className="project-furniture-inventory rounded-xl border border-[#2A3A55] bg-[#17243A] p-3">
