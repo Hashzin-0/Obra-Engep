@@ -1123,6 +1123,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           <button
             onClick={handleExportPNG}
             aria-label="Exportar imagem da planta"
+            data-robot-guide="export-floorplan"
+            data-robot-label="Exportar PNG"
+            data-robot-description="Clique para baixar a planta baixa atual como imagem PNG."
             className="p-2 rounded-xl bg-[#1F66D6] hover:bg-[#1A57B8] text-white text-xs flex items-center gap-1"
           >
             <Download className="w-3.5 h-3.5" />
