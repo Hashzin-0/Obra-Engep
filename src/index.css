@@ -20,9 +20,6 @@
   --ink: #344149;
   --muted: #718087;
   --line: #d8d5cc;
-  --clay-card-face: radial-gradient(ellipse at 18% 8%, rgba(255, 255, 255, .88), transparent 52%), linear-gradient(145deg, #fbf9f4 0%, #f2eee6 68%, #eae5da 100%);
-  --clay-shadow: inset 0 1px 0 rgba(255, 255, 255, .92), inset 0 -3px 7px rgba(154, 145, 130, .12), 0 4px 9px rgba(115, 103, 84, .07);
-  --clay-shadow-small: inset 0 1px 0 rgba(255, 255, 255, .88), inset 0 -2px 5px rgba(154, 145, 130, .10);
 }
 
 :root.dark {
@@ -40,9 +37,6 @@
   --ink: #e8eee9;
   --muted: #a7b5ac;
   --line: #34443b;
-  --clay-card-face: radial-gradient(ellipse at 18% 8%, rgba(225, 242, 230, .075), transparent 52%), linear-gradient(145deg, #26332c 0%, #202a24 68%, #1b241f 100%);
-  --clay-shadow: inset 0 1px 0 rgba(220, 239, 226, .10), inset 0 -3px 7px rgba(0, 0, 0, .22), 0 4px 10px rgba(0, 0, 0, .16);
-  --clay-shadow-small: inset 0 1px 0 rgba(220, 239, 226, .08), inset 0 -2px 5px rgba(0, 0, 0, .20);
 }
 
 html, body, #root { min-height: 100%; }
@@ -89,40 +83,6 @@ body {
 :root.light [class*="text-[#F5B93A]"] { color: var(--brand-sand-strong) !important; }
 :root.light [class*="border-[#D9E0EC]"] { border-color: var(--line) !important; }
 
-/* Claymorphism: soft, tactile surfaces rather than flat white cards. */
-:root.light .rounded-2xl.border,
-:root.light .rounded-xl.border {
-  border-color: rgba(191, 185, 173, .48);
-  border-radius: 24px;
-  background: var(--clay-card-face);
-  box-shadow: var(--clay-shadow);
-}
-:root.light button.rounded-xl,
-:root.light button.rounded-2xl,
-:root.light a.rounded-xl,
-:root.light a.rounded-2xl {
-  border-radius: 18px;
-  background-image: linear-gradient(145deg, rgba(255, 255, 255, .28), transparent 68%);
-  box-shadow: var(--clay-shadow-small);
-  transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease;
-}
-:root.light button.rounded-xl:not(:disabled):active,
-:root.light button.rounded-2xl:not(:disabled):active {
-  transform: scale(.985);
-  box-shadow: inset 2px 2px 5px rgba(154, 145, 130, .16), inset -2px -2px 5px rgba(255,255,255,.72);
-}
-:root.light input,
-:root.light textarea,
-:root.light select {
-  background: linear-gradient(145deg, #e7e2d9, #efebe3) !important;
-  color: var(--ink) !important;
-  border-color: var(--line) !important;
-  border-radius: 14px;
-  box-shadow: inset 2px 2px 5px rgba(154, 145, 130, .12), inset -1px -1px 3px rgba(255, 255, 255, .75);
-}
-:root.light input::placeholder,
-:root.light textarea::placeholder { color: #87918e !important; }
-
 /* Keep the same brand palette legible when the user explicitly selects dark mode. */
 :root.dark [class*="bg-[#101827]"],
 :root.dark [class*="bg-[#17243A]"],
@@ -141,38 +101,6 @@ body {
 :root.dark [class*="bg-[#1F66D6]"] { background-color: var(--brand-blue) !important; color: #26343a !important; }
 :root.dark [class*="bg-[#3DD68C]"] { background-color: var(--brand-sage) !important; color: #26342e !important; }
 :root.dark [class*="bg-[#F5B93A]"] { background-color: var(--brand-sand) !important; color: #3b3026 !important; }
-:root.dark .rounded-2xl.border,
-:root.dark .rounded-xl.border {
-  border-color: rgba(137, 164, 146, .20);
-  border-radius: 24px;
-  background: var(--clay-card-face);
-  box-shadow: var(--clay-shadow);
-}
-
-:root.dark button.rounded-xl,
-:root.dark button.rounded-2xl,
-:root.dark a.rounded-xl,
-:root.dark a.rounded-2xl {
-  border-radius: 18px;
-  background-image: linear-gradient(145deg, rgba(230, 244, 234, .07), transparent 68%);
-  box-shadow: var(--clay-shadow-small);
-  transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease;
-}
-:root.dark button.rounded-xl:not(:disabled):active,
-:root.dark button.rounded-2xl:not(:disabled):active {
-  transform: scale(.985);
-  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, .22), inset -2px -2px 5px rgba(220, 239, 226, .07);
-}
-:root.dark input,
-:root.dark textarea,
-:root.dark select {
-  background: linear-gradient(145deg, #131c18, #17211c) !important;
-  color: var(--ink) !important;
-  border-color: var(--line) !important;
-  border-radius: 14px;
-  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, .20), inset -1px -1px 3px rgba(220, 239, 226, .045);
-}
-
 /* The floor-plan canvas keeps its own technical drawing colors and contrast. */
 .floor-plan-canvas,
 .floor-plan-canvas * { color-scheme: light; }
@@ -213,247 +141,110 @@ body {
 :root.dark [class*="bg-[#EAB308]"],
 :root.dark [class*="bg-[#F5B93A]"] { background-color: var(--brand-sand) !important; color: #3b3026 !important; }
 
-/* Liquid-glass surfaces: web-native port of Expo GlassEffect's visual language.
-   expo-glass-effect itself requires React Native + iOS 26; this PWA uses
-   backdrop-filter with a translucent tint and a restrained specular edge. */
-.liquid-glass-bar {
-  background: color-mix(in srgb, var(--surface) 70%, transparent) !important;
-  -webkit-backdrop-filter: blur(22px) saturate(165%);
-  backdrop-filter: blur(22px) saturate(165%);
-  border-color: color-mix(in srgb, var(--line) 68%, transparent) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .34), inset 0 -1px 0 rgba(255, 255, 255, .08);
-}
-:root.dark .liquid-glass-bar {
-  background: color-mix(in srgb, #111a16 72%, transparent) !important;
-  border-color: rgba(180, 205, 190, .16) !important;
-  box-shadow: inset 0 1px 0 rgba(230, 244, 234, .10), inset 0 -1px 0 rgba(0, 0, 0, .12);
-}
-.liquid-glass-control {
-  -webkit-backdrop-filter: blur(16px) saturate(155%);
-  backdrop-filter: blur(16px) saturate(155%);
-  border-color: color-mix(in srgb, var(--line) 72%, transparent) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .38), inset 0 -1px 0 rgba(255, 255, 255, .08);
-  transition: background-color .18s ease, border-color .18s ease, transform .18s ease, box-shadow .18s ease;
-}
-:root.dark .liquid-glass-control {
-  border-color: rgba(180, 205, 190, .18) !important;
-  box-shadow: inset 0 1px 0 rgba(230, 244, 234, .10), inset 0 -1px 0 rgba(0, 0, 0, .14);
-}
-.liquid-glass-control:not(:disabled):active { transform: scale(.975); }
-.liquid-glass-control[aria-current="page"] {
-  background: color-mix(in srgb, var(--brand-blue-strong) 82%, transparent) !important;
-  border-color: color-mix(in srgb, var(--brand-blue-strong) 65%, transparent) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .30);
-}
-:root.dark .liquid-glass-control[aria-current="page"] { background: color-mix(in srgb, #78969f 76%, transparent) !important; }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .liquid-glass-bar { background: var(--surface-raised) !important; }
-  .liquid-glass-control { background-color: var(--surface-raised); }
-}
-@media (prefers-reduced-transparency: reduce) {
-  .liquid-glass-bar { background: var(--surface) !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
-  .liquid-glass-control { -webkit-backdrop-filter: none; backdrop-filter: none; }
-}
 
-/* Header actions also include the install control, which is owned by its own component. */
-.liquid-glass-bar button {
-  -webkit-backdrop-filter: blur(16px) saturate(155%);
-  backdrop-filter: blur(16px) saturate(155%);
-  border-color: color-mix(in srgb, var(--line) 72%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .34), inset 0 -1px 0 rgba(255, 255, 255, .07);
+/* Clay material: matte, softly molded surfaces with a fine mineral grain.
+   One restrained ambient shadow replaces the previous stacked shadow treatment. */
+:root {
+  --clay-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)' opacity='.12'/%3E%3C/svg%3E");
 }
-:root.dark .liquid-glass-bar button {
-  border-color: rgba(180, 205, 190, .18);
-  box-shadow: inset 0 1px 0 rgba(230, 244, 234, .10), inset 0 -1px 0 rgba(0, 0, 0, .14);
+:root.light .rounded-2xl.border,
+:root.light .rounded-xl.border:not(.liquid-glass-surface) {
+  border-color: rgba(190, 183, 169, .58);
+  border-radius: 22px;
+  background-color: #f2efe8;
+  background-image: var(--clay-grain), linear-gradient(145deg, #f7f4ed 0%, #efebe3 100%);
+  background-blend-mode: soft-light, normal;
+  box-shadow: 0 4px 12px rgba(74, 65, 51, .055);
 }
-
-
-/* Full-screen drafting workspace: the drawing surface is the page, controls float above it. */
-.floor-plan-workspace {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  width: 100vw;
-  height: 100dvh;
-  min-height: 0;
-  overflow: hidden;
-  margin: 0;
-  padding: 0;
-  background: var(--page);
-  isolation: isolate;
+:root.light button.rounded-xl:not(.liquid-glass-action),
+:root.light button.rounded-2xl:not(.liquid-glass-action),
+:root.light a.rounded-xl:not(.liquid-glass-action),
+:root.light a.rounded-2xl:not(.liquid-glass-action) {
+  border-radius: 16px;
+  background-color: #f1eee7;
+  background-image: var(--clay-grain), linear-gradient(145deg, rgba(255,255,255,.48), rgba(233,228,218,.24));
+  background-blend-mode: soft-light, normal;
+  box-shadow: 0 2px 6px rgba(74, 65, 51, .045);
+  transition: transform .18s ease, background-color .18s ease;
 }
-.floor-plan-workspace .project-canvas-stage {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  border: 0;
-  border-radius: 0;
+:root.light button.rounded-xl:not(.liquid-glass-action):active,
+:root.light button.rounded-2xl:not(.liquid-glass-action):active {
+  transform: translateY(1px);
   box-shadow: none;
 }
-.floor-plan-workspace .project-canvas-stage > canvas,
-.floor-plan-workspace .project-canvas-stage > div:not(.absolute) {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
+
+:root.dark {
+  --clay-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)' opacity='.10'/%3E%3C/svg%3E");
 }
-.floor-plan-workspace .project-header,
-.floor-plan-workspace .project-level-switcher,
-.floor-plan-workspace .project-layer-switcher,
-.floor-plan-workspace .project-tool-dock,
-.floor-plan-workspace .project-selection-panel,
-.floor-plan-workspace .project-inspector-panel,
-.floor-plan-workspace .project-settings-panel,
-.floor-plan-workspace .project-furniture-panel,
-.floor-plan-workspace .project-wall-options {
-  position: fixed;
-  z-index: 70;
-  max-width: calc(100vw - 16px);
-  color: var(--ink);
+:root.dark .rounded-2xl.border,
+:root.dark .rounded-xl.border:not(.liquid-glass-surface) {
+  border-color: rgba(137, 164, 146, .24);
+  border-radius: 22px;
+  background-color: #202a24;
+  background-image: var(--clay-grain), linear-gradient(145deg, #26322b 0%, #1d2721 100%);
+  background-blend-mode: soft-light, normal;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .12);
 }
-.floor-plan-workspace .project-header {
-  top: max(8px, env(safe-area-inset-top));
-  left: 8px;
-  right: 8px;
-  width: min(440px, calc(100vw - 16px));
-  min-height: 44px;
-  padding: 6px 9px;
+:root.dark button.rounded-xl:not(.liquid-glass-action),
+:root.dark button.rounded-2xl:not(.liquid-glass-action),
+:root.dark a.rounded-xl:not(.liquid-glass-action),
+:root.dark a.rounded-2xl:not(.liquid-glass-action) {
   border-radius: 16px;
+  background-color: #202a24;
+  background-image: var(--clay-grain), linear-gradient(145deg, rgba(230,244,234,.07), rgba(10,16,12,.04));
+  background-blend-mode: soft-light, normal;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .10);
+  transition: transform .18s ease, background-color .18s ease;
 }
-.floor-plan-workspace .project-header > div:first-child { min-width: 0; }
-.floor-plan-workspace .project-header select { max-width: min(52vw, 220px); font-size: 12px; }
-.floor-plan-workspace .project-header > div:first-child > span { display: none; }
-.floor-plan-workspace .project-header button { min-width: 36px; min-height: 36px; padding: 8px; }
-.floor-plan-workspace .project-header button span { display: none; }
-.floor-plan-workspace .project-level-switcher {
-  top: calc(max(8px, env(safe-area-inset-top)) + 54px);
-  left: 8px;
-  right: 8px;
-  width: fit-content;
-  max-width: calc(100vw - 16px);
-  padding: 5px 7px;
-  border-radius: 14px;
-}
-.floor-plan-workspace .project-level-switcher > div:first-child { gap: 5px; }
-.floor-plan-workspace .project-level-switcher > div:first-child > div:first-child,
-.floor-plan-workspace .project-level-switcher p { display: none; }
-.floor-plan-workspace .project-level-switcher button { min-height: 32px; padding: 6px 10px; white-space: nowrap; }
-.floor-plan-workspace .project-layer-switcher {
-  top: calc(max(8px, env(safe-area-inset-top)) + 104px);
-  left: 8px;
-  right: 8px;
-  width: fit-content;
-  max-width: calc(100vw - 16px);
-  border-radius: 14px;
-  padding: 5px;
-}
-.floor-plan-workspace .project-layer-switcher > span { display: none; }
-.floor-plan-workspace .project-layer-switcher button { min-height: 32px; padding: 6px 9px; white-space: nowrap; }
-.floor-plan-workspace .project-tool-dock {
-  left: 50%;
-  bottom: max(10px, env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  width: max-content;
-  max-width: calc(100vw - 16px);
-  border-radius: 18px;
-  padding: 6px;
-  gap: 3px;
-}
-.floor-plan-workspace .project-tool-dock button {
-  flex: 0 0 40px;
-  width: 40px;
-  height: 40px;
-  min-height: 40px;
-  justify-content: center;
-  padding: 0;
-  border-radius: 12px;
-}
-.floor-plan-workspace .project-tool-dock button span { display: none; }
-.floor-plan-workspace .project-tool-dock button svg { width: 18px; height: 18px; }
-.floor-plan-workspace .project-selection-panel,
-.floor-plan-workspace .project-inspector-panel {
-  left: 8px;
-  right: 8px;
-  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 58px);
-  width: fit-content;
-  max-width: calc(100vw - 16px);
-  padding: 6px;
-  border-radius: 14px;
-}
-.floor-plan-workspace .project-selection-panel button,
-.floor-plan-workspace .project-inspector-panel button { min-height: 36px; padding: 6px 9px; }
-.floor-plan-workspace .project-settings-panel,
-.floor-plan-workspace .project-wall-options {
-  left: 8px;
-  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 110px);
-  width: min(340px, calc(100vw - 16px));
-  padding: 9px;
-  border-radius: 14px;
-}
-.floor-plan-workspace .project-furniture-panel {
-  right: 8px;
-  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 58px);
-  width: min(360px, calc(100vw - 16px));
-  max-height: 38dvh;
-  overflow: auto;
-  padding: 9px;
-  border-radius: 14px;
-}
-.floor-plan-workspace .project-milestones,
-.floor-plan-workspace > .project-milestones,
-.floor-plan-workspace > .project-limit-bar { display: none !important; }
-.floor-plan-workspace > div:not(.project-header):not(.project-level-switcher):not(.project-layer-switcher):not(.project-canvas-stage):not(.project-selection-panel):not(.project-inspector-panel):not(.project-settings-panel):not(.project-furniture-panel):not(.project-tool-dock):not(.project-wall-options):not(.project-milestones) {
-  max-width: calc(100vw - 16px);
-}
-.floor-plan-workspace .project-canvas-stage .absolute { z-index: 5; }
-.floor-plan-workspace .project-canvas-stage button { -webkit-tap-highlight-color: transparent; }
-@media (min-width: 900px) {
-  .floor-plan-workspace .project-header { width: 360px; }
-  .floor-plan-workspace .project-level-switcher { top: 8px; left: 380px; right: auto; }
-  .floor-plan-workspace .project-layer-switcher {
-    top: 50%;
-    left: 12px;
-    right: auto;
-    width: 54px;
-    max-height: min(70vh, 620px);
-    flex-direction: column;
-    align-items: stretch;
-    overflow-y: auto;
-    overflow-x: hidden;
-    transform: translateY(-50%);
-  }
-  .floor-plan-workspace .project-layer-switcher button {
-    width: 42px;
-    min-width: 42px;
-    overflow: hidden;
-    font-size: 0;
-    justify-content: center;
-  }
-  .floor-plan-workspace .project-layer-switcher button svg { width: 18px; height: 18px; }
-  .floor-plan-workspace .project-tool-dock { bottom: 14px; }
-  .floor-plan-workspace .project-settings-panel,
-  .floor-plan-workspace .project-wall-options { left: 76px; bottom: 82px; }
-}
-@media (max-width: 520px) {
-  .floor-plan-workspace .project-header { width: fit-content; right: auto; }
-  .floor-plan-workspace .project-header > div:last-child { gap: 2px; }
-  .floor-plan-workspace .project-level-switcher {
-    top: calc(max(8px, env(safe-area-inset-top)) + 52px);
-    left: 8px;
-    right: 8px;
-    width: auto;
-  }
-  .floor-plan-workspace .project-level-switcher > div:first-child > div:last-child { width: 100%; }
-  .floor-plan-workspace .project-layer-switcher {
-    top: calc(max(8px, env(safe-area-inset-top)) + 98px);
-    width: calc(100vw - 16px);
-  }
-  .floor-plan-workspace .project-layer-switcher button { flex: 0 0 auto; }
-  .floor-plan-workspace .project-tool-dock { max-width: calc(100vw - 12px); }
-  .floor-plan-workspace .project-tool-dock button { flex-basis: 36px; width: 36px; height: 38px; }
+:root.dark button.rounded-xl:not(.liquid-glass-action):active,
+:root.dark button.rounded-2xl:not(.liquid-glass-action):active {
+  transform: translateY(1px);
+  box-shadow: none;
 }
 
-.floor-plan-workspace .project-furniture-inventory,
-.floor-plan-workspace .project-legal-note { display: none !important; }
+/* Liquid Glass is rendered by the optical component, not a blur-only CSS imitation. */
+.liquid-glass-surface {
+  color: inherit;
+  isolation: isolate;
+}
+.liquid-glass-bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  width: 100%;
+  border-radius: 0 !important;
+}
+.liquid-glass-nav {
+  border-radius: 20px !important;
+}
+.liquid-glass-action {
+  background: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+.liquid-glass-action:hover {
+  background: rgba(255,255,255,.09) !important;
+}
+:root.dark .liquid-glass-action:hover {
+  background: rgba(225,240,230,.08) !important;
+}
+.liquid-glass-action[aria-current="page"] {
+  color: var(--ink) !important;
+  background: rgba(120, 150, 160, .22) !important;
+  border-color: rgba(120, 150, 160, .18) !important;
+}
+:root.dark .liquid-glass-action[aria-current="page"] {
+  color: var(--ink) !important;
+  background: rgba(185, 210, 195, .14) !important;
+  border-color: rgba(185, 210, 195, .16) !important;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .liquid-glass-surface {
+    background-color: var(--surface) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
