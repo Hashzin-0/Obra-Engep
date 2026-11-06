@@ -99,7 +99,7 @@ app.get('/api/health', (_req, res) => {
 
 async function hasValidSupabaseSession(req: any): Promise<boolean> {
   const authorization = typeof req.headers.authorization === 'string' ? req.headers.authorization : '';
-  const token = authorization.match(/^Bearer\\s+([A-Za-z0-9._-]{20,4096})$/i)?.[1];
+  const token = authorization.match(/^Bearer\s+([A-Za-z0-9._-]{20,4096})$/i)?.[1];
   const supabaseUrl = env.VITE_SUPABASE_URL;
   const supabaseKey = env.VITE_SUPABASE_ANON_KEY;
   if (!token || token.split('.').length !== 3 || !supabaseUrl || !supabaseKey) return false;
