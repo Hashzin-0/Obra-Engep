@@ -30,10 +30,31 @@ function response(req: Request, body: unknown, status = 200): Response {
 async function readBody(req: Request): Promise<Record<string, unknown> | null> {
   const declaredLength = Number(req.headers.get('content-length') ?? '0');
   if (Number.isFinite(declaredLength) && declaredLength > 2048) return null;
-  const raw = await req.text();
-  if (new TextEncoder().encode(raw).byteLength > 2048) return null;
+
+  const reader = req.body?.getReader();
+  if (!reader) return null;
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    totalBytes += value.byteLength;
+    if (totalBytes > 2048) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+
+  const payload = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    payload.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
   try {
-    const parsed: unknown = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(new TextDecoder().decode(payload));
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
       ? parsed as Record<string, unknown>
       : null;
