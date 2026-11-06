@@ -586,6 +586,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const toggleVoiceMode = () => {
     setIsVoiceMode(true);
     if (isListening) {
+      manualStopRef.current = true;
       try { speechRecognitionRef.current?.stop(); } catch {}
       setIsListening(false);
       setConnectionStatus('idle');
