@@ -93,7 +93,25 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     onGuidingChange?.(false);
     setGuideTargetRect(null);
     setConnectionStatus('idle');
-  }, [isOpen]);
+  }, [isOpen, onGuidingChange]);
+
+  useEffect(() => {
+    if (!isOpen || (!isFormGuiding && !isTouringControls)) return;
+    const updatePosition = () => {
+      const target = isTouringControls
+        ? tourTargetsRef.current[tourIndexRef.current]
+        : guideFieldsRef.current[guideFieldIndexRef.current];
+      if (!target) return;
+      const rect = target.getBoundingClientRect();
+      setGuideTargetRect({ top: Math.max(12, rect.top - 82), left: Math.min(Math.max(12, rect.left), Math.max(12, window.innerWidth - 280)) });
+    };
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [isOpen, isFormGuiding, isTouringControls, guideFieldIndex]);
 
   if (!isOpen) return null;
 
@@ -300,7 +318,12 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     isFormGuidingRef.current = true;
     setIsFormGuiding(true);
     onGuidingChange?.(true);
-    updateGuideTarget(fields[0]);
+    const origin = document.querySelector<HTMLElement>('[data-robot-agent-trigger]');
+    if (origin) {
+      const rect = origin.getBoundingClientRect();
+      setGuideTargetRect({ top: Math.max(12, rect.top - 82), left: Math.min(Math.max(12, rect.left), Math.max(12, window.innerWidth - 280)) });
+      window.requestAnimationFrame(() => updateGuideTarget(fields[0]));
+    } else updateGuideTarget(fields[0]);
     speakGuidePrompt(fields[0], 0);
   };
 
@@ -378,7 +401,12 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     isTouringControlsRef.current = true;
     setIsTouringControls(true);
     onGuidingChange?.(true);
-    updateGuideTarget(targets[0]);
+    const origin = document.querySelector<HTMLElement>('[data-robot-agent-trigger]');
+    if (origin) {
+      const rect = origin.getBoundingClientRect();
+      setGuideTargetRect({ top: Math.max(12, rect.top - 82), left: Math.min(Math.max(12, rect.left), Math.max(12, window.innerWidth - 280)) });
+      window.requestAnimationFrame(() => updateGuideTarget(targets[0]));
+    } else updateGuideTarget(targets[0]);
     speakControlTourStep(targets[0], 0);
   };
 
