@@ -78,7 +78,11 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     try { speechRecognitionRef.current?.stop(); } catch {}
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     setIsListening(false);
+    isFormGuidingRef.current = false;
+    guideFieldsRef.current.forEach((field) => field.classList.remove('robot-guide-highlight'));
+    guideFieldsRef.current = [];
     setIsFormGuiding(false);
+    onGuidingChange?.(false);
     setGuideTargetRect(null);
     setConnectionStatus('idle');
   }, [isOpen]);
