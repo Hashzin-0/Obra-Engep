@@ -137,6 +137,20 @@ Deno.serve(async (req) => {
     const { data: authData, error: authError } = await userClient.auth.getUser(token);
     if (authError || !authData.user) return response(req, { error: 'Sessão inválida.' }, 401);
 
+    if (!authData.user.is_anonymous) {
+      try {
+        const encodedPayload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        const paddedPayload = encodedPayload.padEnd(Math.ceil(encodedPayload.length / 4) * 4, '=');
+        const claims = JSON.parse(atob(paddedPayload)) as { auth_time?: number };
+        const authTime = Number(claims.auth_time);
+        if (!Number.isFinite(authTime) || Date.now() / 1000 - authTime > 15 * 60) {
+          return response(req, { error: 'Por segurança, saia e entre novamente antes de excluir a conta.' }, 401);
+        }
+      } catch {
+        return response(req, { error: 'Não foi possível validar a autenticação recente.' }, 401);
+      }
+    }
+
     const body = await readBody(req);
     if (!body || body.confirmation !== 'DELETE_ACCOUNT' || body.userId !== authData.user.id) {
       return response(req, { error: 'Confirmação de exclusão inválida.' }, 400);
