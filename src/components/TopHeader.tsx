@@ -37,6 +37,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenVoiceAssistant, onBa
             <button
               onClick={onOpenVoiceAssistant}
               aria-label="Abrir assistente de voz"
+              data-robot-agent-trigger="header"
               title="Assistente de voz"
               className="liquid-glass-action relative group p-1 rounded-xl min-h-[48px] min-w-[48px] flex items-center justify-center"
             >
