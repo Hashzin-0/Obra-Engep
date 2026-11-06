@@ -1124,7 +1124,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
             </button>
           )}
           {onOpenVoiceAssistant && (
-            <button type="button" onClick={onOpenVoiceAssistant} aria-label="Abrir assistente OBra ENGEP" title="Assistente OBra ENGEP" className="p-1.5 rounded-xl border border-[#2A3A55] text-[#9FB0C8] flex items-center justify-center">
+            <button type="button" onClick={onOpenVoiceAssistant} aria-label="Abrir assistente OBra ENGEP" data-robot-agent-trigger="canvas" title="Assistente OBra ENGEP" className="p-1.5 rounded-xl border border-[#2A3A55] text-[#9FB0C8] flex items-center justify-center">
               <RobotHeadAvatar size={38} />
             </button>
           )}
