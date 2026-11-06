@@ -266,3 +266,194 @@ body {
   border-color: rgba(180, 205, 190, .18);
   box-shadow: inset 0 1px 0 rgba(230, 244, 234, .10), inset 0 -1px 0 rgba(0, 0, 0, .14);
 }
+
+
+/* Full-screen drafting workspace: the drawing surface is the page, controls float above it. */
+.floor-plan-workspace {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  width: 100vw;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  background: var(--page);
+  isolation: isolate;
+}
+.floor-plan-workspace .project-canvas-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.floor-plan-workspace .project-canvas-stage > canvas,
+.floor-plan-workspace .project-canvas-stage > div:not(.absolute) {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.floor-plan-workspace .project-header,
+.floor-plan-workspace .project-level-switcher,
+.floor-plan-workspace .project-layer-switcher,
+.floor-plan-workspace .project-tool-dock,
+.floor-plan-workspace .project-selection-panel,
+.floor-plan-workspace .project-inspector-panel,
+.floor-plan-workspace .project-settings-panel,
+.floor-plan-workspace .project-furniture-panel,
+.floor-plan-workspace .project-wall-options {
+  position: fixed;
+  z-index: 70;
+  max-width: calc(100vw - 16px);
+  color: var(--ink);
+}
+.floor-plan-workspace .project-header {
+  top: max(8px, env(safe-area-inset-top));
+  left: 8px;
+  right: 8px;
+  width: min(440px, calc(100vw - 16px));
+  min-height: 44px;
+  padding: 6px 9px;
+  border-radius: 16px;
+}
+.floor-plan-workspace .project-header > div:first-child { min-width: 0; }
+.floor-plan-workspace .project-header select { max-width: min(52vw, 220px); font-size: 12px; }
+.floor-plan-workspace .project-header > div:first-child > span { display: none; }
+.floor-plan-workspace .project-header button { min-width: 36px; min-height: 36px; padding: 8px; }
+.floor-plan-workspace .project-header button span { display: none; }
+.floor-plan-workspace .project-level-switcher {
+  top: calc(max(8px, env(safe-area-inset-top)) + 54px);
+  left: 8px;
+  right: 8px;
+  width: fit-content;
+  max-width: calc(100vw - 16px);
+  padding: 5px 7px;
+  border-radius: 14px;
+}
+.floor-plan-workspace .project-level-switcher > div:first-child { gap: 5px; }
+.floor-plan-workspace .project-level-switcher > div:first-child > div:first-child,
+.floor-plan-workspace .project-level-switcher p { display: none; }
+.floor-plan-workspace .project-level-switcher button { min-height: 32px; padding: 6px 10px; white-space: nowrap; }
+.floor-plan-workspace .project-layer-switcher {
+  top: calc(max(8px, env(safe-area-inset-top)) + 104px);
+  left: 8px;
+  right: 8px;
+  width: fit-content;
+  max-width: calc(100vw - 16px);
+  border-radius: 14px;
+  padding: 5px;
+}
+.floor-plan-workspace .project-layer-switcher > span { display: none; }
+.floor-plan-workspace .project-layer-switcher button { min-height: 32px; padding: 6px 9px; white-space: nowrap; }
+.floor-plan-workspace .project-tool-dock {
+  left: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  border-radius: 18px;
+  padding: 6px;
+  gap: 3px;
+}
+.floor-plan-workspace .project-tool-dock button {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  justify-content: center;
+  padding: 0;
+  border-radius: 12px;
+}
+.floor-plan-workspace .project-tool-dock button span { display: none; }
+.floor-plan-workspace .project-tool-dock button svg { width: 18px; height: 18px; }
+.floor-plan-workspace .project-selection-panel,
+.floor-plan-workspace .project-inspector-panel {
+  left: 8px;
+  right: 8px;
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 58px);
+  width: fit-content;
+  max-width: calc(100vw - 16px);
+  padding: 6px;
+  border-radius: 14px;
+}
+.floor-plan-workspace .project-selection-panel button,
+.floor-plan-workspace .project-inspector-panel button { min-height: 36px; padding: 6px 9px; }
+.floor-plan-workspace .project-settings-panel,
+.floor-plan-workspace .project-wall-options {
+  left: 8px;
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 110px);
+  width: min(340px, calc(100vw - 16px));
+  padding: 9px;
+  border-radius: 14px;
+}
+.floor-plan-workspace .project-furniture-panel {
+  right: 8px;
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 58px);
+  width: min(360px, calc(100vw - 16px));
+  max-height: 38dvh;
+  overflow: auto;
+  padding: 9px;
+  border-radius: 14px;
+}
+.floor-plan-workspace .project-milestones,
+.floor-plan-workspace > .project-milestones,
+.floor-plan-workspace > .project-limit-bar { display: none !important; }
+.floor-plan-workspace > div:not(.project-header):not(.project-level-switcher):not(.project-layer-switcher):not(.project-canvas-stage):not(.project-selection-panel):not(.project-inspector-panel):not(.project-settings-panel):not(.project-furniture-panel):not(.project-tool-dock):not(.project-wall-options):not(.project-milestones) {
+  max-width: calc(100vw - 16px);
+}
+.floor-plan-workspace .project-canvas-stage .absolute { z-index: 5; }
+.floor-plan-workspace .project-canvas-stage button { -webkit-tap-highlight-color: transparent; }
+@media (min-width: 900px) {
+  .floor-plan-workspace .project-header { width: 360px; }
+  .floor-plan-workspace .project-level-switcher { top: 8px; left: 380px; right: auto; }
+  .floor-plan-workspace .project-layer-switcher {
+    top: 50%;
+    left: 12px;
+    right: auto;
+    width: 54px;
+    max-height: min(70vh, 620px);
+    flex-direction: column;
+    align-items: stretch;
+    overflow-y: auto;
+    overflow-x: hidden;
+    transform: translateY(-50%);
+  }
+  .floor-plan-workspace .project-layer-switcher button {
+    width: 42px;
+    min-width: 42px;
+    overflow: hidden;
+    font-size: 0;
+    justify-content: center;
+  }
+  .floor-plan-workspace .project-layer-switcher button svg { width: 18px; height: 18px; }
+  .floor-plan-workspace .project-tool-dock { bottom: 14px; }
+  .floor-plan-workspace .project-settings-panel,
+  .floor-plan-workspace .project-wall-options { left: 76px; bottom: 82px; }
+}
+@media (max-width: 520px) {
+  .floor-plan-workspace .project-header { width: fit-content; right: auto; }
+  .floor-plan-workspace .project-header > div:last-child { gap: 2px; }
+  .floor-plan-workspace .project-level-switcher {
+    top: calc(max(8px, env(safe-area-inset-top)) + 52px);
+    left: 8px;
+    right: 8px;
+    width: auto;
+  }
+  .floor-plan-workspace .project-level-switcher > div:first-child > div:last-child { width: 100%; }
+  .floor-plan-workspace .project-layer-switcher {
+    top: calc(max(8px, env(safe-area-inset-top)) + 98px);
+    width: calc(100vw - 16px);
+  }
+  .floor-plan-workspace .project-layer-switcher button { flex: 0 0 auto; }
+  .floor-plan-workspace .project-tool-dock { max-width: calc(100vw - 12px); }
+  .floor-plan-workspace .project-tool-dock button { flex-basis: 36px; width: 36px; height: 38px; }
+}
+
+.floor-plan-workspace .project-furniture-inventory,
+.floor-plan-workspace .project-legal-note { display: none !important; }

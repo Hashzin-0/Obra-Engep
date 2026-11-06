@@ -576,14 +576,14 @@ function AppShell() {
   const isNonHomeView = !isHomeView;
 
   return (
-    <div className="min-h-screen flex flex-col transition-colors selection:bg-[#1F66D6] selection:text-white">
-      <TopHeader
+    <div className={`min-h-screen flex flex-col transition-colors selection:bg-[#1F66D6] selection:text-white ${activeModuleView === 'projetos' ? 'h-dvh overflow-hidden' : ''}`}>
+      {activeModuleView !== 'projetos' && <TopHeader
         onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)}
         onBackToHome={isNonHomeView ? () => {
           setActiveModuleView(null);
           setCurrentTab('inicio');
         } : undefined}
-      />
+      />}
 
       {isHomeView && (
       <section
@@ -640,7 +640,7 @@ function AppShell() {
         </div>
       </section>
       )}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 pt-2">
+      <main className={activeModuleView === 'projetos' ? 'flex-1 min-h-0 w-full max-w-none p-0 m-0' : 'flex-1 max-w-4xl w-full mx-auto px-4 pt-2'}>
         {activeModuleView === 'contratos' ? (
           <ContractsView userId={authenticatedUser?.id ?? null} onBack={() => setActiveModuleView(null)} />
         ) : activeModuleView === 'calculadoras' ? (
