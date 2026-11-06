@@ -1,10 +1,18 @@
 import { createHmac } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 import { env } from 'node:process';
-import { ipAddress, next, rewrite } from '@vercel/functions';
-import { matchesAdminEntryPath } from './api/admin/sessionSecurity.js';
+import { ipAddress } from '@vercel/functions';
+import { NextResponse } from 'next/server';
+import { matchesAdminEntryPath } from './api/admin/sessionSecurity.ts';
 
-export const config = { runtime: 'nodejs' };
+export const config = {
+  matcher: [
+    '/:slug([a-f0-9]{128})',
+    '/bd710978848ee759c9b7f24858aac90607361e767bda6c33.html',
+    '/api/:path*',
+    '/internal-admin',
+  ],
+};
 
 const INTERNAL_ADMIN_PATH = '/internal-admin';
 const RATE_LIMIT_WINDOW_SECONDS = 30;
@@ -113,7 +121,7 @@ async function enforceApiRateLimit(request: Request, pathname: string): Promise<
   }
 }
 
-export default async function middleware(request: Request): Promise<Response> {
+export default async function proxy(request: Request): Promise<Response> {
   const pathname = new URL(request.url).pathname;
 
   // The internal HTML document is never a public entry point.
@@ -121,14 +129,14 @@ export default async function middleware(request: Request): Promise<Response> {
 
   const configuredPath = env.ADMIN_ENTRY_PATH_V2 ?? '';
   if (matchesAdminEntryPath(pathname, configuredPath)) {
-    return rewrite(new URL(INTERNAL_ADMIN_PATH, request.url));
+    return NextResponse.rewrite(new URL(INTERNAL_ADMIN_PATH, request.url));
   }
 
-  // Every Vercel API route is rate-limited before its handler executes.
+  // Every API route matched by this Proxy is rate-limited before its handler executes.
   if (pathname.startsWith('/api/')) {
     const rejected = await enforceApiRateLimit(request, pathname);
     if (rejected) return rejected;
-    return next();
+    return NextResponse.next();
   }
 
   return notFound();
