@@ -1378,7 +1378,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       </div>)}
 
       {(project.furniture ?? []).length > 0 && (
-        <div className="rounded-xl border border-[#2A3A55] bg-[#17243A] p-3">
+        <div className="project-furniture-inventory rounded-xl border border-[#2A3A55] bg-[#17243A] p-3">
           <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-[#9FB0C8]">Objetos inseridos</h4>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {(project.furniture ?? []).map(item => (
@@ -1527,7 +1527,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         </div>
       </div>
 
-      <LimitBar message="O editor gráfico gera representações conceituais e quantitativos preliminares. Plantas executivas para aprovação em prefeitura exigem assinatura e ART de profissional habilitado." />
+      <div className="project-legal-note"><LimitBar message="O editor gráfico gera representações conceituais e quantitativos preliminares. Plantas executivas para aprovação em prefeitura exigem assinatura e ART de profissional habilitado." /></div>
       {showFurnitureCatalog && (
         <FurnitureCatalog
           onClose={() => setShowFurnitureCatalog(false)}
