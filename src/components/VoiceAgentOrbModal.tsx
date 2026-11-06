@@ -66,6 +66,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const speechRecognitionRef = useRef<any>(null);
   // Prevent SpeechRecognition.onend from overwriting the Gemini processing state.
   const isProcessingRef = useRef(false);
+  const recognitionFailedRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   // Auto-scroll messages
@@ -543,6 +544,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     };
 
     recognition.onerror = (event: any) => {
+      recognitionFailedRef.current = true;
       console.warn('[VoiceAgent] Speech recognition failed:', event?.error || 'unknown');
       setIsListening(false);
       if (!isProcessingRef.current) setConnectionStatus('error');
@@ -551,13 +553,15 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       setIsListening(false);
       // A final transcript may already have started a Gemini request. Do not
       // let the browser's end event reset the assistant while that request runs.
-      if (!isFormGuidingRef.current && !isProcessingRef.current) {
+      if (!isFormGuidingRef.current && !isProcessingRef.current && !recognitionFailedRef.current) {
         setConnectionStatus('idle');
       }
     };
+    recognitionFailedRef.current = false;
     try {
       recognition.start();
     } catch (error) {
+      recognitionFailedRef.current = true;
       console.warn('[VoiceAgent] Could not start speech recognition:', error instanceof Error ? error.name : 'unknown');
       setIsListening(false);
       setConnectionStatus('error');
