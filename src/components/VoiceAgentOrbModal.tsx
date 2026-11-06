@@ -22,6 +22,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { supabase } from '../lib/supabase';
 
 export interface ChatMessage {
   id: string;
@@ -123,9 +124,17 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     setExpandedThoughts((prev) => ({ ...prev, [geminiMsgId]: true }));
 
     try {
+      if (!supabase) throw new Error('Serviço de autenticação indisponível.');
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (sessionError || !accessToken) throw new Error('Sua sessão expirou. Entre novamente para utilizar a IA.');
+
       const response = await fetch('/api/gemini/realtime-chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({ prompt }),
       });
 
