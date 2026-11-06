@@ -67,6 +67,8 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   // Prevent SpeechRecognition.onend from overwriting the Gemini processing state.
   const isProcessingRef = useRef(false);
   const recognitionFailedRef = useRef(false);
+  const manualStopRef = useRef(false);
+  const hasFinalTranscriptRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   // Auto-scroll messages
@@ -83,6 +85,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
 
   useEffect(() => {
     if (isOpen) return;
+    manualStopRef.current = true;
     try { speechRecognitionRef.current?.stop(); } catch {}
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     setIsListening(false);
@@ -370,6 +373,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     tourTargetsRef.current = [];
     onGuidingChange?.(false);
     setIsListening(false);
+    manualStopRef.current = true;
     try { speechRecognitionRef.current?.stop(); } catch {}
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     setConnectionStatus('idle');
@@ -531,6 +535,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         else interimTranscript += event.results[i][0].transcript;
       }
       if (finalTranscript) {
+        hasFinalTranscriptRef.current = true;
         setInputQuery(finalTranscript);
         setIsListening(false);
         if (isFormGuidingRef.current) applyGuidedAnswer(finalTranscript);
@@ -553,11 +558,21 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       setIsListening(false);
       // A final transcript may already have started a Gemini request. Do not
       // let the browser's end event reset the assistant while that request runs.
-      if (!isFormGuidingRef.current && !isProcessingRef.current && !recognitionFailedRef.current) {
+      if (isFormGuidingRef.current || isProcessingRef.current || recognitionFailedRef.current) return;
+      if (manualStopRef.current) {
         setConnectionStatus('idle');
+        return;
       }
+      if (!hasFinalTranscriptRef.current) {
+        console.warn('[VoiceAgent] Recognition ended without a final transcript.');
+        setConnectionStatus('error');
+        return;
+      }
+      setConnectionStatus('idle');
     };
     recognitionFailedRef.current = false;
+    manualStopRef.current = false;
+    hasFinalTranscriptRef.current = false;
     try {
       recognition.start();
     } catch (error) {
@@ -656,7 +671,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           </button>
           <div className="mt-2 text-center space-y-1">
             <div className="text-xs font-semibold text-[#c7d7df]">
-              {isListening ? 'Ouvindo você…' : connectionStatus === 'thinking' ? 'Analisando sua solicitação…' : connectionStatus === 'speaking' ? 'Falando com você…' : isFormGuiding ? 'Preenchimento guiado ativo' : isTouringControls ? 'Orientação da tela ativa' : 'Toque no robô para conversar'}
+              {isListening ? 'Ouvindo você…' : connectionStatus === 'thinking' ? 'Analisando sua solicitação…' : connectionStatus === 'speaking' ? 'Falando com você…' : connectionStatus === 'error' ? 'Não consegui concluir a captura. Toque para tentar novamente.' : isFormGuiding ? 'Preenchimento guiado ativo' : isTouringControls ? 'Orientação da tela ativa' : 'Toque no robô para conversar'}
             </div>
             <p className="text-[10px] text-[#9FB0C8]">O estado do robô acompanha o estado real da conversa.</p>
           </div>
