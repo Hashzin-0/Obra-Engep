@@ -1013,7 +1013,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   };
 
   return (
-    <div className="floor-plan-workspace">
+    <div className="floor-plan-workspace floor-plan-workspace--immersive">
       {/* Top Project Bar */}
       <LiquidGlassSurface className="liquid-glass-panel project-header" radius={20} backdropRef={!show3D ? canvasRef : undefined}>
         <div>
