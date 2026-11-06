@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeftIcon as ArrowLeft } from '@animateicons/react/lucide';
 import { RobotHeadAvatar, type RobotAgentState } from './RobotHeadAvatar';
 import { PWAInstallButton } from './PWAInstallButton';
 import { LiquidGlassSurface } from './LiquidGlassSurface';
@@ -53,7 +53,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenVoiceAssistant, onBa
                 onClick={onBackToHome}
                 className="liquid-glass-action min-h-10 inline-flex items-center rounded-xl px-2.5 text-xs font-semibold"
               >
-                <ArrowLeft className="w-4 h-4 shrink-0" />
+                <ArrowLeft size={16} className="w-4 h-4 shrink-0" />
                 <span className="whitespace-nowrap">Voltar ao início</span>
               </button>
             ) : (
