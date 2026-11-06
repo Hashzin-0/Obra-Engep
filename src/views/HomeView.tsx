@@ -5,23 +5,22 @@
 
 import React, { useState } from 'react';
 import {
-  Calculator,
-  BookOpen,
-  Compass,
-  Sparkles,
-  Car,
-  Scale,
-  FileText,
-  ArrowRight,
-  Search,
-  Clock,
-  Star,
-  ChevronRight,
-  ShieldAlert,
-  Flame,
-  CheckCircle2,
-  BarChart3,
-} from 'lucide-react';
+  CalculatorIcon as Calculator,
+  BookOpenIcon as BookOpen,
+  CompassIcon as Compass,
+  SparklesIcon as Sparkles,
+  CarIcon as Car,
+  FileTextIcon as FileText,
+  ArrowRightIcon as ArrowRight,
+  SearchIcon as Search,
+  ClockIcon as Clock,
+  StarIcon as Star,
+  ChevronRightIcon as ChevronRight,
+  ShieldAlertIcon as ShieldAlert,
+  FlameIcon as Flame,
+  ChartSplineIcon as BarChart3,
+} from '@animateicons/react/lucide';
+import { Scale, CheckCircle2 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { ModuleId, CalculationHistoryItem, ProjectDeadline } from '../types';
 import { calculateProjectProgress } from '../utils/projectProgress';
@@ -365,7 +364,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       borderColor: `${mod.color}40`,
                     }}
                   >
-                    <Icon className="w-5 h-5" style={{ color: mod.color }} />
+                    <Icon size={20} color={mod.color} className="w-5 h-5" />
                   </div>
                   <span
                     className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border"

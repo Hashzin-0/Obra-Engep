@@ -7,41 +7,43 @@ import React, { useRef, useState, useEffect } from 'react';
 import { FloorPlan3DView } from '../components/FloorPlan3DView';
 import { LiquidGlassSurface } from '../components/LiquidGlassSurface';
 import {
-  Layers,
-  Zap,
-  Droplets,
-  RotateCcw,
-  RotateCw,
-  Copy,
-  ZoomIn,
-  ZoomOut,
-  Download,
-  Save,
-  Plus,
-  Trash2,
-  Square,
-  DoorOpen,
-  Maximize2,
-  FileSpreadsheet,
-  CheckCircle,
-  Lock,
-  Unlock,
-  Sun,
-  Moon,
-  Building2,
-  House,
-  Sofa,
-  Ruler,
-  Grid3X3,
-  Settings2,
-} from 'lucide-react';
+  LayersIcon as Layers,
+  ZapIcon as Zap,
+  DropletsIcon as Droplets,
+  RotateCcwIcon as RotateCcw,
+  RotateCwIcon as RotateCw,
+  CopyIcon as Copy,
+  ZoomInIcon as ZoomIn,
+  ZoomOutIcon as ZoomOut,
+  DownloadIcon as Download,
+  SaveIcon as Save,
+  PlusIcon as Plus,
+  Trash2Icon as Trash2,
+  SquareIcon as Square,
+  DoorOpenIcon as DoorOpen,
+  Maximize2Icon as Maximize2,
+  FileSpreadsheetIcon as FileSpreadsheet,
+  CircleCheckIcon as CheckCircle,
+  LockIcon as Lock,
+  LockOpenIcon as Unlock,
+  SunIcon as Sun,
+  MoonIcon as Moon,
+  Building2Icon as Building2,
+  HouseIcon as House,
+  RulerIcon as Ruler,
+  Grid3x3Icon as Grid3X3,
+  SlidersHorizontalIcon as Settings2,
+  CalendarIcon as Calendar,
+  BellIcon as Bell,
+  CalendarCheckIcon as CalendarCheck,
+} from '@animateicons/react/lucide';
+import { Sofa } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { FloorPlanProject, FloorPlanLevel, FloorPlanRoom, FloorMaterial, WallSegment, OpeningItem, ElectricalItem, HydraulicItem, ProjectDeadline } from '../types';
 import { createEmptyProject } from '../data/referenceData';
 import { ensureUuid } from '../utils/uuid';
 import { LimitBar } from '../components/LimitBar';
 import { AlertBanner } from '../components/AlertBanner';
-import { Calendar, Bell, CalendarCheck } from 'lucide-react';
 import { exportToLocalCalendar, getGoogleCalendarUrl } from '../utils/calendarSync';
 import { FurnitureCatalog } from '../components/FurnitureCatalog';
 import { RobotHeadAvatar } from '../components/RobotHeadAvatar';

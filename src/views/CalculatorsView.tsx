@@ -4,32 +4,8 @@
  */
 
 import React, { useState } from 'react';
-import {
-  Zap,
-  Droplets,
-  Building2,
-  ArrowLeftRight,
-  ShieldAlert,
-  Info,
-  ChevronRight,
-  ArrowLeft,
-  Bookmark,
-  Check,
-  Gauge,
-  Fuel,
-  Layers,
-  ShieldCheck,
-  Disc,
-  Sliders,
-  Box,
-  Grid,
-  Home,
-  Scale,
-  Cpu,
-  Maximize2,
-  AlertTriangle,
-  Sparkles,
-} from 'lucide-react';
+import { ZapIcon as Zap, DropletsIcon as Droplets, Building2Icon as Building2, ArrowLeftRightIcon as ArrowLeftRight, ShieldAlertIcon as ShieldAlert, InfoIcon as Info, ChevronRightIcon as ChevronRight, ArrowLeftIcon as ArrowLeft, BookmarkIcon as Bookmark, CheckIcon as Check, GaugeIcon as Gauge, LayersIcon as Layers, ShieldCheckIcon as ShieldCheck, DiscIcon as Disc, BoxIcon as Box, CpuIcon as Cpu, Maximize2Icon as Maximize2, SparklesIcon as Sparkles } from '@animateicons/react/lucide';
+import { Fuel, Sliders, Grid, Home, Scale, AlertTriangle } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import {
   calculateCurrent,

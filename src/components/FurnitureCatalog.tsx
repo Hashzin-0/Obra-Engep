@@ -1,5 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Cuboid, Plus, Search, X } from 'lucide-react';
+import {
+  BoxIcon as Box,
+  BoxesIcon as Cuboid,
+  PlusIcon as Plus,
+  SearchIcon as Search,
+  XIcon as X,
+} from '@animateicons/react/lucide';
 import { FURNITURE_CATALOG, FURNITURE_CATEGORIES, type FurnitureCatalogItem } from '../data/furnitureCatalog';
 
 interface Props { onAdd: (item: FurnitureCatalogItem) => void; onClose: () => void; }

@@ -6,42 +6,20 @@
 import React, { useState, lazy } from 'react';
 const PrivacyCenter = lazy(() => import('../components/PrivacyCenter').then(({ PrivacyCenter }) => ({ default: PrivacyCenter })));
 const TermsCenter = lazy(() => import('../components/TermsCenter').then(({ TermsCenter }) => ({ default: TermsCenter })));
-import {
-  History,
-  BookMarked,
-  Bell,
-  Settings,
-  HelpCircle,
-  ShieldCheck,
-  Trash2,
-  Plus,
-  ArrowRight,
-  ExternalLink,
-  Download,
-  Upload,
-  Info,
-  Check,
-  Moon,
-  Sun,
-  Laptop,
-} from 'lucide-react';
+import { HistoryIcon as History, BellIcon as Bell, SettingsIcon as Settings, ShieldCheckIcon as ShieldCheck, Trash2Icon as Trash2, PlusIcon as Plus, ArrowRightIcon as ArrowRight, ExternalLinkIcon as ExternalLink, DownloadIcon as Download, UploadIcon as Upload, InfoIcon as Info, CheckIcon as Check, MoonIcon as Moon, SunIcon as Sun, LaptopIcon as Laptop } from '@animateicons/react/lucide';
+import { BookMarked, HelpCircle } from 'lucide-react';
+import { BellRingIcon as BellRing, SmartphoneIcon as Smartphone, ClockIcon as Clock, CalendarIcon as Calendar } from '@animateicons/react/lucide';
 import { useTheme } from '../context/ThemeContext';
 import { CalculationHistoryItem, NotebookNote, ProjectDeadline, SyncState } from '../types';
 import { LimitBar } from '../components/LimitBar';
 import { AlertBanner } from '../components/AlertBanner';
 import {
-  disablePushNotifications,
-  enablePushNotifications,
-  notificationPermission,
-  pushSupported,
-  sendTestPush,
-  subscriptionState,
-} from '../services/push';
+  disablePushNotifications, enablePushNotifications, notificationPermission, pushSupported, sendTestPush, subscriptionState, } from '../services/push';
 import { buildBackup, restoreBackup } from '../services/persistence';
 import { saveFeedback } from '../services/remoteRepository';
 import { ensureAnonymousSession, isSupabaseConfigured } from '../lib/supabase';
 import { exportToLocalCalendar, getGoogleCalendarUrl } from '../utils/calendarSync';
-import { CalendarCheck, BellRing, Smartphone, Clock, Calendar } from 'lucide-react';
+import { CalendarCheck } from 'lucide-react';
 
 interface MoreViewProps {
   userId?: string | null;
