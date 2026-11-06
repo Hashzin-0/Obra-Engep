@@ -30,7 +30,7 @@ jobs:
           cache: npm
 
       - name: Install locked dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Generate full dependency audit report
         run: npm audit --json > npm-audit.json || true

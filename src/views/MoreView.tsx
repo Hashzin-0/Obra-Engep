@@ -62,7 +62,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
   const [feedbackText, setFeedbackText] = useState('');
   const [feedbackSending, setFeedbackSending] = useState(false);
   const [feedbackResult, setFeedbackResult] = useState<string | null>(null);
-  const supportEmail = (import.meta.env.VITE_SUPPORT_EMAIL as string | undefined) || '';
+  const supportEmail = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL as string | undefined) || '';
 
   const [localNotes, setLocalNotes] = useState<NotebookNote[]>([]);
   const notes = notesProp ?? localNotes;

@@ -47,7 +47,7 @@
       ]
     },
     {
-      "source": "/bd710978848ee759c9b7f24858aac90607361e767bda6c33.html",
+      "source": "/internal-admin",
       "headers": [
         {
           "key": "X-Robots-Tag",
@@ -69,11 +69,13 @@
     }
   ],
   "proxy": {
-    "entrypoint": "middleware.ts",
+    "entrypoint": "vercel-middleware.ts",
     "matcher": [
       "/:slug([a-f0-9]{128})",
       "/bd710978848ee759c9b7f24858aac90607361e767bda6c33.html",
-      "/api/:path*"
+      "/api/:path*",
+      "/internal-admin"
     ]
-  }
+  },
+  "installCommand": "npm install --no-audit --no-fund"
 }

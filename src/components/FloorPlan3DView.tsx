@@ -35,8 +35,8 @@ export const FloorPlan3DView: React.FC<Props> = ({ project, isDark, isNightMode 
     const boot = async () => {
       try {
         const [THREE, loaderModule] = await Promise.all([
-          import(/* @vite-ignore */ THREE_URL),
-          import(/* @vite-ignore */ GLTF_URL),
+          import(THREE_URL),
+          import(GLTF_URL),
         ]);
         if (disposed) return;
         const { GLTFLoader } = loaderModule;

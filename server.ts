@@ -6,9 +6,8 @@
  */
 
 import express from 'express';
+import next from 'next';
 import http from 'http';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { WebSocketServer, WebSocket } from 'ws';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
@@ -18,8 +17,6 @@ import { env, exit } from 'node:process';
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const app = express();
 app.disable('x-powered-by');
 
@@ -29,6 +26,8 @@ const apiKey = env.GEMINI_API_KEY || '';
 const chatModel = env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash';
 const liveModel = env.GEMINI_LIVE_MODEL || 'gemini-2.5-flash-native-audio-preview-12-2025';
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+const nextApp = next({ dev: env.NODE_ENV !== 'production', hostname: '0.0.0.0', port });
+const nextHandler = nextApp.getRequestHandler();
 
 const SYSTEM_INSTRUCTION = `Você é o Assistente Técnico do OBra ENGEP (obras, instalações prediais, segurança e estética automotiva).
 Diretrizes:
@@ -100,8 +99,8 @@ app.get('/api/health', (_req, res) => {
 async function hasValidSupabaseSession(req: any): Promise<boolean> {
   const authorization = typeof req.headers.authorization === 'string' ? req.headers.authorization : '';
   const token = authorization.match(/^Bearer\s+([A-Za-z0-9._-]{20,4096})$/i)?.[1];
-  const supabaseUrl = env.VITE_SUPABASE_URL;
-  const supabaseKey = env.VITE_SUPABASE_ANON_KEY;
+  const supabaseUrl = (env.NEXT_PUBLIC_SUPABASE_URL ?? env.VITE_SUPABASE_URL);
+  const supabaseKey = (env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? env.VITE_SUPABASE_ANON_KEY);
   if (!token || token.split('.').length !== 3 || !supabaseUrl || !supabaseKey) return false;
 
   const client = createClient(supabaseUrl, supabaseKey, {
@@ -421,34 +420,12 @@ app.use((error: any, _req: any, res: any, next: any) => {
   return res.status(500).json({ error: 'Erro interno do servidor.' });
 });
 
-const isProduction = env.NODE_ENV === 'production';
-
 async function startServer() {
-  if (!isProduction) {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.resolve(__dirname, 'dist');
-    app.use(express.static(distPath, {
-      dotfiles: 'deny',
-      index: false,
-      setHeaders: (res) => {
-        res.setHeader('X-Content-Type-Options', 'nosniff');
-        res.setHeader('X-Frame-Options', 'DENY');
-      },
-    }));
-    app.get('*', (_req, res) => {
-      res.setHeader('Cache-Control', 'no-store');
-      res.sendFile(path.resolve(distPath, 'index.html'));
-    });
-  }
+  await nextApp.prepare();
+  app.use((req, res) => nextHandler(req, res));
 
   server.listen(port, '0.0.0.0', () => {
-    console.log(`[Server] OBra ENGEP running on port ${port}`);
+    console.log('[Server] OBra ENGEP (Next.js) running on port ' + port);
   });
 }
 

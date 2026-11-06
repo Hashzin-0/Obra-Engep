@@ -78,8 +78,8 @@ function sameOrigin(req: AdminRequest): boolean {
 }
 
 function getClient(token?: string) {
-  const url = env.VITE_SUPABASE_URL;
-  const key = env.VITE_SUPABASE_ANON_KEY;
+  const url = (env.NEXT_PUBLIC_SUPABASE_URL ?? env.VITE_SUPABASE_URL);
+  const key = (env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? env.VITE_SUPABASE_ANON_KEY);
   if (!url || !key) throw new Error('Supabase server configuration is missing.');
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },

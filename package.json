@@ -1,14 +1,14 @@
 {
-  "name": "react-example",
+  "name": "obra-engep",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
     "start": "tsx server.ts",
-    "build": "node generate-icons.js && npm run typecheck && vite build",
-    "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "build": "node generate-icons.js && npm run typecheck && next build",
+    "preview": "NODE_ENV=production tsx server.ts",
+    "clean": "rm -rf .next dist server.js",
     "lint": "tsc --noEmit",
     "vapid:generate": "node scripts/generate-vapid-keys.mjs",
     "vapid:convert": "node scripts/convert-vapid-keys.mjs",
@@ -21,8 +21,6 @@
     "@animateicons/react": "^0.13.0",
     "@google/genai": "^2.32.0",
     "@supabase/supabase-js": "^2.118.0",
-    "@tailwindcss/vite": "^4.3.3",
-    "@vitejs/plugin-react": "^6.1.1",
     "date-fns-tz": "^3.2.0",
     "dotenv": "^18.0.9",
     "express": "^5.3.0",
@@ -32,10 +30,10 @@
     "motion": "^12.23.24",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
-    "vite": "^8.3.0",
     "ws": "^8.22.0",
     "simple-liquid-glass": "5.6.0",
-    "robot-heads": "^0.3.0"
+    "robot-heads": "^0.3.0",
+    "next": "^16.4.5"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
@@ -49,7 +47,7 @@
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",
-    "vite-plugin-pwa": "^2.0.0"
+    "@tailwindcss/postcss": "^4.3.4"
   },
   "allowScripts": {
     "@google/genai@2.32.0": false,

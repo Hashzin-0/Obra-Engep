@@ -44,8 +44,8 @@ function sameOrigin(req: GeminiRequest): boolean {
 async function authenticate(req: GeminiRequest): Promise<boolean> {
   const authorization = typeof req.headers.authorization === 'string' ? req.headers.authorization : '';
   const token = authorization.match(/^Bearer\s+([A-Za-z0-9._-]{20,4096})$/i)?.[1];
-  const url = env.VITE_SUPABASE_URL;
-  const key = env.VITE_SUPABASE_ANON_KEY;
+  const url = (env.NEXT_PUBLIC_SUPABASE_URL ?? env.VITE_SUPABASE_URL);
+  const key = (env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? env.VITE_SUPABASE_ANON_KEY);
   if (!token || token.split('.').length !== 3 || !url || !key) return false;
 
   const client = createClient(url, key, {

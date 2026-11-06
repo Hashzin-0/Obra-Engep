@@ -724,7 +724,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       placementRef.current=false;
       const routeTypes=['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'];
       const endpoints=[...project.electrical.filter(item=>routeTypes.includes(item.type)&&item.x2!==undefined&&item.y2!==undefined).flatMap(item=>[{x:item.x,y:item.y},{x:item.x2 as number,y:item.y2 as number}]),...project.hydraulic.filter(item=>routeTypes.includes(item.type)&&item.x2!==undefined&&item.y2!==undefined).flatMap(item=>[{x:item.x,y:item.y},{x:item.x2 as number,y:item.y2 as number}]),...project.walls.flatMap(w=>[{x:w.x1,y:w.y1},{x:w.x2,y:w.y2}])];
-      const nearest=endpoints.reduce((best,point)=>{const distance=Math.hypot(point.x-x,point.y-y);return distance<=18&&(!best||distance<best.distance)?{x:point.x,y:point.y,distance}:best;},null as ({x:number;y:number;distance:number}|null));
+      const nearest=endpoints.reduce<{x:number;y:number;distance:number}|null>((best,point)=>{const distance=Math.hypot(point.x-x,point.y-y);return distance<=18&&(!best||distance<best.distance)?{x:point.x,y:point.y,distance}:best;},null as ({x:number;y:number;distance:number}|null));
       const clicked=nearest?{x:nearest.x,y:nearest.y}:{x,y};
       if(!routeSequencePoints.length){setRouteSequencePoints([clicked]);setCurrentMouse(clicked);}
       else {const last=routeSequencePoints[routeSequencePoints.length-1];if(Math.hypot(clicked.x-last.x,clicked.y-last.y)<=6){setRouteSequencePoints([]);setCurrentMouse(null);setIsDrawing(false);e.currentTarget.setPointerCapture(e.pointerId);return;}
@@ -782,7 +782,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       const rect=e.currentTarget.getBoundingClientRect();const x=snap((e.clientX-rect.left-canvasPan.x)/zoom),y=snap((e.clientY-rect.top-canvasPan.y)/zoom);
       const routeTypes=['wire','conduit','water_pipe','sewage_pipe','vent_pipe','rain_pipe'];
       const endpoints=[...project.electrical.filter(item=>routeTypes.includes(item.type)&&item.x2!==undefined&&item.y2!==undefined).flatMap(item=>[{x:item.x,y:item.y},{x:item.x2 as number,y:item.y2 as number}]),...project.hydraulic.filter(item=>routeTypes.includes(item.type)&&item.x2!==undefined&&item.y2!==undefined).flatMap(item=>[{x:item.x,y:item.y},{x:item.x2 as number,y:item.y2 as number}]),...project.walls.flatMap(w=>[{x:w.x1,y:w.y1},{x:w.x2,y:w.y2}])];
-      const nearest=endpoints.reduce((best,point)=>{const distance=Math.hypot(point.x-x,point.y-y);return distance<=18&&(!best||distance<best.distance)?{x:point.x,y:point.y,distance}:best;},null as ({x:number;y:number;distance:number}|null));
+      const nearest=endpoints.reduce<{x:number;y:number;distance:number}|null>((best,point)=>{const distance=Math.hypot(point.x-x,point.y-y);return distance<=18&&(!best||distance<best.distance)?{x:point.x,y:point.y,distance}:best;},null as ({x:number;y:number;distance:number}|null));
       setCurrentMouse(nearest?{x:nearest.x,y:nearest.y}:{x,y});return;
     }
     if (tool === 'select' && selectionStartRef.current) { const r=e.currentTarget.getBoundingClientRect(); setSelectionRect({x1:selectionStartRef.current.x,y1:selectionStartRef.current.y,x2:snap((e.clientX-r.left-canvasPan.x)/zoom),y2:snap((e.clientY-r.top-canvasPan.y)/zoom)}); return; }
@@ -949,9 +949,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       const pointerX=snap((e.clientX-rect.left-canvasPan.x)/zoom),pointerY=snap((e.clientY-rect.top-canvasPan.y)/zoom);
       const projectedEnd=snapToNearestWall(pointerX,pointerY);
       let endPoint=projectedEnd.distance<=16?{x:projectedEnd.x,y:projectedEnd.y}:{x:pointerX,y:pointerY};
-      const nearestEndVertex=project.walls.flatMap(w=>[{x:w.x1,y:w.y1},{x:w.x2,y:w.y2}]).reduce((best,p)=>{const distance=Math.hypot(p.x-endPoint.x,p.y-endPoint.y);return distance<=18&&(!best||distance<best.distance)?{...p,distance}:best;},null as ({x:number;y:number;distance:number}|null));
+      const nearestEndVertex=project.walls.flatMap(w=>[{x:w.x1,y:w.y1},{x:w.x2,y:w.y2}]).reduce<{x:number;y:number;distance:number}|null>((best,p)=>{const distance=Math.hypot(p.x-endPoint.x,p.y-endPoint.y);return distance<=18&&(!best||distance<best.distance)?{...p,distance}:best;},null as ({x:number;y:number;distance:number}|null));
       if(nearestEndVertex)endPoint={x:nearestEndVertex.x,y:nearestEndVertex.y};
-      const nearestStartVertex=project.walls.flatMap(w=>[{x:w.x1,y:w.y1},{x:w.x2,y:w.y2}]).reduce((best,p)=>{const distance=Math.hypot(p.x-startPoint.x,p.y-startPoint.y);return distance<=18&&(!best||distance<best.distance)?{...p,distance}:best;},null as ({x:number;y:number;distance:number}|null));
+      const nearestStartVertex=project.walls.flatMap(w=>[{x:w.x1,y:w.y1},{x:w.x2,y:w.y2}]).reduce<{x:number;y:number;distance:number}|null>((best,p)=>{const distance=Math.hypot(p.x-startPoint.x,p.y-startPoint.y);return distance<=18&&(!best||distance<best.distance)?{...p,distance}:best;},null as ({x:number;y:number;distance:number}|null));
       const wallStart=nearestStartVertex?{x:nearestStartVertex.x,y:nearestStartVertex.y}:startPoint;
       if (Math.hypot(wallStart.x-endPoint.x,wallStart.y-endPoint.y)>1) {
         const newWall: WallSegment = {
