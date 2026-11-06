@@ -310,6 +310,10 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     setGuideTargetRect(null);
     isFormGuidingRef.current = false;
     setIsFormGuiding(false);
+    isTouringControlsRef.current = false;
+    setIsTouringControls(false);
+    tourTargetsRef.current.forEach((target) => target.classList.remove('robot-guide-highlight'));
+    tourTargetsRef.current = [];
     onGuidingChange?.(false);
     setIsListening(false);
     try { speechRecognitionRef.current?.stop(); } catch {}
@@ -552,12 +556,12 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         </div>
 
         {/* Robot companion follows the active form field without intercepting page gestures. */}
-        {guideTargetRect && isFormGuiding && (
+        {guideTargetRect && (isFormGuiding || isTouringControls) && (
           <div className="fixed z-[70] pointer-events-none flex items-end gap-2 robot-guide-companion" style={{ top: guideTargetRect.top, left: guideTargetRect.left }}>
             <RobotHeadAvatar state={isListening ? 'listening' : connectionStatus === 'speaking' ? 'speaking' : 'working'} size={76} />
             <div className="max-w-[190px] rounded-2xl border border-[#8da6b7]/50 bg-[#101827]/95 px-3 py-2 text-[11px] text-white shadow-xl">
               {isTouringControls ? `Controle ${tourIndexRef.current + 1} de ${tourTargetsRef.current.length}` : `Campo ${guideFieldIndex + 1} de ${guideFieldsRef.current.length}`}
-              <div className="text-[#c7d7df]">{guideFieldsRef.current[guideFieldIndex] ? getGuideFieldLabel(guideFieldsRef.current[guideFieldIndex], guideFieldIndex) : 'Preparando próximo campo'}</div>
+              <div className="text-[#c7d7df]">{isTouringControls && tourTargetsRef.current[tourIndexRef.current] ? getGuideFieldLabel(tourTargetsRef.current[tourIndexRef.current], tourIndexRef.current) : guideFieldsRef.current[guideFieldIndex] ? getGuideFieldLabel(guideFieldsRef.current[guideFieldIndex], guideFieldIndex) : 'Preparando próximo campo'}</div>
             </div>
           </div>
         )}
@@ -583,7 +587,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         <div className="px-3 py-2 bg-[#17243A]/40 border-b border-[#2A3A55]/30 flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs">
           <button
             type="button"
-            onClick={isFormGuiding ? cancelFormGuide : startFormGuide}
+            onClick={isFormGuiding || isTouringControls ? cancelFormGuide : startFormGuide}
             disabled={isGenerating}
             className="px-2.5 py-1.5 rounded-lg bg-[#1F66D6]/20 border border-[#5B9BFF]/40 text-[#c7d7df] whitespace-nowrap font-semibold disabled:opacity-50"
           >
