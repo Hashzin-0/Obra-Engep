@@ -4,23 +4,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import {
-  BookOpen,
-  ShieldCheck,
-  Scale,
-  Car,
-  FileCheck2,
-  ExternalLink,
-  CheckSquare,
-  Square,
-  AlertTriangle,
-  Sparkles,
-  Bookmark,
-  Plus,
-  Trash2,
-  X,
-  Save,
-} from 'lucide-react';
+import { BookOpenIcon as BookOpen, ShieldCheckIcon as ShieldCheck, CarIcon as Car, ExternalLinkIcon as ExternalLink, SquareIcon as Square, SparklesIcon as Sparkles, BookmarkIcon as Bookmark, PlusIcon as Plus, Trash2Icon as Trash2, XIcon as X, SaveIcon as Save } from '@animateicons/react/lucide';
+import { Scale, FileCheck2, CheckSquare, AlertTriangle } from 'lucide-react';
 import {
   DIRT_CATALOG,
   REFERENCE_ABNT,
