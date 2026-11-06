@@ -192,53 +192,71 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         body: JSON.stringify({ prompt }),
       });
 
-      if (!response.ok || !response.body) {
-        throw new Error(`Erro na API: ${response.status}`);
+      if (!response.ok) {
+        let detail = '';
+        try {
+          const body = await response.json() as { error?: unknown; message?: unknown };
+          const candidate = typeof body.error === 'string' ? body.error : body.message;
+          if (typeof candidate === 'string') detail = candidate;
+        } catch {
+          // Keep the HTTP status when the server does not return JSON.
+        }
+        throw new Error(detail
+          ? `Falha na API (HTTP ${response.status}): ${detail}`
+          : `Falha na API (HTTP ${response.status}).`);
       }
+      if (!response.body) throw new Error('A API não iniciou o fluxo de resposta.');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let accumulatedThought = '';
       let accumulatedText = '';
+      let streamError = '';
+      let pending = '';
+
+      const processLine = (line: string) => {
+        if (!line.startsWith('data: ')) return;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.type === 'thought') {
+            accumulatedThought += typeof data.text === 'string' ? data.text : '';
+            setConnectionStatus('thinking');
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === geminiMsgId ? { ...m, thought: accumulatedThought } : m
+              )
+            );
+          } else if (data.type === 'text') {
+            accumulatedText += typeof data.text === 'string' ? data.text : '';
+            setConnectionStatus('speaking');
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === geminiMsgId ? { ...m, text: accumulatedText } : m
+              )
+            );
+          } else if (data.type === 'error') {
+            streamError = typeof data.error === 'string' ? data.error : 'Falha ao processar a resposta do agente.';
+          } else if (data.type === 'done') {
+            setConnectionStatus('idle');
+          }
+        } catch {
+          // Ignore malformed or non-data SSE lines; preserve the rest of the stream.
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
+        pending += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+        const lines = pending.split('\n');
+        pending = lines.pop() ?? '';
+        lines.forEach(processLine);
         if (done) break;
-
-        const chunkStr = decoder.decode(value, { stream: true });
-        const lines = chunkStr.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.type === 'thought') {
-                accumulatedThought += data.text;
-                setConnectionStatus('thinking');
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === geminiMsgId ? { ...m, thought: accumulatedThought } : m
-                  )
-                );
-              } else if (data.type === 'text') {
-                accumulatedText += data.text;
-                setConnectionStatus('speaking');
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === geminiMsgId ? { ...m, text: accumulatedText } : m
-                  )
-                );
-              } else if (data.type === 'done') {
-                setConnectionStatus('idle');
-              }
-            } catch (e) {}
-          }
-        }
       }
+      if (pending.trim()) processLine(pending);
+      if (streamError) throw new Error(streamError);
+      if (!accumulatedText.trim()) throw new Error('O agente encerrou a resposta sem retornar texto.');
 
-      if (accumulatedText) {
-        speakResponse(accumulatedText);
-      }
+      speakResponse(accumulatedText);
     } catch (err) {
       console.error('Erro na conversação em tempo real:', err);
       setMessages((prev) =>
@@ -246,7 +264,9 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           m.id === geminiMsgId
             ? {
                 ...m,
-                text: m.text || 'Erro de conexão com o agente de voz serverless.',
+                text: m.text || (err instanceof Error
+                  ? err.message.slice(0, 400)
+                  : 'Não foi possível conectar ao agente. Tente novamente.'),
                 thought: '',
               }
             : m
