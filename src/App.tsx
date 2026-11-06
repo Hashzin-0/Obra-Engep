@@ -544,7 +544,7 @@ function AppShell() {
 
   const handleGoogleSignIn = async () => {
     if (!supabase) {
-      window.alert('O login ainda precisa das variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY na implantação.');
+      window.alert('O login ainda precisa das variáveis NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY na implantação.');
       return;
     }
 

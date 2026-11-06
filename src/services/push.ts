@@ -5,7 +5,7 @@ import {
   savePushSubscription,
 } from './remoteRepository';
 
-const functionsUrl = `${import.meta.env.VITE_SUPABASE_URL ?? ''}/functions/v1`;
+const functionsUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''}/functions/v1`;
 
 function base64UrlToBytes(value: string): Uint8Array {
   const padding = '='.repeat((4 - (value.length % 4)) % 4);
@@ -15,7 +15,7 @@ function base64UrlToBytes(value: string): Uint8Array {
 }
 
 function authHeaders(accessToken?: string): HeadersInit {
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
   return {
     'Content-Type': 'application/json',
     apikey: anonKey,

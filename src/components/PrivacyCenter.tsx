@@ -65,7 +65,7 @@ interface PrivacyCenterProps {
 }
 
 export const PrivacyCenter: React.FC<PrivacyCenterProps> = ({ userId }) => {
-  const supportEmail = (import.meta.env.VITE_SUPPORT_EMAIL as string | undefined) || '';
+  const supportEmail = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL as string | undefined) || '';
   const [requests, setRequests] = useState<PrivacyRequestRecord[]>([]);
   const [consents, setConsents] = useState<ConsentEventRecord[]>([]);
   const [requestType, setRequestType] = useState<PrivacyRequestType>('access');

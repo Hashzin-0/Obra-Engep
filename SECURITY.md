@@ -38,7 +38,7 @@ This document describes the controls implemented for the application and the rem
 - The product-label image picker remains available for local-only use. Catalog product images are HTTPS URLs, while editor media and product-label photos are stored locally in IndexedDB. Any future cloud upload must pass server-side magic-byte validation, decoding/re-encoding, dimension/pixel limits and malware scanning before Storage writes; client MIME metadata is not trusted.
 - The Express runtime applies a global 30 requests/minute per-IP limit to all `/api/*` routes, limits JSON bodies to 256 KB, chat prompts to 24,000 characters, chat streams to 12 requests/minute per IP, 8 concurrent streams globally and 2 per IP. Gemini stream duration is capped at 120 seconds, output at 2,048 tokens, and automatic continuation is disabled. The SDK request is aborted on timeout/disconnect to release local resources; this does not guarantee cancellation of provider-side generation or billing.
 - Gemini Live WebSockets require same-origin HTTPS (localhost HTTP only in local development), have a 128 KB frame ceiling, 600 messages/minute per connection, 2 connections/IP and 50 concurrent connections globally. Connection setup is capped at 20 seconds, session lifetime at 30 minutes, and slow consumers are closed when buffered output exceeds 2 MB.
-- Express in-memory limits are per process, not globally distributed. The Vercel project is configured as a Vite static app; `server.ts` is the local/self-hosted Express runtime, not the Vercel serverless runtime.
+- Express in-memory limits are per process, not globally distributed. The Vercel project now builds the Next.js App Router application. server.ts remains the local/self-hosted Express + Next custom runtime that hosts Gemini Live WebSockets; Vercel's managed Next.js deployment does not execute that custom server. Root-level api/* files remain Vercel serverless functions, and the WebSocket deployment topology must be validated separately before claiming Gemini Live is available on Vercel.
 
 ## Session anomaly controls
 
@@ -63,7 +63,7 @@ This document describes the controls implemented for the application and the rem
 - User-owned RLS policies evaluate `auth.uid()` and `auth.jwt()` through scalar subqueries. Admin read access is combined with owner SELECT rules, while INSERT/UPDATE/DELETE remain separate owner-only policies; this prevents an admin-read grant from becoming write/delete access through a permissive `FOR ALL` policy. Duplicate permissive SELECT policies were removed.
 - Added covering indexes for the six foreign keys flagged by Supabase (admin session fingerprints, app updates, automotive catalog, deadlines, project media and project versions).
 - Vercel runtime secrets (`GEMINI_API_KEY`, `CRON_SECRET`, `VAPID_KEYS`, `ADMIN_ENTRY_PATH_V2`, `ADMIN_SESSION_FINGERPRINT_SECRET` and `API_RATE_LIMIT_HMAC_SECRET`) use Secret/Sensitive visibility; their values are not stored in source control. `ADMIN_ENTRY_PATH_V2` is a 512-bit random path and must never be copied into source files or logs. The legacy `ADMIN_ENTRY_PATH` variable is no longer read by code and should be removed manually from Vercel project settings after the next deployment.
-- The full npm audit currently reports 10 low/moderate findings in the development/build dependency tree (2 low, 8 moderate; 0 high/critical). `@vercel/functions` is pinned to 3.6.1 to avoid the vulnerable OIDC dependency line while retaining the Node middleware rewrite helper. The production-only audit passes. npm's suggested automatic fix downgrades `vite-plugin-pwa` to 1.1.0, which predates Vite 8 peer support; the project uses 2.0.0. Do not force that downgrade without a compatible Workbox dependency update. The complete audit report is uploaded by CI.
+- The dependency audit figures recorded before the Next.js migration are historical and must not be treated as the current dependency state. Re-run npm audit after dependency changes; @vercel/functions remains pinned to 3.6.1 for the existing Node middleware rewrite helper.
 - Supabase's leaked-password protection warning remains because the setting is disabled. Supabase documentation states it is available on Pro and above; the connected project plan was not exposed by the management API, so confirm the plan in the dashboard before deciding whether an upgrade is required. The current app uses Google OAuth and anonymous sessions, not password-based sign-in, but enabling the protection remains recommended if email/password authentication is enabled.
 
 ## Vercel WAF and VPN/Tor handling
@@ -75,7 +75,7 @@ This document describes the controls implemented for the application and the rem
 
 ## Automated validation
 
-- The latest GitHub Actions run completed `npm ci`, production dependency audit, TypeScript validation, Vite production build and 28 unit tests with zero test failures. The production dependency audit reported zero vulnerabilities; the full development/build dependency tree still reports 10 low/moderate advisories.
+- The Next.js migration branch was locally checked with npm run typecheck, npm test (31 passing tests), and npm run build using Next.js 16.4.5. GitHub Actions and the post-migration dependency audit remain the authoritative CI/security checks for this branch.
 
 ## Important limitation
 

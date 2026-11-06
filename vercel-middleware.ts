@@ -6,7 +6,7 @@ import { matchesAdminEntryPath } from './api/admin/sessionSecurity.js';
 
 export const config = { runtime: 'nodejs' };
 
-const ADMIN_DOCUMENT_PATH = '/bd710978848ee759c9b7f24858aac90607361e767bda6c33.html';
+const INTERNAL_ADMIN_PATH = '/internal-admin';
 const RATE_LIMIT_WINDOW_SECONDS = 30;
 
 function getUserAccessToken(request: Request): string | null {
@@ -117,11 +117,11 @@ export default async function middleware(request: Request): Promise<Response> {
   const pathname = new URL(request.url).pathname;
 
   // The internal HTML document is never a public entry point.
-  if (pathname === ADMIN_DOCUMENT_PATH) return notFound();
+  if (pathname === INTERNAL_ADMIN_PATH) return notFound();
 
   const configuredPath = env.ADMIN_ENTRY_PATH_V2 ?? '';
   if (matchesAdminEntryPath(pathname, configuredPath)) {
-    return rewrite(new URL(ADMIN_DOCUMENT_PATH, request.url));
+    return rewrite(new URL(INTERNAL_ADMIN_PATH, request.url));
   }
 
   // Every Vercel API route is rate-limited before its handler executes.
