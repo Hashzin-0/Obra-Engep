@@ -251,7 +251,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     const rect = field.getBoundingClientRect();
     setGuideTargetRect({
       top: Math.max(12, rect.top - 82),
-      left: Math.min(Math.max(12, rect.left), Math.max(12, window.innerWidth - 104)),
+      left: Math.min(Math.max(12, rect.left), Math.max(12, window.innerWidth - 280)),
     });
   };
 
