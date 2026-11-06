@@ -454,3 +454,6 @@ body {
   .floor-plan-workspace .project-tool-dock { max-width: calc(100vw - 12px); }
   .floor-plan-workspace .project-tool-dock button { flex-basis: 36px; width: 36px; height: 38px; }
 }
+
+.floor-plan-workspace .project-furniture-inventory,
+.floor-plan-workspace .project-legal-note { display: none !important; }
