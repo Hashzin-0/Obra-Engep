@@ -38,7 +38,6 @@ export const LiquidGlassSurface: React.FC<LiquidGlassSurfaceProps> = ({
     lensProfile="material"
     lensOptions={materialOptions}
     autodetectquality
-    maxScale={1.5}
     blur={0}
     frost={0.025}
     saturation={118}
