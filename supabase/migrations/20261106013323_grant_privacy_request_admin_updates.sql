@@ -1,0 +1,1 @@
+grant update on public.privacy_requests to authenticated;
