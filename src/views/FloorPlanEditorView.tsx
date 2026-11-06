@@ -44,12 +44,14 @@ import { AlertBanner } from '../components/AlertBanner';
 import { Calendar, Bell, CalendarCheck } from 'lucide-react';
 import { exportToLocalCalendar, getGoogleCalendarUrl } from '../utils/calendarSync';
 import { FurnitureCatalog } from '../components/FurnitureCatalog';
+import { RobotHeadAvatar } from '../components/RobotHeadAvatar';
 import { FURNITURE_CATALOG, type FurnitureCatalogItem } from '../data/furnitureCatalog';
 
 type ToolMode = 'select' | 'wall' | 'door' | 'window' | 'socket' | 'light' | 'cold_water' | 'dimension' | 'wire' | 'conduit' | 'switch' | 'panel' | 'data_point' | 'grounding' | 'solar_panel' | 'water_pipe' | 'sewage_pipe' | 'vent_pipe' | 'rain_pipe' | 'sink' | 'faucet' | 'shower' | 'toilet' | 'floor_drain' | 'cleanout' | 'inspection_box' | 'tank' | 'heater' | 'grease_trap' | 'pool';
 
 interface FloorPlanEditorViewProps {
   onOpenCalendarModal?: () => void;
+  onOpenVoiceAssistant?: () => void;
   deadlines?: ProjectDeadline[];
   projects?: FloorPlanProject[];
   onSaveProject?: (project: FloorPlanProject) => void;
@@ -71,6 +73,7 @@ const captureActiveLevel = (project: FloorPlanProject, activeLevelId: string): F
 
 export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   onOpenCalendarModal,
+  onOpenVoiceAssistant,
   deadlines = [],
   projects = [],
   onSaveProject,
@@ -1120,9 +1123,17 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
+          {onOpenVoiceAssistant && (
+            <button type="button" onClick={onOpenVoiceAssistant} aria-label="Abrir assistente OBra ENGEP" data-robot-agent-trigger="canvas" title="Assistente OBra ENGEP" className="p-1.5 rounded-xl border border-[#2A3A55] text-[#9FB0C8] flex items-center justify-center">
+              <RobotHeadAvatar size={38} />
+            </button>
+          )}
           <button
             onClick={handleExportPNG}
             aria-label="Exportar imagem da planta"
+            data-robot-guide="export-floorplan"
+            data-robot-label="Exportar PNG"
+            data-robot-description="Clique para baixar a planta baixa atual como imagem PNG."
             className="p-2 rounded-xl bg-[#1F66D6] hover:bg-[#1A57B8] text-white text-xs flex items-center gap-1"
           >
             <Download className="w-3.5 h-3.5" />

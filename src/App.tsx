@@ -85,6 +85,8 @@ function AppShell() {
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [agentState, setAgentState] = useState<'idle' | 'listening' | 'thinking' | 'speaking' | 'working' | 'happy' | 'error'>('idle');
+  const [isAgentGuiding, setIsAgentGuiding] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(
     () => localStorage.getItem('obra_engep_onboarded') !== 'true'
   );
@@ -581,6 +583,8 @@ function AppShell() {
     <LiquidGlassScene className={`min-h-screen flex flex-col transition-colors selection:bg-[#1F66D6] selection:text-white ${activeModuleView === 'projetos' ? 'h-dvh overflow-hidden' : ''}`}>
       {activeModuleView !== 'projetos' && <TopHeader
         onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)}
+        agentState={isVoiceModalOpen ? agentState : 'idle'}
+        isAgentGuiding={isAgentGuiding}
         onBackToHome={isNonHomeView ? () => {
           setActiveModuleView(null);
           setCurrentTab('inicio');
@@ -651,6 +655,7 @@ function AppShell() {
           <FloorPlanEditorView
             key={sessionUserId ?? 'anonymous'}
             onOpenCalendarModal={() => setIsCalendarModalOpen(true)}
+            onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)}
             deadlines={deadlines}
             projects={projects}
             onSaveProject={handleSaveProject}
@@ -730,7 +735,13 @@ function AppShell() {
 
       <VoiceAgentOrbModal
         isOpen={isVoiceModalOpen}
-        onClose={() => setIsVoiceModalOpen(false)}
+        onClose={() => {
+          setIsVoiceModalOpen(false);
+          setIsAgentGuiding(false);
+          setAgentState('idle');
+        }}
+        onStatusChange={setAgentState}
+        onGuidingChange={setIsAgentGuiding}
       />
 
       <OnboardingModal

@@ -4,16 +4,19 @@
  */
 
 import React from 'react';
-import { ArrowLeft, Mic } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
+import { RobotHeadAvatar, type RobotAgentState } from './RobotHeadAvatar';
 import { PWAInstallButton } from './PWAInstallButton';
 import { LiquidGlassSurface } from './LiquidGlassSurface';
 
 interface TopHeaderProps {
   onOpenVoiceAssistant?: () => void;
   onBackToHome?: () => void;
+  agentState?: RobotAgentState;
+  isAgentGuiding?: boolean;
 }
 
-export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenVoiceAssistant, onBackToHome }) => (
+export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenVoiceAssistant, onBackToHome, agentState = 'idle', isAgentGuiding = false }) => (
   <LiquidGlassSurface
     className="liquid-glass-bar w-full"
     radius={0}
@@ -34,13 +37,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenVoiceAssistant, onBa
             <button
               onClick={onOpenVoiceAssistant}
               aria-label="Abrir assistente de voz"
+              data-robot-agent-trigger="header"
               title="Assistente de voz"
-              className="liquid-glass-action relative group p-1.5 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center overflow-hidden"
+              className="liquid-glass-action relative group p-1 rounded-xl min-h-[48px] min-w-[48px] flex items-center justify-center"
             >
-              <div className="absolute inset-0 rounded-xl bg-white/5" />
-              <div className="relative flex items-center justify-center w-7 h-7 rounded-full bg-[var(--brand-blue)] group-hover:scale-110 transition-transform">
-                <Mic className="w-3.5 h-3.5 text-[#293b41]" />
-              </div>
+              {!isAgentGuiding && <RobotHeadAvatar state={agentState} size={42} label="Abrir assistente OBra ENGEP" />}
             </button>
           )}
         </div>
