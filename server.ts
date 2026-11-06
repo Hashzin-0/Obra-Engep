@@ -11,6 +11,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer, WebSocket } from 'ws';
 import { GoogleGenAI, Modality } from '@google/genai';
+import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import { Buffer } from 'node:buffer';
 import { env, exit } from 'node:process';
@@ -96,8 +97,38 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
+async function hasValidSupabaseSession(req: any): Promise<boolean> {
+  const authorization = typeof req.headers.authorization === 'string' ? req.headers.authorization : '';
+  const token = authorization.match(/^Bearer\\s+([A-Za-z0-9._-]{20,4096})$/i)?.[1];
+  const supabaseUrl = env.VITE_SUPABASE_URL;
+  const supabaseKey = env.VITE_SUPABASE_ANON_KEY;
+  if (!token || token.split('.').length !== 3 || !supabaseUrl || !supabaseKey) return false;
+
+  const client = createClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const { data, error } = await client.auth.getUser(token);
+  return !error && Boolean(data.user);
+}
+
+function hasSameOrigin(req: any): boolean {
+  const origin = req.headers.origin;
+  const host = typeof req.headers.host === 'string' ? req.headers.host.toLowerCase() : '';
+  if (typeof origin !== 'string' || !host) return false;
+  try {
+    const parsed = new URL(origin);
+    const local = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+    return parsed.host.toLowerCase() === host && (parsed.protocol === 'https:' || (local && parsed.protocol === 'http:'));
+  } catch {
+    return false;
+  }
+}
+
 app.post('/api/gemini/realtime-chat', async (req, res) => {
   if (!req.is('application/json')) return res.status(415).json({ error: 'Envie JSON válido.' });
+  if (!hasSameOrigin(req)) return res.status(403).json({ error: 'Origem não autorizada.' });
+  if (!(await hasValidSupabaseSession(req))) return res.status(401).json({ error: 'Sessão inválida ou expirada. Entre novamente.' });
   const { prompt } = req.body as { prompt?: unknown };
   if (typeof prompt !== 'string' || !prompt.trim()) return res.status(400).json({ error: 'Prompt é obrigatório.' });
   if (Buffer.byteLength(prompt, 'utf8') > 96 * 1024 || prompt.length > 24_000) {
