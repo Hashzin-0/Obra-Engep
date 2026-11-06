@@ -13,7 +13,7 @@ interface TopHeaderProps {
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenVoiceAssistant, onBackToHome }) => (
-  <header className="sticky top-0 z-30 px-4 py-2.5 border-b border-[var(--line)] bg-[var(--surface)]/90 text-[var(--ink)] backdrop-blur-md">
+  <header className="liquid-glass-bar sticky top-0 z-30 px-4 py-2.5 border-b text-[var(--ink)]">
     <div className="max-w-4xl mx-auto grid grid-cols-3 items-center gap-3">
       <div className="flex items-center justify-start gap-2 min-w-0">
         <div className="w-9 h-9 rounded-xl bg-[var(--surface)] flex items-center justify-center border border-[var(--line)] shrink-0 shadow-sm p-1">
