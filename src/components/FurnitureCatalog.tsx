@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   BoxIcon as Box,
-  CuboidIcon as Cuboid,
+  BoxesIcon as Cuboid,
   PlusIcon as Plus,
   SearchIcon as Search,
   XIcon as X,
