@@ -378,3 +378,24 @@ body {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* The glass component owns an inline width; CSS custom properties keep the
+   existing responsive drafting toolbar dimensions authoritative. */
+.floor-plan-workspace .project-header { --liquid-glass-width: min(440px, calc(100vw - 16px)); }
+.floor-plan-workspace .project-level-switcher { --liquid-glass-width: fit-content; }
+.floor-plan-workspace .project-layer-switcher { --liquid-glass-width: fit-content; }
+.floor-plan-workspace .project-tool-dock { --liquid-glass-width: max-content; }
+.floor-plan-workspace .project-selection-panel { --liquid-glass-width: fit-content; }
+.floor-plan-workspace .project-settings-panel,
+.floor-plan-workspace .project-wall-options { --liquid-glass-width: min(340px, calc(100vw - 16px)); }
+.floor-plan-workspace .project-furniture-panel { --liquid-glass-width: min(360px, calc(100vw - 16px)); }
+.floor-plan-workspace .project-canvas-stage > .liquid-glass-surface.absolute { --liquid-glass-width: fit-content; }
+@media (min-width: 900px) {
+  .floor-plan-workspace .project-header { --liquid-glass-width: 360px; }
+  .floor-plan-workspace .project-layer-switcher { --liquid-glass-width: 54px; }
+}
+@media (max-width: 520px) {
+  .floor-plan-workspace .project-header { --liquid-glass-width: fit-content; }
+  .floor-plan-workspace .project-level-switcher { --liquid-glass-width: 100%; }
+  .floor-plan-workspace .project-layer-switcher { --liquid-glass-width: calc(100vw - 16px); }
+}
