@@ -301,7 +301,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   };
 
   const startFormGuide = () => {
-    setIsVoiceMode(true);
     const fields = Array.from(document.querySelectorAll< HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement >(
       'main input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="password"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="date"]):not([type="time"]):not([type="month"]):not([type="week"]):not([disabled]), main textarea:not([disabled]), main select:not([disabled])'
     )).filter((field) => field.getClientRects().length > 0 && !(field instanceof HTMLInputElement && field.readOnly) && !(field instanceof HTMLTextAreaElement && field.readOnly));
@@ -315,6 +314,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       speakResponse(message);
       return;
     }
+    setIsVoiceMode(true);
     guideFieldsRef.current.forEach((field) => field.classList.remove('robot-guide-highlight'));
     guideFieldsRef.current = fields;
     setGuideFieldIndex(0);
@@ -387,7 +387,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   };
 
   const startControlTour = () => {
-    setIsVoiceMode(true);
     const targets = Array.from(document.querySelectorAll<HTMLElement>('main [data-robot-guide]'))
       .filter((target) => target.getClientRects().length > 0 && !(target instanceof HTMLButtonElement && target.disabled));
     if (targets.length === 0) {
@@ -400,6 +399,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       speakResponse(message);
       return;
     }
+    setIsVoiceMode(true);
     cancelFormGuide();
     tourTargetsRef.current = targets;
     tourIndexRef.current = 0;
