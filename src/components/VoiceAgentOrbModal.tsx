@@ -52,6 +52,8 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'listening' | 'thinking' | 'speaking'>('idle');
   const [isFormGuiding, setIsFormGuiding] = useState(false);
   const [guideFieldIndex, setGuideFieldIndex] = useState(0);
+  const guideFieldIndexRef = useRef(0);
+  const isFormGuidingRef = useRef(false);
   const [guideTargetRect, setGuideTargetRect] = useState<{ top: number; left: number } | null>(null);
   const guideFieldsRef = useRef<Array<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>>([]);
 
@@ -253,7 +255,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     utterance.rate = 0.98;
     utterance.onstart = () => setConnectionStatus('speaking');
     utterance.onend = () => {
-      if (!isFormGuiding) return;
       setConnectionStatus('listening');
       startVoiceCapture();
     };
@@ -281,6 +282,8 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     guideFieldsRef.current.forEach((field) => field.classList.remove('robot-guide-highlight'));
     guideFieldsRef.current = fields;
     setGuideFieldIndex(0);
+    guideFieldIndexRef.current = 0;
+    isFormGuidingRef.current = true;
     setIsFormGuiding(true);
     updateGuideTarget(fields[0]);
     speakGuidePrompt(fields[0], 0);
@@ -290,6 +293,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     guideFieldsRef.current.forEach((field) => field.classList.remove('robot-guide-highlight'));
     guideFieldsRef.current = [];
     setGuideTargetRect(null);
+    isFormGuidingRef.current = false;
     setIsFormGuiding(false);
     setIsListening(false);
     try { speechRecognitionRef.current?.stop(); } catch {}
@@ -298,7 +302,8 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   };
 
   const applyGuidedAnswer = (answer: string) => {
-    const field = guideFieldsRef.current[guideFieldIndex];
+    const currentIndex = guideFieldIndexRef.current;
+    const field = guideFieldsRef.current[currentIndex];
     if (!field) {
       cancelFormGuide();
       return;
@@ -312,7 +317,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         item.textContent?.trim().toLocaleLowerCase('pt-BR') === normalized
       );
       if (!option) {
-        speakGuidePrompt(field, guideFieldIndex);
+        speakGuidePrompt(field, currentIndex);
         return;
       }
       value = option.value;
@@ -332,14 +337,15 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
 
     if (!field.checkValidity()) {
       field.reportValidity();
-      speakGuidePrompt(field, guideFieldIndex);
+      speakGuidePrompt(field, currentIndex);
       return;
     }
 
     field.classList.remove('robot-guide-highlight');
-    const nextIndex = guideFieldIndex + 1;
+    const nextIndex = currentIndex + 1;
     const nextField = guideFieldsRef.current[nextIndex];
     if (nextField) {
+      guideFieldIndexRef.current = nextIndex;
       setGuideFieldIndex(nextIndex);
       updateGuideTarget(nextField);
       speakGuidePrompt(nextField, nextIndex);
@@ -384,7 +390,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       if (finalTranscript) {
         setInputQuery(finalTranscript);
         setIsListening(false);
-        if (isFormGuiding) applyGuidedAnswer(finalTranscript);
+        if (isFormGuidingRef.current) applyGuidedAnswer(finalTranscript);
         else {
           setConnectionStatus('idle');
           handleSendMessage(finalTranscript);
@@ -401,7 +407,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     };
     recognition.onend = () => {
       setIsListening(false);
-      if (!isFormGuiding) setConnectionStatus('idle');
+      if (!isFormGuidingRef.current) setConnectionStatus('idle');
     };
     try { recognition.start(); } catch {
       setIsListening(false);
@@ -472,7 +478,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             <RobotHeadAvatar state={isListening ? 'listening' : connectionStatus === 'speaking' ? 'speaking' : 'working'} size={76} />
             <div className="max-w-[190px] rounded-2xl border border-[#8da6b7]/50 bg-[#101827]/95 px-3 py-2 text-[11px] text-white shadow-xl">
               Campo {guideFieldIndex + 1} de {guideFieldsRef.current.length}
-              <div className="text-[#c7d7df]">{getGuideFieldLabel(guideFieldsRef.current[guideFieldIndex], guideFieldIndex)}</div>
+              <div className="text-[#c7d7df]">{guideFieldsRef.current[guideFieldIndex] ? getGuideFieldLabel(guideFieldsRef.current[guideFieldIndex], guideFieldIndex) : 'Preparando próximo campo'}</div>
             </div>
           </div>
         )}
