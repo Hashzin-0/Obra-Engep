@@ -578,7 +578,7 @@ function AppShell() {
   const isNonHomeView = !isHomeView;
 
   return (
-    <div className={`min-h-screen flex flex-col transition-colors selection:bg-[#1F66D6] selection:text-white ${activeModuleView === 'projetos' ? 'h-dvh overflow-hidden' : ''}`}>
+    <LiquidGlassScene className={`min-h-screen flex flex-col transition-colors selection:bg-[#1F66D6] selection:text-white ${activeModuleView === 'projetos' ? 'h-dvh overflow-hidden' : ''}`}>
       {activeModuleView !== 'projetos' && <TopHeader
         onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)}
         onBackToHome={isNonHomeView ? () => {
