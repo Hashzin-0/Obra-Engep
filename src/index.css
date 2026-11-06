@@ -254,3 +254,15 @@ body {
   .liquid-glass-bar { background: var(--surface) !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
   .liquid-glass-control { -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
+
+/* Header actions also include the install control, which is owned by its own component. */
+.liquid-glass-bar button {
+  -webkit-backdrop-filter: blur(16px) saturate(155%);
+  backdrop-filter: blur(16px) saturate(155%);
+  border-color: color-mix(in srgb, var(--line) 72%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .34), inset 0 -1px 0 rgba(255, 255, 255, .07);
+}
+:root.dark .liquid-glass-bar button {
+  border-color: rgba(180, 205, 190, .18);
+  box-shadow: inset 0 1px 0 rgba(230, 244, 234, .10), inset 0 -1px 0 rgba(0, 0, 0, .14);
+}
