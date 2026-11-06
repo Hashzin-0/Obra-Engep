@@ -5,6 +5,7 @@
 
 import React, { useState, lazy } from 'react';
 const PrivacyCenter = lazy(() => import('../components/PrivacyCenter').then(({ PrivacyCenter }) => ({ default: PrivacyCenter })));
+const TermsCenter = lazy(() => import('../components/TermsCenter').then(({ TermsCenter }) => ({ default: TermsCenter })));
 import {
   History,
   BookMarked,
@@ -57,7 +58,7 @@ interface MoreViewProps {
   syncState?: SyncState;
 }
 
-type SubSection = 'menu' | 'caderno' | 'historico' | 'notificacoes' | 'configuracoes' | 'sobre' | 'privacidade' | 'ajuda';
+type SubSection = 'menu' | 'caderno' | 'historico' | 'notificacoes' | 'configuracoes' | 'sobre' | 'privacidade' | 'termos' | 'ajuda';
 
 export const MoreView: React.FC<MoreViewProps> = ({
   userId,
@@ -233,6 +234,13 @@ export const MoreView: React.FC<MoreViewProps> = ({
                 desc: 'Dados pessoais, direitos, IA e legislação aplicável',
                 icon: ShieldCheck,
                 color: '#3DD68C',
+              },
+              {
+                id: 'termos' as SubSection,
+                title: 'Termos de Uso',
+                desc: 'Regras de utilização e limites técnicos',
+                icon: Info,
+                color: '#5B9BFF',
               },
               {
                 id: 'ajuda' as SubSection,
@@ -764,6 +772,13 @@ export const MoreView: React.FC<MoreViewProps> = ({
       {activeSection === 'privacidade' && (
         <React.Suspense fallback={<div className="text-xs text-[#9FB0C8]" role="status">Carregando informações de privacidade...</div>}>
           <PrivacyCenter />
+        </React.Suspense>
+      )}
+
+      {/* TERMOS DE USO */}
+      {activeSection === 'termos' && (
+        <React.Suspense fallback={<div className="text-xs text-[#9FB0C8]" role="status">Carregando termos...</div>}>
+          <TermsCenter />
         </React.Suspense>
       )}
 
