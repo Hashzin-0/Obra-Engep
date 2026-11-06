@@ -1,4 +1,5 @@
 import { ensureAnonymousSession, isSupabaseConfigured, supabase } from '../lib/supabase';
+import { recordPrivacyConsent } from './privacy';
 import {
   deletePushSubscription,
   savePushSubscription,
@@ -75,16 +76,32 @@ export async function enablePushNotifications(): Promise<{ message: string }> {
     });
   }
 
-  await savePushSubscription(session.userId, subscription.toJSON(), navigator.userAgent);
+  try {
+    await savePushSubscription(session.userId, subscription.toJSON(), navigator.userAgent);
 
-  if (supabase) {
-    const { error } = await supabase
-      .from('notification_preferences')
-      .upsert(
-        { user_id: session.userId, enabled: true, reminders_enabled: true, updates_enabled: true },
-        { onConflict: 'user_id' }
-      );
-    if (error) throw new Error(error.message);
+    if (supabase) {
+      const { error } = await supabase
+        .from('notification_preferences')
+        .upsert(
+          { user_id: session.userId, enabled: true, reminders_enabled: true, updates_enabled: true },
+          { onConflict: 'user_id' }
+        );
+      if (error) throw new Error(error.message);
+    }
+
+    await recordPrivacyConsent(session.userId, 'granted');
+  } catch (error) {
+    await deletePushSubscription(session.userId, subscription.endpoint).catch(() => undefined);
+    await subscription.unsubscribe().catch(() => false);
+    if (supabase) {
+      try {
+        await supabase.from('notification_preferences')
+          .upsert({ user_id: session.userId, enabled: false }, { onConflict: 'user_id' });
+      } catch {
+        // The subscription has already been removed locally and remote cleanup was attempted.
+      }
+    }
+    throw error;
   }
 
   return { message: 'Notificações ativadas neste dispositivo.' };
@@ -100,9 +117,15 @@ export async function disablePushNotifications(): Promise<{ message: string }> {
   }
 
   if (supabase && session) {
-    await supabase
+    const { error } = await supabase
       .from('notification_preferences')
       .upsert({ user_id: session.userId, enabled: false }, { onConflict: 'user_id' });
+    if (error) throw new Error('Notificações desativadas, mas não foi possível atualizar a preferência na conta.');
+    try {
+      await recordPrivacyConsent(session.userId, 'revoked');
+    } catch {
+      return { message: 'Notificações desativadas. O histórico da revogação não pôde ser sincronizado; tente novamente quando estiver online.' };
+    }
   }
 
   return { message: 'Notificações desativadas neste dispositivo.' };
