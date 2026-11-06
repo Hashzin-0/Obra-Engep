@@ -235,10 +235,12 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       const socket = new WebSocket(socketUrl);
       liveSessionRef.current = socket;
       const liveConfig = {
-        responseModalities: ['AUDIO'],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } },
+        },
         inputAudioTranscription: {},
         outputAudioTranscription: {},
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } },
         systemInstruction: {
           parts: [{
             text: 'Você é o Assistente Técnico do OBra ENGEP. Responda em português do Brasil, com rigor técnico e linguagem de campo. Cite as normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC.',
