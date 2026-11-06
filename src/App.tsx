@@ -655,6 +655,7 @@ function AppShell() {
           <FloorPlanEditorView
             key={sessionUserId ?? 'anonymous'}
             onOpenCalendarModal={() => setIsCalendarModalOpen(true)}
+            onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)}
             deadlines={deadlines}
             projects={projects}
             onSaveProject={handleSaveProject}
