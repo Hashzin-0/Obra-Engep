@@ -13,9 +13,10 @@ interface TopHeaderProps {
   onOpenVoiceAssistant?: () => void;
   onBackToHome?: () => void;
   agentState?: RobotAgentState;
+  isAgentGuiding?: boolean;
 }
 
-export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenVoiceAssistant, onBackToHome, agentState = 'idle' }) => (
+export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenVoiceAssistant, onBackToHome, agentState = 'idle', isAgentGuiding = false }) => (
   <LiquidGlassSurface
     className="liquid-glass-bar w-full"
     radius={0}
@@ -39,7 +40,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenVoiceAssistant, onBa
               title="Assistente de voz"
               className="liquid-glass-action relative group p-1 rounded-xl min-h-[48px] min-w-[48px] flex items-center justify-center"
             >
-              <RobotHeadAvatar state={agentState} size={42} label="Abrir assistente OBra ENGEP" />
+              {!isAgentGuiding && <RobotHeadAvatar state={agentState} size={42} label="Abrir assistente OBra ENGEP" />}
             </button>
           )}
         </div>
