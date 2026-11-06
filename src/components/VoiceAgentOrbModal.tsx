@@ -34,7 +34,7 @@ export interface ChatMessage {
 interface VoiceAgentOrbModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onStatusChange?: (state: 'idle' | 'listening' | 'thinking' | 'speaking' | 'working' | 'happy' | 'error') => void;
+  onStatusChange?: (state: 'sleeping' | 'idle' | 'listening' | 'thinking' | 'speaking' | 'working' | 'happy' | 'error') => void;
   onGuidingChange?: (guiding: boolean) => void;
 }
 
