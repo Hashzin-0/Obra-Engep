@@ -1264,8 +1264,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-[#854D0E]" /> Esgoto
             </span>
-          </LiquidGlassSurface>
-        </div></>}
+          </LiquidGlassSurface></>}
       </div>
 
       {selectedObject?.kind === 'opening' && project.openings.some(o => o.id === selectedObject.id && o.type === 'door') && (
@@ -1355,7 +1354,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           <input type="checkbox" checked={moveAttachedParts} onChange={e => setMoveAttachedParts(e.target.checked)} className="h-3.5 w-3.5 accent-[#1F66D6]" />
           <span>Mover partes juntas</span>
         </label>
-      </LiquidGlassSurface>}}
+      </LiquidGlassSurface>}
 
       {showFurnitureLayer && showFurniturePanel && (<LiquidGlassSurface className="liquid-glass-panel project-furniture-panel" radius={16} backdropRef={!show3D ? canvasRef : undefined}>
         <div className="mb-3 flex items-center justify-between gap-3">
