@@ -34,7 +34,7 @@ export interface ChatMessage {
 interface VoiceAgentOrbModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onStatusChange?: (state: 'idle' | 'listening' | 'thinking' | 'speaking' | 'happy' | 'error') => void;
+  onStatusChange?: (state: 'idle' | 'listening' | 'thinking' | 'speaking' | 'working' | 'happy' | 'error') => void;
 }
 
 export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, onClose, onStatusChange }) => {
@@ -49,7 +49,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const [audioFeedbackEnabled, setAudioFeedbackEnabled] = useState(true);
   const [expandedThoughts, setExpandedThoughts] = useState<Record<string, boolean>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'listening' | 'thinking' | 'speaking'>('idle');
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'listening' | 'thinking' | 'speaking' | 'working' | 'happy' | 'error'>('idle');
   const [isFormGuiding, setIsFormGuiding] = useState(false);
   const [guideFieldIndex, setGuideFieldIndex] = useState(0);
   const guideFieldIndexRef = useRef(0);
@@ -218,7 +218,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             : m
         )
       );
-      setConnectionStatus('idle');
+      setConnectionStatus('error');
     } finally {
       setIsGenerating(false);
     }
@@ -268,7 +268,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const startFormGuide = () => {
     const fields = Array.from(document.querySelectorAll< HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement >(
       'main input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="password"]):not([disabled]), main textarea:not([disabled]), main select:not([disabled])'
-    )).filter((field) => field.getClientRects().length > 0 && !field.readOnly);
+    )).filter((field) => field.getClientRects().length > 0 && !(field instanceof HTMLInputElement && field.readOnly) && !(field instanceof HTMLTextAreaElement && field.readOnly));
     if (fields.length === 0) {
       const message = 'Não encontrei campos de formulário disponíveis nesta tela.';
       setMessages((prev) => [...prev, {
@@ -325,6 +325,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       value = value.replace(',', '.').replace(/[^0-9.+-]/g, '');
     }
 
+    setConnectionStatus('working');
     const prototype = field instanceof HTMLSelectElement
       ? HTMLSelectElement.prototype
       : field instanceof HTMLTextAreaElement
@@ -359,7 +360,8 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       modelBadge: 'Assistente',
     }]);
     cancelFormGuide();
-    setConnectionStatus('idle');
+    setConnectionStatus('happy');
+    window.setTimeout(() => setConnectionStatus('idle'), 1800);
     speakResponse(doneMessage);
   };
 
@@ -403,7 +405,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     recognition.onerror = (event: any) => {
       console.warn('Erro microfone:', event);
       setIsListening(false);
-      setConnectionStatus('idle');
+      setConnectionStatus('error');
     };
     recognition.onend = () => {
       setIsListening(false);
