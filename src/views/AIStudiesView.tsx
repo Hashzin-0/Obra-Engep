@@ -4,7 +4,8 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { Sun, Wind, AlertOctagon, Compass, ShieldAlert } from 'lucide-react';
+import { SunIcon as Sun, WindIcon as Wind, CompassIcon as Compass, ShieldAlertIcon as ShieldAlert } from '@animateicons/react/lucide';
+import { AlertOctagon } from 'lucide-react';
 import { AlertBanner } from '../components/AlertBanner';
 import { LimitBar } from '../components/LimitBar';
 
