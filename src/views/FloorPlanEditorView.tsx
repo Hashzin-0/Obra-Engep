@@ -28,6 +28,11 @@ import {
   Sun,
   Moon,
   Building2,
+  House,
+  Sofa,
+  Ruler,
+  Grid3X3,
+  Settings2,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { FloorPlanProject, FloorPlanLevel, FloorPlanRoom, FloorMaterial, WallSegment, OpeningItem, ElectricalItem, HydraulicItem, ProjectDeadline } from '../types';
@@ -103,6 +108,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   const [zoom, setZoom] = useState(1);
   const [show3D, setShow3D] = useState(false);
   const [showFurnitureCatalog, setShowFurnitureCatalog] = useState(false);
+  const [showFurniturePanel, setShowFurniturePanel] = useState(false);
+  const [showCanvasSettings, setShowCanvasSettings] = useState(false);
   const [selectedObjects, setSelectedObjects] = useState<Array<{ kind: 'wall' | 'opening' | 'electrical' | 'hydraulic' | 'furniture'; id: string }>>([]);
   const [selectionRect, setSelectionRect] = useState<{x1:number;y1:number;x2:number;y2:number}|null>(null);
   const selectionStartRef = useRef<{x:number;y:number}|null>(null);
@@ -1122,9 +1129,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           <Layers className="w-3.5 h-3.5" />
           Camadas:
         </span>
-        <button onClick={() => { const next = !(showArchLayer && showElecLayer && showHydLayer && showFurnitureLayer); setShowArchLayer(next); setShowElecLayer(next); setShowHydLayer(next); setShowFurnitureLayer(next); }}
-          className={`px-3 py-1 rounded-lg border transition ${showArchLayer && showElecLayer && showHydLayer && showFurnitureLayer ? 'bg-[#1F66D6] text-white border-[#1F66D6]' : 'border-[#2A3A55] text-[#9FB0C8]'}`}>Todas</button>
-        <button
+        <button title="Todas as camadas" aria-label="Todas as camadas" onClick={() => { const next = !(showArchLayer && showElecLayer && showHydLayer && showFurnitureLayer); setShowArchLayer(next); setShowElecLayer(next); setShowHydLayer(next); setShowFurnitureLayer(next); }}
+          className={`px-3 py-1 rounded-lg border transition ${showArchLayer && showElecLayer && showHydLayer && showFurnitureLayer ? 'bg-[#1F66D6] text-white border-[#1F66D6]' : 'border-[#2A3A55] text-[#9FB0C8]'}`}><Layers className="w-3.5 h-3.5" /><span className="sr-only">Todas</span></button>
+        <button title="Arquitetura" aria-label="Alternar camada de arquitetura"
           onClick={() => { const next = !showArchLayer; setShowArchLayer(next); if (!next && ['wall','door','window'].includes(tool)) { setTool('select'); setWallSequencePoints([]); } }}
           className={`px-3 py-1 rounded-lg border transition ${
             showArchLayer
@@ -1132,9 +1139,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
               : 'border-[#2A3A55] text-[#9FB0C8]'
           }`}
         >
-          Arquitetura (Paredes)
+          <House className="w-3.5 h-3.5" /><span className="sr-only">Arquitetura (Paredes)</span>
         </button>
-        <button
+        <button title="Elétrica" aria-label="Alternar camada elétrica"
           onClick={() => { const next = !showElecLayer; setShowElecLayer(next); if (!next && ['light','socket','switch','panel','wire','conduit','data_point','grounding','solar_panel'].includes(tool)) setTool('select'); }}
           className={`px-3 py-1 rounded-lg border transition flex items-center gap-1 ${
             showElecLayer
@@ -1143,9 +1150,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           }`}
         >
           <Zap className="w-3 h-3" />
-          Elétrica (Tomadas/Pontos)
+          <span className="sr-only">Elétrica (Tomadas/Pontos)</span>
         </button>
-        <button
+        <button title="Hidráulica" aria-label="Alternar camada hidráulica"
           onClick={() => { const next = !showHydLayer; setShowHydLayer(next); if (!next && ['cold_water','hot_water','water_pipe','sewage_pipe','vent_pipe','rain_pipe','sink','faucet','shower','toilet','floor_drain','cleanout','inspection_box','tank','heater','grease_trap','pool'].includes(tool)) setTool('select'); }}
           className={`px-3 py-1 rounded-lg border transition flex items-center gap-1 ${
             showHydLayer
@@ -1154,9 +1161,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           }`}
         >
           <Droplets className="w-3 h-3" />
-          Hidráulica (AF/ESG)
+          <span className="sr-only">Hidráulica (AF/ESG)</span>
         </button>
-        <button onClick={() => setShowFurnitureLayer(!showFurnitureLayer)} className={`px-3 py-1 rounded-lg border transition ${showFurnitureLayer ? 'bg-violet-600 text-white border-violet-600' : 'border-[#2A3A55] text-[#9FB0C8]'}`}>Mobiliário</button>
+        <button title="Mobiliário" aria-label="Alternar camada de mobiliário" onClick={() => setShowFurnitureLayer(!showFurnitureLayer)} className={`px-3 py-1 rounded-lg border transition ${showFurnitureLayer ? 'bg-violet-600 text-white border-violet-600' : 'border-[#2A3A55] text-[#9FB0C8]'}`}><Sofa className="w-3.5 h-3.5" /><span className="sr-only">Mobiliário</span></button>
         <button
           onClick={() => setShowDimensions(!showDimensions)}
           className={`px-3 py-1 rounded-lg border transition ${
@@ -1165,7 +1172,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
               : 'border-[#2A3A55] text-[#9FB0C8]'
           }`}
         >
-          Cotas (m)
+          <Ruler className="w-3.5 h-3.5" /><span className="sr-only">Cotas (m)</span>
         </button>
         <button
           onClick={() => setShowGrid(!showGrid)}
@@ -1173,7 +1180,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
             showGrid ? 'bg-white/10 text-white border-white/20' : 'border-[#2A3A55] text-[#9FB0C8]'
           }`}
         >
-          Grade
+          <Grid3X3 className="w-3.5 h-3.5" /><span className="sr-only">Grade</span>
         </button>
       </div>
 
@@ -1324,7 +1331,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         </div>
       )}
 
-      <div className="project-settings-panel liquid-glass-bar flex flex-wrap items-center gap-3 rounded-xl border border-[#2A3A55] bg-[#17243A] px-3 py-2 text-xs text-[#DCE6F5]">
+      {showCanvasSettings && <div className="project-settings-panel liquid-glass-bar flex flex-wrap items-center gap-3 rounded-xl border border-[#2A3A55] bg-[#17243A] px-3 py-2 text-xs text-[#DCE6F5]">
         <label className="flex items-center gap-2 cursor-pointer select-none">
           <input type="checkbox" checked={gapEnabled} onChange={e => setGapEnabled(e.target.checked)} className="h-3.5 w-3.5 accent-[#1F66D6]" />
           <span>Gap</span>
@@ -1338,9 +1345,9 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           <input type="checkbox" checked={moveAttachedParts} onChange={e => setMoveAttachedParts(e.target.checked)} className="h-3.5 w-3.5 accent-[#1F66D6]" />
           <span>Mover partes juntas</span>
         </label>
-      </div>
+      </div>}
 
-      {showFurnitureLayer && (<div className="project-furniture-panel liquid-glass-bar rounded-xl border border-[#2A3A55] bg-[#17243A] p-3">
+      {showFurnitureLayer && showFurniturePanel && (<div className="project-furniture-panel liquid-glass-bar rounded-xl border border-[#2A3A55] bg-[#17243A] p-3">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="min-w-0"><div className="text-sm font-semibold text-white">Mobiliário e objetos</div><p className="text-xs text-[#9FB0C8]">{(project.furniture ?? []).length} inserido(s) · escolha um item para adicionar à planta</p></div>
           <button type="button" onClick={() => setShowFurnitureCatalog(true)} className="flex min-h-10 shrink-0 items-center gap-2 rounded-xl bg-[#1F66D6] px-3 text-sm font-semibold text-white hover:bg-[#1A57B8]" aria-label="Abrir catálogo completo de mobiliário"><Plus className="h-4 w-4" /> Ver todos</button>
@@ -1410,6 +1417,8 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
 
       {/* Bottom Tools Toolbar (Page 6 briefing: "Barra de ferramentas inferior") */}
       <div className="project-tool-dock liquid-glass-bar p-1.5 rounded-2xl bg-[#17243A] border border-[#2A3A55] flex items-center gap-1 overflow-x-auto no-scrollbar">
+        {showFurnitureLayer && <button type="button" title="Abrir ferramentas de mobiliário" aria-label="Abrir ferramentas de mobiliário" aria-pressed={showFurniturePanel} onClick={() => setShowFurniturePanel(value => !value)} className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${showFurniturePanel ? 'bg-violet-600 text-white' : 'text-[#9FB0C8] hover:bg-white/10'}`}><Sofa className="h-5 w-5" /></button>}
+        <button type="button" title="Configurações de desenho" aria-label="Configurações de desenho" aria-pressed={showCanvasSettings} onClick={() => setShowCanvasSettings(value => !value)} className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${showCanvasSettings ? 'bg-blue-600 text-white' : 'text-[#9FB0C8] hover:bg-white/10'}`}><Settings2 className="h-5 w-5" /></button>
         {[
           { id: 'select' as ToolMode, label: 'Mover/Selecionar', icon: Maximize2 },
           ...(showArchLayer ? [{ id: 'wall' as ToolMode, label: '+ Parede', icon: Square }, { id: 'door' as ToolMode, label: '+ Porta', icon: DoorOpen }, { id: 'window' as ToolMode, label: '+ Janela', icon: Maximize2 }] : []),
