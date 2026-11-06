@@ -5,6 +5,7 @@
 import React, { useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { LimitBar } from '../components/LimitBar';
+import { CalculationFlowchart } from '../components/CalculationFlowchart';
 
 export type ElectricalCalculatorMode = 'lighting' | 'ampacity' | 'resistor' | 'current' | 'led-strip';
 
@@ -257,5 +258,12 @@ export const ElectricalCalculatorsView: React.FC<{ mode: ElectricalCalculatorMod
     {mode === 'resistor' && <ResistorCalculator/>}
     {mode === 'current' && <CurrentCalculator/>}
     {mode === 'led-strip' && <LedStripCalculator/>}
+    <CalculationFlowchart
+      title="Fluxograma da calculadora"
+      inputs={mode === 'lighting' ? ['Área (m²)', 'Iluminância (lux)', 'Fluxo luminoso da luminária (lm)'] : mode === 'ampacity' ? ['Material e método de instalação', 'Isolação e temperatura', 'Condutores carregados e agrupamento', 'Seção do cabo'] : mode === 'resistor' ? ['Faixa 1', 'Faixa 2', 'Multiplicador', 'Tolerância'] : mode === 'current' ? ['Potência (W)', 'Tensão (V)', 'Fator de potência', 'Rendimento e fases'] : ['Potência por metro', 'Comprimento', 'Tensão', 'Distância e seção do cabo']}
+      formula={mode === 'lighting' ? 'N = ceil[(lux × área) / lúmens por lâmpada]' : mode === 'ampacity' ? 'Iz corrigida = Iz tabela × FCT × FCA' : mode === 'resistor' ? 'R = (10 × dígito 1 + dígito 2) × multiplicador' : mode === 'current' ? 'I = P / (V × FP × η) [1φ] ou P / (√3 × V × FP × η) [3φ]' : 'P = W/m × comprimento; I = P/V; fonte = Ptotal / fator de carga'}
+      outputs={mode === 'lighting' ? ['Quantidade estimada', 'Potência instalada'] : mode === 'ampacity' ? ['Capacidade corrigida (A)'] : mode === 'resistor' ? ['Resistência nominal (Ω)', 'Faixa de tolerância'] : mode === 'current' ? ['Corrente estimada (A)'] : ['Potência total (W)', 'Corrente (A)', 'Fonte recomendada (W)', 'Queda de tensão estimada']}
+      compact
+    />
   </div>;
 };
