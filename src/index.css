@@ -486,7 +486,8 @@ body {
   }
 }
 
-/* Interactive controls use the glass material; content surfaces remain clay. */
+/* Interactive controls use the glass material; content surfaces remain clay.
+   Keep semantic active-state colors while adding optical highlights. */
 button,
 a[role="button"],
 [role="tab"],
