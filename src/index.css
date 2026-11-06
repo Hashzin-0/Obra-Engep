@@ -988,6 +988,10 @@ button.liquid-glass-action[aria-current="page"],
 }
 
 /* Guided voice form: visible target marker, while the robot overlay stays click-through. */
+.robot-guide-companion {
+  transition: top 520ms cubic-bezier(.2,.75,.25,1), left 520ms cubic-bezier(.2,.75,.25,1);
+  will-change: top, left;
+}
 .robot-guide-highlight {
   position: relative;
   z-index: 2;
