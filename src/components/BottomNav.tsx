@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { Home, BookOpen, Star, MoreHorizontal } from 'lucide-react';
+import { HouseIcon as Home, BookOpenIcon as BookOpen, StarIcon as Star } from '@animateicons/react/lucide';
+import { MoreHorizontal } from 'lucide-react';
 import { MainTab } from '../types';
 import { useTheme } from '../context/ThemeContext';
 
@@ -22,7 +23,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
-  const navItems: { id: MainTab; label: string; Icon: React.FC<{ className?: string }> }[] = [
+  const navItems: { id: MainTab; label: string; Icon: React.ComponentType<{ className?: string; size?: number; color?: string }> }[] = [
     { id: 'inicio', label: 'Início', Icon: Home },
     { id: 'biblioteca', label: 'Biblioteca', Icon: BookOpen },
     { id: 'favoritos', label: 'Favoritos', Icon: Star },
@@ -54,7 +55,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               aria-label={`Aba ${label}`}
             >
               <div className="relative">
-                <Icon className={`w-5 h-5 transition-transform ${isActive ? 'scale-110' : ''}`} />
+                <Icon size={20} className={`w-5 h-5 transition-transform ${isActive ? 'scale-110' : ''}`} />
                 {id === 'favoritos' && favoritesCount > 0 && (
                   <span className="absolute -top-1 -right-2 bg-[#1F66D6] text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
                     {favoritesCount > 9 ? '9+' : favoritesCount}
