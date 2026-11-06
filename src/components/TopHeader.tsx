@@ -16,7 +16,7 @@ interface TopHeaderProps {
   isAgentGuiding?: boolean;
 }
 
-export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenVoiceAssistant, onBackToHome, agentState = 'idle', isAgentGuiding = false }) => (
+export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenVoiceAssistant, onBackToHome, agentState = 'sleeping', isAgentGuiding = false }) => (
   <LiquidGlassSurface
     className="liquid-glass-bar w-full"
     radius={0}
