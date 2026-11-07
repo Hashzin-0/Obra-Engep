@@ -6,24 +6,34 @@ import {
   toGeminiLiveModelResource,
 } from './geminiLiveConfig';
 
-test('Gemini Live usa 3.8 quando não há modelo configurado', () => {
+test('Gemini Live usa Extended Thinking quando não há modelo configurado', () => {
+  assert.equal(DEFAULT_GEMINI_LIVE_MODEL, 'gemini-3.8-live-extended-thinking');
   assert.equal(resolveGeminiLiveModel(undefined), DEFAULT_GEMINI_LIVE_MODEL);
   assert.equal(resolveGeminiLiveModel('  '), DEFAULT_GEMINI_LIVE_MODEL);
 });
 
-test('Gemini Live atualiza automaticamente os IDs preview legados', () => {
-  assert.equal(
-    resolveGeminiLiveModel('gemini-2.5-flash-native-audio-preview-12-2025'),
-    'gemini-3.8-live'
-  );
-  assert.equal(
-    resolveGeminiLiveModel('models/gemini-live-2.5-flash-preview'),
-    'gemini-3.8-live'
-  );
+test('Gemini Live atualiza automaticamente IDs preview e o modelo padrão anterior', () => {
+  for (const legacyModel of [
+    'gemini-2.5-flash-native-audio-preview-12-2025',
+    'models/gemini-live-2.5-flash-preview',
+    'gemini-3.1-flash-live-preview',
+    'gemini-3.8-live',
+  ]) {
+    assert.equal(resolveGeminiLiveModel(legacyModel), 'gemini-3.8-live-extended-thinking');
+  }
 });
 
-test('Gemini Live preserva IDs atuais e normaliza o resource name', () => {
-  assert.equal(resolveGeminiLiveModel('gemini-3.8-live-extended-thinking'), 'gemini-3.8-live-extended-thinking');
-  assert.equal(toGeminiLiveModelResource('gemini-3.8-live'), 'models/gemini-3.8-live');
-  assert.equal(toGeminiLiveModelResource('models/gemini-3.8-live'), 'models/gemini-3.8-live');
+test('Gemini Live preserva o modelo Extended Thinking e normaliza o resource name', () => {
+  assert.equal(
+    resolveGeminiLiveModel('models/gemini-3.8-live-extended-thinking'),
+    'gemini-3.8-live-extended-thinking'
+  );
+  assert.equal(
+    toGeminiLiveModelResource('gemini-3.8-live-extended-thinking'),
+    'models/gemini-3.8-live-extended-thinking'
+  );
+  assert.equal(
+    toGeminiLiveModelResource('models/gemini-3.8-live-extended-thinking'),
+    'models/gemini-3.8-live-extended-thinking'
+  );
 });
