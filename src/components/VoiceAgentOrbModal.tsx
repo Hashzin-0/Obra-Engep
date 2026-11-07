@@ -67,6 +67,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const liveSessionRef = useRef<WebSocket | null>(null);
   const liveStreamRef = useRef<MediaStream | null>(null);
   const liveAudioContextRef = useRef<AudioContext | null>(null);
+  const liveOutputAudioContextRef = useRef<AudioContext | null>(null);
   const liveProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const livePlaybackTimeRef = useRef(0);
   const liveOutputCompleteRef = useRef(false);
@@ -87,9 +88,12 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     livePlaybackSourcesRef.current = [];
     try { liveSessionRef.current?.close(); } catch {}
     liveSessionRef.current = null;
-    const audioContext = liveAudioContextRef.current;
+    const audioContexts = [liveAudioContextRef.current, liveOutputAudioContextRef.current];
     liveAudioContextRef.current = null;
-    if (audioContext && audioContext.state !== 'closed') void audioContext.close().catch(() => {});
+    liveOutputAudioContextRef.current = null;
+    for (const audioContext of audioContexts) {
+      if (audioContext && audioContext.state !== 'closed') void audioContext.close().catch(() => {});
+    }
     liveTurnRef.current = null;
     liveOutputCompleteRef.current = false;
     setIsListening(false);
@@ -155,8 +159,8 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   };
 
   const playLiveAudio = (base64Audio: string, mimeType?: string) => {
-    const audioContext = liveAudioContextRef.current;
-    if (!audioContext || !base64Audio) return;
+    const audioContext = liveOutputAudioContextRef.current;
+    if (!audioContext || audioContext.state === 'closed' || !base64Audio) return;
     const sampleRate = Number(mimeType?.match(/rate=(\d+)/i)?.[1] || 24000);
     const binary = atob(base64Audio);
     const bytes = new Uint8Array(binary.length);
@@ -196,21 +200,28 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     liveShouldStopRef.current = false;
     setIsGenerating(true);
     setConnectionStatus('thinking');
+
+    let microphone: MediaStream | null = null;
+    let socket: WebSocket | null = null;
     try {
+      // Create/resume both contexts synchronously from the click gesture.
+      const inputAudioContext = new AudioContext({ sampleRate: 16000 });
+      const outputAudioContext = new AudioContext({ sampleRate: 24000 });
+      liveAudioContextRef.current = inputAudioContext;
+      liveOutputAudioContextRef.current = outputAudioContext;
+      await Promise.all([inputAudioContext.resume(), outputAudioContext.resume()]);
+
       if (!supabase) throw new Error('Serviço de autenticação indisponível.');
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
       if (sessionError || !accessToken) throw new Error('Sua sessão expirou. Entre novamente para utilizar a IA.');
 
-      const microphone = await navigator.mediaDevices.getUserMedia({
+      microphone = await navigator.mediaDevices.getUserMedia({
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
       liveStreamRef.current = microphone;
-      if (liveShouldStopRef.current) {
-        microphone.getTracks().forEach((track) => track.stop());
-        liveStreamRef.current = null;
-        return;
-      }
+      if (liveShouldStopRef.current) return;
+
       const tokenResponse = await fetch('/api/gemini/live-token', {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + accessToken },
@@ -224,20 +235,24 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         } catch {}
         throw new Error(detail || 'Não foi possível preparar o Gemini Live (HTTP ' + tokenResponse.status + ').');
       }
-      const tokenPayload = await tokenResponse.json() as { token?: string; model?: string };
-      if (!tokenPayload.token) throw new Error('O servidor não retornou a credencial temporária do Gemini Live.');
+      const tokenPayload = await tokenResponse.json() as {
+        token?: string;
+        model?: string;
+        wsBaseUrl?: string;
+      };
+      if (!tokenPayload.token || !tokenPayload.model || !tokenPayload.wsBaseUrl) {
+        throw new Error('O servidor não retornou todos os dados necessários para abrir a sessão Gemini Live.');
+      }
 
-      const audioContext = new AudioContext({ sampleRate: 16000 });
-      liveAudioContextRef.current = audioContext;
-      await audioContext.resume();
-      const socketUrl = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=' + encodeURIComponent(tokenPayload.token);
-      console.info('[Gemini Live] Opening direct WebSocket session.');
-      const socket = new WebSocket(socketUrl);
+      const socketUrl = tokenPayload.wsBaseUrl + '?access_token=' + encodeURIComponent(tokenPayload.token);
+      console.info('[Gemini Live] Opening WebSocket session.', { model: tokenPayload.model });
+      socket = new WebSocket(socketUrl);
       liveSessionRef.current = socket;
+
       const liveConfig = {
         generationConfig: {
           responseModalities: ['AUDIO'],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } },
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } },
         },
         inputAudioTranscription: {},
         outputAudioTranscription: {},
@@ -246,46 +261,94 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             text: 'Você é o Assistente Técnico do OBra ENGEP. Responda em português do Brasil, com rigor técnico e linguagem de campo. Cite as normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC.',
           }],
         },
+        realtimeInputConfig: {
+          automaticActivityDetection: {
+            disabled: false,
+            silenceDurationMs: 2000,
+            prefixPaddingMs: 500,
+            endOfSpeechSensitivity: 'END_SENSITIVITY_UNSPECIFIED',
+            startOfSpeechSensitivity: 'START_SENSITIVITY_UNSPECIFIED',
+          },
+          activityHandling: 'ACTIVITY_HANDLING_UNSPECIFIED',
+          turnCoverage: 'TURN_INCLUDES_ONLY_ACTIVITY',
+        },
       };
+
       await new Promise<void>((resolve, reject) => {
         let setupComplete = false;
+        let settled = false;
         const setupTimeout = window.setTimeout(() => {
-          if (!setupComplete) {
-            socket.close();
-            reject(new Error('Tempo limite excedido ao configurar o WebSocket do Gemini Live.'));
+          if (!setupComplete && !settled) {
+            settled = true;
+            socket?.close();
+            reject(new Error('Tempo limite excedido aguardando setupComplete do Gemini Live.'));
           }
         }, 20_000);
-        socket.onopen = () => {
+
+        socket!.onopen = () => {
           setConnectionStatus('thinking');
-          socket.send(JSON.stringify({
+          socket!.send(JSON.stringify({
             setup: {
-              model: 'models/' + (tokenPayload.model || 'gemini-3.8-live'),
+              model: tokenPayload.model,
               ...liveConfig,
             },
           }));
+          console.info('[Gemini Live] WebSocket open; setup sent.');
         };
-        socket.onmessage = (event) => {
+
+        socket!.onmessage = async (event) => {
+          if (liveSessionRef.current !== socket) return;
           try {
-            const message = JSON.parse(typeof event.data === 'string' ? event.data : '');
-            if (message.setupComplete) {
+            let rawData: string;
+            if (typeof event.data === 'string') {
+              rawData = event.data;
+            } else if (event.data instanceof Blob) {
+              rawData = await event.data.text();
+            } else if (event.data instanceof ArrayBuffer) {
+              rawData = new TextDecoder().decode(event.data);
+            } else {
+              return;
+            }
+
+            const message = JSON.parse(rawData);
+            if (message.error) {
+              const detail = message.error.message || message.error.code || 'Erro não especificado pelo Gemini Live.';
+              console.error('[Gemini Live] Server rejected the session:', detail);
+              if (!setupComplete && !settled) {
+                settled = true;
+                window.clearTimeout(setupTimeout);
+                reject(new Error(detail));
+              } else if (!liveShouldStopRef.current) {
+                stopGeminiLive();
+                setConnectionStatus('error');
+                setMessages((previous) => [...previous, {
+                  id: 'live-error-' + Date.now(), sender: 'gemini',
+                  text: 'O Gemini Live encerrou a sessão com um erro: ' + detail,
+                  timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                  modelBadge: 'Gemini Live',
+                }]);
+              }
+              return;
+            }
+
+            if (message.setupComplete && !setupComplete) {
               setupComplete = true;
+              settled = true;
               window.clearTimeout(setupTimeout);
-              console.info('[Gemini Live] WebSocket connected and session setup completed.');
+              console.info('[Gemini Live] Session setup completed.');
               resolve();
-              return;
             }
-            if (message.error && !setupComplete) {
-              window.clearTimeout(setupTimeout);
-              reject(new Error(message.error.message || 'O Gemini Live rejeitou a configuração da sessão.'));
-              return;
-            }
+
             const content = message.serverContent;
             if (!content) return;
             if (content.inputTranscription?.text) {
               liveOutputCompleteRef.current = false;
               appendLiveTranscript('user', content.inputTranscription.text);
             }
-            if (content.outputTranscription?.text) appendLiveTranscript('gemini', content.outputTranscription.text);
+            if (content.outputTranscription?.text) {
+              appendLiveTranscript('gemini', content.outputTranscription.text);
+            }
+
             const parts = content.modelTurn?.parts ?? [];
             for (const part of parts) {
               if (part.inlineData?.data) {
@@ -296,8 +359,9 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
                 appendLiveTranscript('gemini', part.text);
               }
             }
+
             if (content.interrupted) {
-              livePlaybackTimeRef.current = audioContext.currentTime;
+              livePlaybackTimeRef.current = outputAudioContext.currentTime;
               for (const playbackSource of livePlaybackSourcesRef.current) {
                 try { playbackSource.stop(); } catch {}
               }
@@ -309,47 +373,66 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
               liveOutputCompleteRef.current = true;
               if (livePlaybackSourcesRef.current.length === 0) setConnectionStatus('listening');
             }
+
+            if (message.interactionStatus === 'IN_PROGRESS') {
+              setConnectionStatus('thinking');
+            } else if (message.interactionStatus === 'IDLE' && livePlaybackSourcesRef.current.length === 0) {
+              setConnectionStatus('listening');
+            }
           } catch (error) {
-            console.warn('[Gemini Live] Invalid WebSocket message:', error instanceof Error ? error.name : 'unknown');
+            console.warn('[Gemini Live] Could not decode WebSocket message:', error instanceof Error ? error.name : 'unknown');
           }
         };
-        socket.onerror = () => {
-          if (!setupComplete) {
+
+        socket!.onerror = () => {
+          if (!setupComplete && !settled) {
+            settled = true;
             window.clearTimeout(setupTimeout);
             reject(new Error('Falha ao abrir o WebSocket com o Gemini Live.'));
           } else if (!liveShouldStopRef.current) {
             setConnectionStatus('error');
           }
         };
-        socket.onclose = (event) => {
-          if (!setupComplete) {
+
+        socket!.onclose = (event) => {
+          if (liveShouldStopRef.current) return;
+          const detail = 'O WebSocket do Gemini Live foi encerrado (código ' + event.code + (event.reason ? ', motivo: ' + event.reason : '') + ').';
+          console.warn('[Gemini Live] Unexpected WebSocket close:', event.code, event.reason);
+          if (!setupComplete && !settled) {
+            settled = true;
             window.clearTimeout(setupTimeout);
-            reject(new Error('O WebSocket do Gemini Live foi encerrado antes da configuração (código ' + event.code + ').'));
-          } else if (!liveShouldStopRef.current) {
-            console.warn('[Gemini Live] WebSocket closed:', event.code, event.reason);
+            reject(new Error(detail));
+          } else {
             stopGeminiLive();
             setConnectionStatus('error');
+            setMessages((previous) => [...previous, {
+              id: 'live-error-' + Date.now(), sender: 'gemini',
+              text: detail,
+              timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+              modelBadge: 'Gemini Live',
+            }]);
           }
         };
       });
+
       if (liveShouldStopRef.current) {
         socket.close();
         return;
       }
-      setIsListening(true);
-      setIsGenerating(false);
-      setConnectionStatus('listening');
+      if (socket.readyState !== WebSocket.OPEN) {
+        throw new Error('A conexão Gemini Live foi encerrada antes de iniciar a captura do microfone.');
+      }
 
-      const source = audioContext.createMediaStreamSource(microphone);
-      const processor = audioContext.createScriptProcessor(2048, 1, 1);
-      const muteOutput = audioContext.createGain();
+      const source = inputAudioContext.createMediaStreamSource(microphone);
+      const processor = inputAudioContext.createScriptProcessor(512, 1, 1);
+      const muteOutput = inputAudioContext.createGain();
       muteOutput.gain.value = 0;
       processor.onaudioprocess = (event) => {
         if (liveShouldStopRef.current || liveSessionRef.current !== socket) return;
         const input = event.inputBuffer.getChannelData(0);
-        const pcm = resampleAudio(input, audioContext.sampleRate, 16000);
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({
+        const pcm = resampleAudio(input, inputAudioContext.sampleRate, 16000);
+        if (socket!.readyState === WebSocket.OPEN) {
+          socket!.send(JSON.stringify({
             realtimeInput: {
               audio: { data: encodePcm16(pcm), mimeType: 'audio/pcm;rate=16000' },
             },
@@ -358,11 +441,12 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       };
       source.connect(processor);
       processor.connect(muteOutput);
-      muteOutput.connect(audioContext.destination);
+      muteOutput.connect(inputAudioContext.destination);
       liveProcessorRef.current = processor;
       setIsListening(true);
       setIsGenerating(false);
       setConnectionStatus('listening');
+      console.info('[Gemini Live] Microphone streaming started at 16 kHz PCM.');
     } catch (error) {
       console.error('[Gemini Live] Session setup failed:', error instanceof Error ? error.message : 'unknown');
       stopGeminiLive();
