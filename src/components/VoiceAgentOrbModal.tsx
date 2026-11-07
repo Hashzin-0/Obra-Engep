@@ -71,6 +71,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const liveProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const livePlaybackTimeRef = useRef(0);
   const liveOutputCompleteRef = useRef(false);
+  const liveInteractionInProgressRef = useRef(false);
   const livePlaybackSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const liveTurnRef = useRef<{ userId: string; assistantId: string; userText: string; assistantText: string } | null>(null);
   const liveShouldStopRef = useRef(false);
@@ -97,6 +98,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     liveTurnRef.current = null;
     livePlaybackTimeRef.current = 0;
     liveOutputCompleteRef.current = false;
+    liveInteractionInProgressRef.current = false;
     setIsListening(false);
     setIsGenerating(false);
     setConnectionStatus('idle');
@@ -180,7 +182,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     source.onended = () => {
       livePlaybackSourcesRef.current = livePlaybackSourcesRef.current.filter((item) => item !== source);
       if (liveOutputCompleteRef.current && livePlaybackSourcesRef.current.length === 0) {
-        setConnectionStatus('listening');
+        setConnectionStatus(liveInteractionInProgressRef.current ? 'thinking' : 'listening');
       }
     };
   };
@@ -259,6 +261,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       const liveConfig = {
         generationConfig: {
           responseModalities: ['AUDIO'],
+          thinkingConfig: { thinkingLevel: 'low' },
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } },
         },
         inputAudioTranscription: {},
@@ -368,6 +371,8 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             }
 
             if (content.interrupted) {
+              liveInteractionInProgressRef.current = false;
+              liveTurnRef.current = null;
               livePlaybackTimeRef.current = outputAudioContext.currentTime;
               for (const playbackSource of livePlaybackSourcesRef.current) {
                 try { playbackSource.stop(); } catch {}
@@ -376,8 +381,24 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
               liveOutputCompleteRef.current = false;
               setConnectionStatus('listening');
             } else if (content.turnComplete) {
-              liveTurnRef.current = null;
               liveOutputCompleteRef.current = true;
+              if (content.interactionStatus !== 'IN_PROGRESS') {
+                liveInteractionInProgressRef.current = false;
+                liveTurnRef.current = null;
+              }
+              if (livePlaybackSourcesRef.current.length === 0) {
+                setConnectionStatus(liveInteractionInProgressRef.current ? 'thinking' : 'listening');
+              }
+            }
+
+            // Extended Thinking can emit turnComplete for intermediate speech.
+            // Keep the session in the thinking state until interactionStatus is IDLE.
+            if (content.interactionStatus === 'IN_PROGRESS') {
+              liveInteractionInProgressRef.current = true;
+              if (livePlaybackSourcesRef.current.length === 0) setConnectionStatus('thinking');
+            } else if (content.interactionStatus === 'IDLE') {
+              liveInteractionInProgressRef.current = false;
+              liveTurnRef.current = null;
               if (livePlaybackSourcesRef.current.length === 0) setConnectionStatus('listening');
             }
 
