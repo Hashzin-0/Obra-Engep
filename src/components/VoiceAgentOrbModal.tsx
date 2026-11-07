@@ -64,7 +64,317 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const guideFieldsRef = useRef<Array<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>>([]);
 
   const speechRecognitionRef = useRef<any>(null);
+  const liveSessionRef = useRef<WebSocket | null>(null);
+  const liveStreamRef = useRef<MediaStream | null>(null);
+  const liveAudioContextRef = useRef<AudioContext | null>(null);
+  const liveProcessorRef = useRef<ScriptProcessorNode | null>(null);
+  const livePlaybackTimeRef = useRef(0);
+  const liveOutputCompleteRef = useRef(false);
+  const livePlaybackSourcesRef = useRef<AudioBufferSourceNode[]>([]);
+  const liveTurnRef = useRef<{ userId: string; assistantId: string; userText: string; assistantText: string } | null>(null);
+  const liveShouldStopRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  const stopGeminiLive = () => {
+    liveShouldStopRef.current = true;
+    try { liveProcessorRef.current?.disconnect(); } catch {}
+    liveProcessorRef.current = null;
+    try { liveStreamRef.current?.getTracks().forEach((track) => track.stop()); } catch {}
+    liveStreamRef.current = null;
+    for (const source of livePlaybackSourcesRef.current) {
+      try { source.stop(); } catch {}
+    }
+    livePlaybackSourcesRef.current = [];
+    try { liveSessionRef.current?.close(); } catch {}
+    liveSessionRef.current = null;
+    const audioContext = liveAudioContextRef.current;
+    liveAudioContextRef.current = null;
+    if (audioContext && audioContext.state !== 'closed') void audioContext.close().catch(() => {});
+    liveTurnRef.current = null;
+    liveOutputCompleteRef.current = false;
+    setIsListening(false);
+    setIsGenerating(false);
+    setConnectionStatus('idle');
+  };
+
+  const encodePcm16 = (samples: Float32Array): string => {
+    const pcm = new Int16Array(samples.length);
+    for (let i = 0; i < samples.length; i += 1) {
+      const sample = Math.max(-1, Math.min(1, samples[i]));
+      pcm[i] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+    }
+    const bytes = new Uint8Array(pcm.buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + 0x8000, bytes.length)));
+    }
+    return btoa(binary);
+  };
+
+  const resampleAudio = (input: Float32Array, inputRate: number, outputRate: number): Float32Array => {
+    if (inputRate === outputRate) return input;
+    const ratio = inputRate / outputRate;
+    const outputLength = Math.max(1, Math.floor(input.length / ratio));
+    const output = new Float32Array(outputLength);
+    for (let i = 0; i < outputLength; i += 1) {
+      const position = i * ratio;
+      const left = Math.floor(position);
+      const right = Math.min(left + 1, input.length - 1);
+      const fraction = position - left;
+      output[i] = input[left] * (1 - fraction) + input[right] * fraction;
+    }
+    return output;
+  };
+
+  const appendLiveTranscript = (sender: 'user' | 'gemini', text: string) => {
+    if (!text) return;
+    if (!liveTurnRef.current) {
+      liveTurnRef.current = {
+        userId: 'live-u-' + Date.now(),
+        assistantId: 'live-g-' + Date.now(),
+        userText: '',
+        assistantText: '',
+      };
+    }
+    const turn = liveTurnRef.current;
+    if (sender === 'user') turn.userText += text;
+    else turn.assistantText += text;
+    const id = sender === 'user' ? turn.userId : turn.assistantId;
+    const value = sender === 'user' ? turn.userText : turn.assistantText;
+    setMessages((previous) => {
+      const existing = previous.some((message) => message.id === id);
+      const message: ChatMessage = {
+        id,
+        sender,
+        text: value,
+        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        modelBadge: sender === 'gemini' ? 'Gemini Live' : undefined,
+      };
+      return existing ? previous.map((item) => item.id === id ? message : item) : [...previous, message];
+    });
+  };
+
+  const playLiveAudio = (base64Audio: string, mimeType?: string) => {
+    const audioContext = liveAudioContextRef.current;
+    if (!audioContext || !base64Audio) return;
+    const sampleRate = Number(mimeType?.match(/rate=(\d+)/i)?.[1] || 24000);
+    const binary = atob(base64Audio);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    const pcm = new Int16Array(bytes.buffer, bytes.byteOffset, Math.floor(bytes.byteLength / 2));
+    const audioBuffer = audioContext.createBuffer(1, pcm.length, sampleRate);
+    const channel = audioBuffer.getChannelData(0);
+    for (let i = 0; i < pcm.length; i += 1) channel[i] = pcm[i] / 32768;
+    const source = audioContext.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(audioContext.destination);
+    const startAt = Math.max(audioContext.currentTime + 0.025, livePlaybackTimeRef.current);
+    source.start(startAt);
+    livePlaybackTimeRef.current = startAt + audioBuffer.duration;
+    livePlaybackSourcesRef.current.push(source);
+    source.onended = () => {
+      livePlaybackSourcesRef.current = livePlaybackSourcesRef.current.filter((item) => item !== source);
+      if (liveOutputCompleteRef.current && livePlaybackSourcesRef.current.length === 0) {
+        setConnectionStatus('listening');
+      }
+    };
+  };
+
+  const startGeminiLiveCapture = async () => {
+    if (liveSessionRef.current || isGenerating) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setConnectionStatus('error');
+      setMessages((previous) => [...previous, {
+        id: 'live-error-' + Date.now(), sender: 'gemini',
+        text: 'Este navegador não disponibiliza captura de áudio. Abra o OBra ENGEP em uma conexão HTTPS e permita o microfone.',
+        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        modelBadge: 'Gemini Live',
+      }]);
+      return;
+    }
+
+    liveShouldStopRef.current = false;
+    setIsGenerating(true);
+    setConnectionStatus('thinking');
+    try {
+      if (!supabase) throw new Error('Serviço de autenticação indisponível.');
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (sessionError || !accessToken) throw new Error('Sua sessão expirou. Entre novamente para utilizar a IA.');
+
+      const microphone = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      liveStreamRef.current = microphone;
+      if (liveShouldStopRef.current) {
+        microphone.getTracks().forEach((track) => track.stop());
+        liveStreamRef.current = null;
+        return;
+      }
+      const tokenResponse = await fetch('/api/gemini/live-token', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + accessToken },
+        cache: 'no-store',
+      });
+      if (!tokenResponse.ok) {
+        let detail = '';
+        try {
+          const body = await tokenResponse.json() as { error?: string };
+          detail = body.error || '';
+        } catch {}
+        throw new Error(detail || 'Não foi possível preparar o Gemini Live (HTTP ' + tokenResponse.status + ').');
+      }
+      const tokenPayload = await tokenResponse.json() as { token?: string; model?: string };
+      if (!tokenPayload.token) throw new Error('O servidor não retornou a credencial temporária do Gemini Live.');
+
+      const audioContext = new AudioContext({ sampleRate: 16000 });
+      liveAudioContextRef.current = audioContext;
+      await audioContext.resume();
+      const socketUrl = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=' + encodeURIComponent(tokenPayload.token);
+      console.info('[Gemini Live] Opening direct WebSocket session.');
+      const socket = new WebSocket(socketUrl);
+      liveSessionRef.current = socket;
+      const liveConfig = {
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } },
+        },
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
+        systemInstruction: {
+          parts: [{
+            text: 'Você é o Assistente Técnico do OBra ENGEP. Responda em português do Brasil, com rigor técnico e linguagem de campo. Cite as normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC.',
+          }],
+        },
+      };
+      await new Promise<void>((resolve, reject) => {
+        let setupComplete = false;
+        const setupTimeout = window.setTimeout(() => {
+          if (!setupComplete) {
+            socket.close();
+            reject(new Error('Tempo limite excedido ao configurar o WebSocket do Gemini Live.'));
+          }
+        }, 20_000);
+        socket.onopen = () => {
+          setConnectionStatus('thinking');
+          socket.send(JSON.stringify({
+            setup: {
+              model: 'models/' + (tokenPayload.model || 'gemini-3.8-live'),
+              ...liveConfig,
+            },
+          }));
+        };
+        socket.onmessage = (event) => {
+          try {
+            const message = JSON.parse(typeof event.data === 'string' ? event.data : '');
+            if (message.setupComplete) {
+              setupComplete = true;
+              window.clearTimeout(setupTimeout);
+              console.info('[Gemini Live] WebSocket connected and session setup completed.');
+              resolve();
+              return;
+            }
+            if (message.error && !setupComplete) {
+              window.clearTimeout(setupTimeout);
+              reject(new Error(message.error.message || 'O Gemini Live rejeitou a configuração da sessão.'));
+              return;
+            }
+            const content = message.serverContent;
+            if (!content) return;
+            if (content.inputTranscription?.text) {
+              liveOutputCompleteRef.current = false;
+              appendLiveTranscript('user', content.inputTranscription.text);
+            }
+            if (content.outputTranscription?.text) appendLiveTranscript('gemini', content.outputTranscription.text);
+            const parts = content.modelTurn?.parts ?? [];
+            for (const part of parts) {
+              if (part.inlineData?.data) {
+                liveOutputCompleteRef.current = false;
+                setConnectionStatus('speaking');
+                playLiveAudio(part.inlineData.data, part.inlineData.mimeType);
+              } else if (part.text && !content.outputTranscription?.text) {
+                appendLiveTranscript('gemini', part.text);
+              }
+            }
+            if (content.interrupted) {
+              livePlaybackTimeRef.current = audioContext.currentTime;
+              for (const playbackSource of livePlaybackSourcesRef.current) {
+                try { playbackSource.stop(); } catch {}
+              }
+              livePlaybackSourcesRef.current = [];
+              liveOutputCompleteRef.current = false;
+              setConnectionStatus('listening');
+            } else if (content.turnComplete) {
+              liveTurnRef.current = null;
+              liveOutputCompleteRef.current = true;
+              if (livePlaybackSourcesRef.current.length === 0) setConnectionStatus('listening');
+            }
+          } catch (error) {
+            console.warn('[Gemini Live] Invalid WebSocket message:', error instanceof Error ? error.name : 'unknown');
+          }
+        };
+        socket.onerror = () => {
+          if (!setupComplete) {
+            window.clearTimeout(setupTimeout);
+            reject(new Error('Falha ao abrir o WebSocket com o Gemini Live.'));
+          } else if (!liveShouldStopRef.current) {
+            setConnectionStatus('error');
+          }
+        };
+        socket.onclose = (event) => {
+          if (!setupComplete) {
+            window.clearTimeout(setupTimeout);
+            reject(new Error('O WebSocket do Gemini Live foi encerrado antes da configuração (código ' + event.code + ').'));
+          } else if (!liveShouldStopRef.current) {
+            console.warn('[Gemini Live] WebSocket closed:', event.code, event.reason);
+            stopGeminiLive();
+            setConnectionStatus('error');
+          }
+        };
+      });
+      if (liveShouldStopRef.current) {
+        socket.close();
+        return;
+      }
+      setIsListening(true);
+      setIsGenerating(false);
+      setConnectionStatus('listening');
+
+      const source = audioContext.createMediaStreamSource(microphone);
+      const processor = audioContext.createScriptProcessor(2048, 1, 1);
+      const muteOutput = audioContext.createGain();
+      muteOutput.gain.value = 0;
+      processor.onaudioprocess = (event) => {
+        if (liveShouldStopRef.current || liveSessionRef.current !== socket) return;
+        const input = event.inputBuffer.getChannelData(0);
+        const pcm = resampleAudio(input, audioContext.sampleRate, 16000);
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({
+            realtimeInput: {
+              audio: { data: encodePcm16(pcm), mimeType: 'audio/pcm;rate=16000' },
+            },
+          }));
+        }
+      };
+      source.connect(processor);
+      processor.connect(muteOutput);
+      muteOutput.connect(audioContext.destination);
+      liveProcessorRef.current = processor;
+      setIsListening(true);
+      setIsGenerating(false);
+      setConnectionStatus('listening');
+    } catch (error) {
+      console.error('[Gemini Live] Session setup failed:', error instanceof Error ? error.message : 'unknown');
+      stopGeminiLive();
+      setConnectionStatus('error');
+      setMessages((previous) => [...previous, {
+        id: 'live-error-' + Date.now(), sender: 'gemini',
+        text: error instanceof Error ? error.message : 'Não foi possível iniciar a sessão de voz.',
+        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        modelBadge: 'Gemini Live',
+      }]);
+    }
+  };
 
   // Auto-scroll messages
   useEffect(() => {
@@ -74,12 +384,13 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   }, [messages, connectionStatus, isOpen]);
 
   useEffect(() => {
-    const state = !isOpen ? 'sleeping' : isListening ? 'listening' : connectionStatus;
+    const state = !isOpen ? 'sleeping' : connectionStatus === 'speaking' || connectionStatus === 'thinking' || connectionStatus === 'error' ? connectionStatus : isListening ? 'listening' : connectionStatus;
     onStatusChange?.(state);
   }, [connectionStatus, isListening, isOpen, onStatusChange]);
 
   useEffect(() => {
     if (isOpen) return;
+    stopGeminiLive();
     try { speechRecognitionRef.current?.stop(); } catch {}
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     setIsListening(false);
@@ -499,7 +810,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     speakResponse(doneMessage);
   };
 
-  const startVoiceCapture = () => {
+  const startSpeechRecognitionCapture = () => {
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       alert('A captura de voz não é suportada diretamente neste navegador. Digite sua consulta no campo abaixo.');
       setIsListening(false);
@@ -551,10 +862,22 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     }
   };
 
+  const startVoiceCapture = () => {
+    if (isFormGuidingRef.current) {
+      startSpeechRecognitionCapture();
+      return;
+    }
+    void startGeminiLiveCapture();
+  };
+
   const toggleVoiceMode = () => {
     setIsVoiceMode(true);
-    if (isListening) {
-      try { speechRecognitionRef.current?.stop(); } catch {}
+    if (liveSessionRef.current) {
+      stopGeminiLive();
+      return;
+    }
+    if (isListening && speechRecognitionRef.current) {
+      try { speechRecognitionRef.current.stop(); } catch {}
       setIsListening(false);
       setConnectionStatus('idle');
       return;
@@ -563,6 +886,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   };
 
   const exitVoiceMode = () => {
+    stopGeminiLive();
     cancelFormGuide();
     setIsVoiceMode(false);
     setConnectionStatus('idle');
@@ -628,7 +952,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           </div>
         )}
 
-        {/* Central Robot Head: tap to speak, same SpeechRecognition pipeline as before. */}
+        {/* Central Robot Head: tap to open a bidirectional Gemini Live WebSocket session. */}
         {!isFormGuiding && !isTouringControls && <div className="py-4 px-4 bg-gradient-to-b from-[#17243A]/50 to-transparent flex flex-col items-center justify-center border-b border-[#2A3A55]/40 relative">
           <button
             onClick={toggleVoiceMode}

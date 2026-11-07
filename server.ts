@@ -11,6 +11,7 @@ import http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
+import liveTokenHandler from './api/gemini/live-token.js';
 import dotenv from 'dotenv';
 import { Buffer } from 'node:buffer';
 import { env, exit } from 'node:process';
@@ -24,7 +25,7 @@ const port = Number(env.PORT) || 3000;
 const server = http.createServer(app);
 const apiKey = env.GEMINI_API_KEY || '';
 const chatModel = env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash';
-const liveModel = env.GEMINI_LIVE_MODEL || 'gemini-2.5-flash-native-audio-preview-12-2025';
+const liveModel = env.GEMINI_LIVE_MODEL || 'gemini-3.8-live';
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 const nextApp = next({ dev: env.NODE_ENV !== 'production', hostname: '0.0.0.0', port });
 const nextHandler = nextApp.getRequestHandler();
@@ -94,6 +95,10 @@ app.use(express.json({ limit: '256kb', strict: true, type: 'application/json' })
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.post('/api/gemini/live-token', (req, res) => {
+  void liveTokenHandler(req, res);
 });
 
 async function hasValidSupabaseSession(req: any): Promise<boolean> {
