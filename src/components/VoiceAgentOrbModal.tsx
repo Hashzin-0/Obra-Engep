@@ -95,6 +95,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       if (audioContext && audioContext.state !== 'closed') void audioContext.close().catch(() => {});
     }
     liveTurnRef.current = null;
+    livePlaybackTimeRef.current = 0;
     liveOutputCompleteRef.current = false;
     setIsListening(false);
     setIsGenerating(false);
@@ -215,18 +216,24 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
       if (sessionError || !accessToken) throw new Error('Sua sessão expirou. Entre novamente para utilizar a IA.');
+      if (liveShouldStopRef.current) return;
 
       microphone = await navigator.mediaDevices.getUserMedia({
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
       liveStreamRef.current = microphone;
-      if (liveShouldStopRef.current) return;
+      if (liveShouldStopRef.current) {
+        microphone.getTracks().forEach((track) => track.stop());
+        if (liveStreamRef.current === microphone) liveStreamRef.current = null;
+        return;
+      }
 
       const tokenResponse = await fetch('/api/gemini/live-token', {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + accessToken },
         cache: 'no-store',
       });
+      if (liveShouldStopRef.current) return;
       if (!tokenResponse.ok) {
         let detail = '';
         try {
@@ -390,7 +397,14 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             window.clearTimeout(setupTimeout);
             reject(new Error('Falha ao abrir o WebSocket com o Gemini Live.'));
           } else if (!liveShouldStopRef.current) {
+            stopGeminiLive();
             setConnectionStatus('error');
+            setMessages((previous) => [...previous, {
+              id: 'live-error-' + Date.now(), sender: 'gemini',
+              text: 'O navegador perdeu a conexão WebSocket com o Gemini Live.',
+              timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+              modelBadge: 'Gemini Live',
+            }]);
           }
         };
 
