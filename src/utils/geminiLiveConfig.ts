@@ -14,7 +14,7 @@ const LEGACY_GEMINI_LIVE_MODELS = new Set([
  * Legacy preview and standard Live IDs are upgraded to the extended-thinking model.
  */
 export function resolveGeminiLiveModel(configuredModel?: string | null): string {
-  const model = configuredModel?.trim().replace(/^models\\//i, '');
+  const model = configuredModel?.trim().replace(/^models\//i, '');
   if (!model || LEGACY_GEMINI_LIVE_MODELS.has(model)) {
     return DEFAULT_GEMINI_LIVE_MODEL;
   }
@@ -22,7 +22,7 @@ export function resolveGeminiLiveModel(configuredModel?: string | null): string 
 }
 
 export function toGeminiLiveModelResource(model: string): string {
-  const normalized = model.trim().replace(/^models\\//i, '');
+  const normalized = model.trim().replace(/^models\//i, '');
   if (!normalized) throw new Error('Gemini Live model is required.');
   return `models/${normalized}`;
 }
