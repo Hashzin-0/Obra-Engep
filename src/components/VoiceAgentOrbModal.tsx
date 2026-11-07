@@ -381,11 +381,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
               if (livePlaybackSourcesRef.current.length === 0) setConnectionStatus('listening');
             }
 
-            if (message.interactionStatus === 'IN_PROGRESS') {
-              setConnectionStatus('thinking');
-            } else if (message.interactionStatus === 'IDLE' && livePlaybackSourcesRef.current.length === 0) {
-              setConnectionStatus('listening');
-            }
           } catch (error) {
             console.warn('[Gemini Live] Could not decode WebSocket message:', error instanceof Error ? error.name : 'unknown');
           }
@@ -412,20 +407,22 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           if (liveShouldStopRef.current) return;
           const detail = 'O WebSocket do Gemini Live foi encerrado (código ' + event.code + (event.reason ? ', motivo: ' + event.reason : '') + ').';
           console.warn('[Gemini Live] Unexpected WebSocket close:', event.code, event.reason);
-          if (!setupComplete && !settled) {
-            settled = true;
-            window.clearTimeout(setupTimeout);
-            reject(new Error(detail));
-          } else {
-            stopGeminiLive();
-            setConnectionStatus('error');
-            setMessages((previous) => [...previous, {
-              id: 'live-error-' + Date.now(), sender: 'gemini',
-              text: detail,
-              timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-              modelBadge: 'Gemini Live',
-            }]);
+          if (!setupComplete) {
+            if (!settled) {
+              settled = true;
+              window.clearTimeout(setupTimeout);
+              reject(new Error(detail));
+            }
+            return;
           }
+          stopGeminiLive();
+          setConnectionStatus('error');
+          setMessages((previous) => [...previous, {
+            id: 'live-error-' + Date.now(), sender: 'gemini',
+            text: detail,
+            timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+            modelBadge: 'Gemini Live',
+          }]);
         };
       });
 
