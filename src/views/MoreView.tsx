@@ -800,9 +800,8 @@ export const MoreView: React.FC<MoreViewProps> = ({
                   onClick={async () => {
                     try {
                       setFeedbackSending(true);
-                      const session = await ensureAnonymousSession();
-                      if (!session) throw new Error('Sessão Supabase indisponível.');
-                      await saveFeedback(session.userId, feedbackText.trim(), 'mais/ajuda');
+                      const session = await getSupabaseSession();
+                      await saveFeedback(session.user.id, feedbackText.trim(), 'mais/ajuda');
                       setFeedbackResult('Feedback registrado. Obrigado pela contribuição.');
                       setFeedbackText('');
                     } catch (error) {
