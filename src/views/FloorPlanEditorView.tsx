@@ -248,18 +248,25 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           const allowed = ['socket', 'switch', 'light', 'panel', 'wire', 'conduit', 'data_point', 'grounding', 'solar_panel'];
           if (typeof args.type !== 'string' || !allowed.includes(args.type)) throw new Error('Tipo elétrico inválido. Tipos permitidos: ' + allowed.join(', '));
           const type = args.type as ElectricalItem['type'];
+          const isRoute = type === 'wire' || type === 'conduit';
+          const x2 = isRoute ? Number(args.x2) : undefined, y2 = isRoute ? Number(args.y2) : undefined;
+          if (isRoute && (!Number.isFinite(x2) || !Number.isFinite(y2) || Math.hypot((x2 as number) - x, (y2 as number) - y) < 5)) throw new Error('Rotas elétricas exigem x2 e y2 válidos e um comprimento mínimo de 5 px.');
           const labels: Record<string, string> = { socket: 'Tomada TUG', switch: 'Interruptor', light: 'Ponto de luz', panel: 'Quadro de distribuição', wire: 'Fiação elétrica', conduit: 'Eletroduto elétrico', data_point: 'Ponto de dados', grounding: 'Ponto de aterramento', solar_panel: 'Painel solar fotovoltaico' };
-          const item: ElectricalItem = { id, type, x, y, circuit: typeof args.circuit === 'string' ? args.circuit.slice(0, 80) : 'A definir', label: typeof args.label === 'string' ? args.label.slice(0, 100) : labels[type] };
+          const item: ElectricalItem = { id, type, x, y, ...(isRoute ? { x2, y2 } : {}), circuit: typeof args.circuit === 'string' ? args.circuit.slice(0, 80) : 'A definir', label: typeof args.label === 'string' ? args.label.slice(0, 100) : labels[type] };
           updateProjectState({ ...project, electrical: [...project.electrical, item] });
           setSelectedObject({ kind: 'electrical', id }); setSelectedObjects([{ kind: 'electrical', id }]);
           return { status: 'ok', created: { id, kind, type, label: item.label, x, y }, saved: true };
         }
         if (kind === 'hydraulic') {
-          const allowed = ['cold_water', 'hot_water', 'sink', 'faucet', 'shower', 'toilet', 'floor_drain', 'cleanout', 'inspection_box', 'tank', 'heater', 'grease_trap', 'pool'];
+          const allowed = ['cold_water', 'hot_water', 'water_pipe', 'sewage_pipe', 'vent_pipe', 'rain_pipe', 'sink', 'faucet', 'shower', 'toilet', 'floor_drain', 'cleanout', 'inspection_box', 'tank', 'heater', 'grease_trap', 'pool'];
           if (typeof args.type !== 'string' || !allowed.includes(args.type)) throw new Error('Tipo hidráulico inválido. Tipos permitidos: ' + allowed.join(', '));
           const type = args.type as HydraulicItem['type'];
+          const isRoute = ['water_pipe', 'sewage_pipe', 'vent_pipe', 'rain_pipe'].includes(type);
+          const x2 = isRoute ? Number(args.x2) : undefined, y2 = isRoute ? Number(args.y2) : undefined;
+          if (isRoute && (!Number.isFinite(x2) || !Number.isFinite(y2) || Math.hypot((x2 as number) - x, (y2 as number) - y) < 5)) throw new Error('Tubulações exigem x2 e y2 válidos e um comprimento mínimo de 5 px.');
           const labels: Record<string, string> = { cold_water: 'Ponto de água fria', hot_water: 'Ponto de água quente', sink: 'Pia', faucet: 'Torneira', shower: 'Chuveiro', toilet: 'Bacia sanitária', floor_drain: 'Ralo sifonado', cleanout: 'Ponto de limpeza', inspection_box: 'Caixa de inspeção', tank: 'Reservatório de água', heater: 'Aquecedor de água', grease_trap: 'Caixa de gordura', pool: 'Piscina' };
-          const item: HydraulicItem = { id, type, x, y, diameterMm: Math.max(0, Math.min(300, Number(args.diameterMm) || 25)), label: typeof args.label === 'string' ? args.label.slice(0, 100) : labels[type] };
+          const defaultDiameter = type === 'sewage_pipe' ? 100 : type === 'rain_pipe' ? 75 : type === 'vent_pipe' ? 50 : 25;
+          const item: HydraulicItem = { id, type, x, y, ...(isRoute ? { x2, y2 } : {}), diameterMm: Math.max(0, Math.min(300, Number(args.diameterMm) || defaultDiameter)), label: typeof args.label === 'string' ? args.label.slice(0, 100) : labels[type] };
           updateProjectState({ ...project, hydraulic: [...project.hydraulic, item] });
           setSelectedObject({ kind: 'hydraulic', id }); setSelectedObjects([{ kind: 'hydraulic', id }]);
           return { status: 'ok', created: { id, kind, type, label: item.label, x, y, diameterMm: item.diameterMm }, saved: true };
