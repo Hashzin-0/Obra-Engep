@@ -717,7 +717,7 @@ function AppShell() {
       )}
       <main className={activeModuleView === 'projetos' ? 'flex-1 min-h-0 w-full max-w-none p-0 m-0' : 'flex-1 max-w-4xl w-full mx-auto px-4 pt-2'}>
         {activeModuleView === 'contratos' ? (
-          <ContractsView userId={authenticatedUser?.id ?? null} onBack={() => handleTabChange('inicio')} />
+          <ContractsView userId={authenticatedUser?.id ?? null} initialModelId={librarySubItemId} onBack={() => handleTabChange('inicio')} />
         ) : activeModuleView === 'calculadoras' ? (
           <CalculatorsView initialToolId={librarySubItemId} onSaveToHistory={handleSaveCalculation} initialCategory="eletrica" onToggleFavorite={handleAddFavorite} isFavorite={isFavorite} />
         ) : activeModuleView === 'projetos' ? (
