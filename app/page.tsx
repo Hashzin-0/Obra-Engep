@@ -1,5 +1,1 @@
-import { redirect } from 'next/navigation';
-
-export default function HomePage(): never {
-  redirect('/site');
-}
+export { default } from './route-page';
