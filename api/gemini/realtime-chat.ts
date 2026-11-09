@@ -138,7 +138,7 @@ export default async function handler(req: GeminiRequest, res: ServerResponse) {
     const apiError = error as { status?: unknown; message?: unknown };
     const status = typeof apiError?.status === 'number' ? apiError.status : undefined;
     const rawMessage = typeof apiError?.message === 'string' ? apiError.message : 'Erro não identificado do provedor.';
-    const safeMessage = rawMessage.replaceAll(apiKey, '[REDACTED]').replace(/[\\r\\n\\t]+/g, ' ').slice(0, 400);
+    const safeMessage = rawMessage.replaceAll(apiKey, '[REDACTED]').replace(/\\s+/g, ' ').slice(0, 400);
     console.error('[Gemini API] Request failed.', { status, model, message: safeMessage });
 
     let publicMessage = 'Falha temporária no processamento da IA. Tente novamente.';
