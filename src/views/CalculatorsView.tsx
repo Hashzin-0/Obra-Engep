@@ -404,7 +404,7 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
   const currentTool = TOOLS_DIRECTORY.find((t) => t.id === selectedToolId);
 
   return (
-    <div className="space-y-5 pb-24">
+    <div className="space-y-5 pb-24" data-calculator-form={currentTool ? "true" : undefined} data-calculator-id={currentTool?.id}>
       {/* Top Category Filter Pills (Exact order from Board 3: Elétrica, Hidráulica, Estrutural, Outras) */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
         {[
