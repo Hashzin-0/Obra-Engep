@@ -1,4 +1,4 @@
-import { ensureAnonymousSession, isSupabaseConfigured, supabase } from '../lib/supabase';
+import { getSupabaseSession, isSupabaseConfigured, supabase } from '../lib/supabase';
 import { recordPrivacyConsent } from './privacy';
 import {
   deletePushSubscription,
@@ -57,8 +57,7 @@ export async function enablePushNotifications(): Promise<{ message: string }> {
     throw new Error('Este navegador não suporta Web Push ou o Supabase não está configurado.');
   }
 
-  const session = await ensureAnonymousSession();
-  if (!session) throw new Error('Sessão Supabase indisponível.');
+  const session = await getSupabaseSession();
 
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') {
@@ -77,7 +76,7 @@ export async function enablePushNotifications(): Promise<{ message: string }> {
   }
 
   try {
-    await savePushSubscription(session.userId, subscription.toJSON(), navigator.userAgent);
+    await savePushSubscription(session.user.id, subscription.toJSON(), navigator.userAgent);
 
     if (supabase) {
       const { error } = await supabase
@@ -108,11 +107,11 @@ export async function enablePushNotifications(): Promise<{ message: string }> {
 }
 
 export async function disablePushNotifications(): Promise<{ message: string }> {
-  const session = await ensureAnonymousSession();
+  const session = await getSupabaseSession();
   const subscription = await currentSubscription();
 
   if (subscription) {
-    if (session) await deletePushSubscription(session.userId, subscription.endpoint);
+    if (session) await deletePushSubscription(session.user.id, subscription.endpoint);
     await subscription.unsubscribe();
   }
 
@@ -133,10 +132,8 @@ export async function disablePushNotifications(): Promise<{ message: string }> {
 
 export async function sendTestPush(): Promise<{ sent: number; failed: number }> {
   if (!supabase) throw new Error('Supabase não configurado.');
-  const session = await ensureAnonymousSession();
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!session || !token) throw new Error('Sessão Supabase indisponível.');
+  const session = await getSupabaseSession();
+  const token = session.access_token;
 
   const response = await fetch(`${functionsUrl}/send-test`, {
     method: 'POST',
