@@ -185,9 +185,9 @@ export const ContractsView: React.FC<Props> = ({ userId, onBack }) => {
         <h2 className="text-sm font-bold text-white">Quem participa e quais são as obrigações</h2>
         {selected.parties.map((party) => <div key={party.party} className="rounded-xl bg-[#101B2D] p-3"><h3 className="text-xs font-bold text-[#DCE6F4]">{party.party}</h3><p className="mt-1 text-xs leading-relaxed text-[#9FB0C8]">{party.duties}</p></div>)}
       </section>
-      <section className={panelClass + ' space-y-3'}>
+      <section className={panelClass + ' space-y-3'} data-agent-form="contract-editor" data-agent-form-id={selected.id}>
         <h2 className="text-sm font-bold text-white">Dados para elaboração</h2>
-        {selected.fields.map((field) => <label key={field.key} className="block space-y-1.5"><span className="text-xs font-semibold text-[#C6D2E2]">{field.label}{field.required ? ' *' : ''}</span>{field.multiline ? <textarea rows={3} value={fields[field.key] ?? ''} onChange={(event) => updateField(field.key, event.target.value)} className={inputClass} /> : <input value={fields[field.key] ?? ''} onChange={(event) => updateField(field.key, event.target.value)} className={inputClass} />}</label>)}
+        {selected.fields.map((field) => <label key={field.key} className="block space-y-1.5"><span className="text-xs font-semibold text-[#C6D2E2]">{field.label}{field.required ? ' *' : ''}</span>{field.multiline ? <textarea rows={3} data-agent-field={field.key} value={fields[field.key] ?? ''} onChange={(event) => updateField(field.key, event.target.value)} className={inputClass} /> : <input data-agent-field={field.key} value={fields[field.key] ?? ''} onChange={(event) => updateField(field.key, event.target.value)} className={inputClass} />}</label>)}
       </section>
       <section className={panelClass + ' space-y-3'}>
         <h2 className="text-sm font-bold text-white">Fundamentação jurídica por modelo</h2>
