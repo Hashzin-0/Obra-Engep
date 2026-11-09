@@ -719,7 +719,7 @@ function AppShell() {
         {activeModuleView === 'contratos' ? (
           <ContractsView userId={authenticatedUser?.id ?? null} onBack={() => handleTabChange('inicio')} />
         ) : activeModuleView === 'calculadoras' ? (
-          <CalculatorsView onSaveToHistory={handleSaveCalculation} initialCategory="eletrica" onToggleFavorite={handleAddFavorite} isFavorite={isFavorite} />
+          <CalculatorsView initialToolId={librarySubItemId} onSaveToHistory={handleSaveCalculation} initialCategory="eletrica" onToggleFavorite={handleAddFavorite} isFavorite={isFavorite} />
         ) : activeModuleView === 'projetos' ? (
           <FloorPlanEditorView
             key={sessionUserId ?? 'anonymous'}
