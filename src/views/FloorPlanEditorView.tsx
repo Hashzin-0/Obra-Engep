@@ -55,6 +55,7 @@ export type CanvasAgentKind = 'wall' | 'opening' | 'electrical' | 'hydraulic' | 
 export interface CanvasAgentApi {
   getOverview: () => Record<string, unknown>;
   selectElement: (kind: CanvasAgentKind, id: string) => Record<string, unknown>;
+  selectLevel: (id: string) => Record<string, unknown>;
   addElement: (args: Record<string, unknown>) => Record<string, unknown>;
   moveElement: (kind: CanvasAgentKind, id: string, x: number, y: number) => Record<string, unknown>;
   deleteElement: (kind: CanvasAgentKind, id: string, confirmed: boolean) => Record<string, unknown>;
@@ -196,6 +197,15 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
           levels, counts: { walls: project.walls.length, rooms: (project.rooms ?? []).length, openings: project.openings.length, electrical: project.electrical.length, hydraulic: project.hydraulic.length, furniture: (project.furniture ?? []).length, total: rows.length },
           elements: rows.slice(0, 120),
         };
+      },
+      selectLevel: (id) => {
+        const levels = captureActiveLevel(project, activeLevelId);
+        const target = levels.find((level) => level.id === id);
+        if (!target) throw new Error('Pavimento não encontrado. Consulte os IDs retornados por get_canvas_overview.');
+        const next = { ...project, levels, activeLevelId: id, walls: target.walls, rooms: target.rooms ?? [], openings: target.openings, electrical: target.electrical, hydraulic: target.hydraulic, furniture: target.furniture ?? [] };
+        setActiveLevelId(id); setProject(next); setHistory((current) => [...current.slice(0, historyIndex + 1), next]); setHistoryIndex((index) => index + 1);
+        onSaveProject?.(next); setSelectedObject(null); setSelectedObjects([]); setTool('select'); setWallSequencePoints([]); setRouteSequencePoints([]);
+        return { status: 'ok', activeLevel: { id: target.id, name: target.name, kind: target.kind, level: target.level } };
       },
       selectElement: (kind, id) => {
         const item = elementRows().find((entry) => entry.kind === kind && entry.id === id);
