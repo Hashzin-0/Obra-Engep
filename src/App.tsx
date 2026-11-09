@@ -4,6 +4,8 @@
  */
 
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { pathForLibrarySection, pathForModule, pathForTab, resolveAppRoute } from './utils/appRoutes';
 import type { Session } from '@supabase/supabase-js';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { TopHeader } from './components/TopHeader';
@@ -79,10 +81,13 @@ export default function App() {
 
 function AppShell() {
   const { theme, fontScale, setTheme, setFontScale } = useTheme();
-  const [currentTab, setCurrentTab] = useState<MainTab>('inicio');
-  const [activeModuleView, setActiveModuleView] = useState<ModuleId | null>(null);
-  const [librarySubTab, setLibrarySubTab] = useState<'nrs' | 'abnt' | 'legislacao' | 'estetica' | 'manuais'>('nrs');
-  const [librarySubItemId, setLibrarySubItemId] = useState<string | undefined>(undefined);
+  const pathname = usePathname();
+  const router = useRouter();
+  const initialRoute = resolveAppRoute(pathname);
+  const [currentTab, setCurrentTab] = useState<MainTab>(initialRoute.tab);
+  const [activeModuleView, setActiveModuleView] = useState<ModuleId | null>(initialRoute.module);
+  const [librarySubTab, setLibrarySubTab] = useState<'nrs' | 'abnt' | 'legislacao' | 'estetica' | 'manuais'>(initialRoute.librarySubTab);
+  const [librarySubItemId, setLibrarySubItemId] = useState<string | undefined>(initialRoute.itemId);
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
@@ -136,6 +141,14 @@ function AppShell() {
   const [authenticatedUser, setAuthenticatedUser] = useState<{ id: string; email?: string; name?: string; avatarUrl?: string } | null>(null);
   const [authResolved, setAuthResolved] = useState(false);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const route = resolveAppRoute(pathname);
+    setCurrentTab(route.tab);
+    setActiveModuleView(route.module);
+    setLibrarySubTab(route.librarySubTab);
+    setLibrarySubItemId(route.itemId);
+  }, [pathname]);
 
   useEffect(() => {
     if (!supabase) {
@@ -496,6 +509,7 @@ function AppShell() {
   };
 
   const handleNavigateModule = (moduleId: ModuleId, subItem?: string) => {
+    router.push(pathForModule(moduleId, subItem));
     if (moduleId === 'contratos') {
       setActiveModuleView('contratos');
       setCurrentTab('inicio');
@@ -529,30 +543,20 @@ function AppShell() {
 
   const handleSelectSearchResult = (category: string, itemId: string) => {
     if (category === 'calculadoras') {
-      setActiveModuleView('calculadoras');
-      setCurrentTab('inicio');
-    } else if (category === 'nrs') {
-      setActiveModuleView(null);
-      setCurrentTab('biblioteca');
-      setLibrarySubTab('nrs');
-      setLibrarySubItemId(itemId);
+      handleNavigateModule('calculadoras');
+    } else if (category === 'nrs' || category === 'manuais') {
+      router.push(pathForLibrarySection('nrs', itemId));
     } else if (category === 'abnt') {
-      setActiveModuleView(null);
-      setCurrentTab('biblioteca');
-      setLibrarySubTab('abnt');
+      router.push(pathForLibrarySection('abnt', itemId));
     } else if (category === 'legislacao') {
-      setActiveModuleView(null);
-      setCurrentTab('biblioteca');
-      setLibrarySubTab('legislacao');
+      router.push(pathForLibrarySection('legislacao', itemId));
     } else if (category.startsWith('estetica')) {
-      setActiveModuleView(null);
-      setCurrentTab('biblioteca');
-      setLibrarySubTab('estetica');
-      setLibrarySubItemId(itemId);
+      router.push(pathForLibrarySection('estetica', itemId));
     }
   };
 
   const handleTabChange = (tab: MainTab) => {
+    router.push(pathForTab(tab));
     setCurrentTab(tab);
     setActiveModuleView(null);
     setLibrarySubItemId(undefined);
@@ -650,10 +654,7 @@ function AppShell() {
         onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)}
         agentState={isVoiceModalOpen ? agentState : 'sleeping'}
         isAgentGuiding={isAgentGuiding}
-        onBackToHome={isNonHomeView ? () => {
-          setActiveModuleView(null);
-          setCurrentTab('inicio');
-        } : undefined}
+        onBackToHome={isNonHomeView ? () => handleTabChange('inicio') : undefined}
       />}
 
       {isHomeView && (
@@ -735,7 +736,7 @@ function AppShell() {
             onOpenSearch={() => setIsSearchOpen(true)}
             onOpenCalendarModal={() => setIsCalendarModalOpen(true)}
             onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)}
-            onOpenCalculatorWithData={() => setActiveModuleView('calculadoras')}
+            onOpenCalculatorWithData={() => handleNavigateModule('calculadoras')}
             latestCalculation={latest}
             favoritesCount={favorites.length}
             deadlines={deadlines}
@@ -769,10 +770,7 @@ function AppShell() {
             onDeleteNote={handleDeleteNote}
             onClearHistory={handleClearHistory}
             onDeleteHistoryItem={handleDeleteHistoryItem}
-            onReopenCalculation={() => {
-              setActiveModuleView('calculadoras');
-              setCurrentTab('inicio');
-            }}
+            onReopenCalculation={() => handleNavigateModule('calculadoras')}
             onOpenOnboarding={() => setIsOnboardingOpen(true)}
             onOpenCalendarModal={() => setIsCalendarModalOpen(true)}
             syncState={syncState}
