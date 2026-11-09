@@ -281,7 +281,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>('button:not([disabled])'))
         .filter((button) => button.getClientRects().length > 0);
       const calculateButton = buttons.find((button) =>
-        /^(calcular|dimensionar|gerar resultado)(?:\\b|\\s)/i.test(button.textContent?.trim() ?? '') || /^(calcular|dimensionar|gerar resultado)$/i.test(button.textContent?.trim() ?? '')
+        /^(calcular|dimensionar|gerar resultado)(?:\b|\s)/i.test(button.textContent?.trim() ?? '') || /^(calcular|dimensionar|gerar resultado)$/i.test(button.textContent?.trim() ?? '')
       );
       if (!calculateButton) throw new Error('Os campos foram preenchidos, mas não encontrei um botão de cálculo nesta tela.');
       calculateButton.click();
