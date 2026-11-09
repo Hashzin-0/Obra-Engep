@@ -1,4 +1,4 @@
-import { ensureAnonymousSession, isSupabaseConfigured, supabase } from '../lib/supabase';
+import { getSupabaseSession, isSupabaseConfigured, supabase } from '../lib/supabase';
 import { recordPrivacyConsent } from './privacy';
 import {
   deletePushSubscription,
@@ -57,8 +57,7 @@ export async function enablePushNotifications(): Promise<{ message: string }> {
     throw new Error('Este navegador não suporta Web Push ou o Supabase não está configurado.');
   }
 
-  const session = await ensureAnonymousSession();
-  if (!session) throw new Error('Sessão Supabase indisponível.');
+  const session = await getSupabaseSession();
 
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') {
@@ -77,26 +76,26 @@ export async function enablePushNotifications(): Promise<{ message: string }> {
   }
 
   try {
-    await savePushSubscription(session.userId, subscription.toJSON(), navigator.userAgent);
+    await savePushSubscription(session.user.id, subscription.toJSON(), navigator.userAgent);
 
     if (supabase) {
       const { error } = await supabase
         .from('notification_preferences')
         .upsert(
-          { user_id: session.userId, enabled: true, reminders_enabled: true, updates_enabled: true },
+          { user_id: session.user.id, enabled: true, reminders_enabled: true, updates_enabled: true },
           { onConflict: 'user_id' }
         );
       if (error) throw new Error(error.message);
     }
 
-    await recordPrivacyConsent(session.userId, 'granted');
+    await recordPrivacyConsent(session.user.id, 'granted');
   } catch (error) {
-    await deletePushSubscription(session.userId, subscription.endpoint).catch(() => undefined);
+    await deletePushSubscription(session.user.id, subscription.endpoint).catch(() => undefined);
     await subscription.unsubscribe().catch(() => false);
     if (supabase) {
       try {
         await supabase.from('notification_preferences')
-          .upsert({ user_id: session.userId, enabled: false }, { onConflict: 'user_id' });
+          .upsert({ user_id: session.user.id, enabled: false }, { onConflict: 'user_id' });
       } catch {
         // The subscription has already been removed locally and remote cleanup was attempted.
       }
@@ -108,21 +107,21 @@ export async function enablePushNotifications(): Promise<{ message: string }> {
 }
 
 export async function disablePushNotifications(): Promise<{ message: string }> {
-  const session = await ensureAnonymousSession();
+  const session = await getSupabaseSession();
   const subscription = await currentSubscription();
 
   if (subscription) {
-    if (session) await deletePushSubscription(session.userId, subscription.endpoint);
+    if (session) await deletePushSubscription(session.user.id, subscription.endpoint);
     await subscription.unsubscribe();
   }
 
   if (supabase && session) {
     const { error } = await supabase
       .from('notification_preferences')
-      .upsert({ user_id: session.userId, enabled: false }, { onConflict: 'user_id' });
+      .upsert({ user_id: session.user.id, enabled: false }, { onConflict: 'user_id' });
     if (error) throw new Error('Notificações desativadas, mas não foi possível atualizar a preferência na conta.');
     try {
-      await recordPrivacyConsent(session.userId, 'revoked');
+      await recordPrivacyConsent(session.user.id, 'revoked');
     } catch {
       return { message: 'Notificações desativadas. O histórico da revogação não pôde ser sincronizado; tente novamente quando estiver online.' };
     }
@@ -133,10 +132,8 @@ export async function disablePushNotifications(): Promise<{ message: string }> {
 
 export async function sendTestPush(): Promise<{ sent: number; failed: number }> {
   if (!supabase) throw new Error('Supabase não configurado.');
-  const session = await ensureAnonymousSession();
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!session || !token) throw new Error('Sessão Supabase indisponível.');
+  const session = await getSupabaseSession();
+  const token = session.access_token;
 
   const response = await fetch(`${functionsUrl}/send-test`, {
     method: 'POST',

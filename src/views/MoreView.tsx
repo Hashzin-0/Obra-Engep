@@ -17,7 +17,7 @@ import {
   disablePushNotifications, enablePushNotifications, notificationPermission, pushSupported, sendTestPush, subscriptionState, } from '../services/push';
 import { buildBackup, restoreBackup } from '../services/persistence';
 import { saveFeedback } from '../services/remoteRepository';
-import { ensureAnonymousSession, isSupabaseConfigured } from '../lib/supabase';
+import { getSupabaseSession, isSupabaseConfigured } from '../lib/supabase';
 import { exportToLocalCalendar, getGoogleCalendarUrl } from '../utils/calendarSync';
 import { CalendarCheck } from 'lucide-react';
 
@@ -800,9 +800,8 @@ export const MoreView: React.FC<MoreViewProps> = ({
                   onClick={async () => {
                     try {
                       setFeedbackSending(true);
-                      const session = await ensureAnonymousSession();
-                      if (!session) throw new Error('Sessão Supabase indisponível.');
-                      await saveFeedback(session.userId, feedbackText.trim(), 'mais/ajuda');
+                      const session = await getSupabaseSession();
+                      await saveFeedback(session.user.id, feedbackText.trim(), 'mais/ajuda');
                       setFeedbackResult('Feedback registrado. Obrigado pela contribuição.');
                       setFeedbackText('');
                     } catch (error) {

@@ -38,7 +38,7 @@ import {
   ProjectDeadline,
   SyncState,
 } from './types';
-import { ensureAnonymousSession, isSupabaseConfigured, supabase } from './lib/supabase';
+import { isSupabaseConfigured, supabase } from './lib/supabase';
 import {
   clearHistory as clearRemoteHistory,
   deleteDeadline as deleteRemoteDeadline,
@@ -134,29 +134,37 @@ function AppShell() {
   const userIdRef = useRef<string | null>(null);
 
   const [authenticatedUser, setAuthenticatedUser] = useState<{ id: string; email?: string; name?: string; avatarUrl?: string } | null>(null);
+  const [authResolved, setAuthResolved] = useState(false);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase) {
+      setAuthResolved(true);
+      return;
+    }
 
     let active = true;
     const syncAuthState = (session: Session | null) => {
       if (!active) return;
       const user = session?.user;
+      const isGoogleUser = Boolean(user && !user.is_anonymous && user.app_metadata?.provider === 'google');
       const metadata = user?.user_metadata ?? {};
-      setAuthenticatedUser(user && !user.is_anonymous ? {
+      setAuthenticatedUser(isGoogleUser && user ? {
         id: user.id,
         email: user.email,
         name: metadata.full_name || metadata.name || metadata.given_name || undefined,
         avatarUrl: metadata.avatar_url || metadata.picture || undefined,
       } : null);
-      const nextUserId = user?.id ?? null;
+      const nextUserId = isGoogleUser && user ? user.id : null;
       if (userIdRef.current !== nextUserId) setProjects([]);
       userIdRef.current = nextUserId;
       setSessionUserId(nextUserId);
+      setAuthResolved(true);
     };
 
-    void supabase.auth.getSession().then(({ data }) => syncAuthState(data.session));
+    void supabase.auth.getSession().then(({ data }) => syncAuthState(data.session)).catch(() => {
+      if (active) setAuthResolved(true);
+    });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       syncAuthState(session);
     });
@@ -168,16 +176,24 @@ function AppShell() {
   }, []);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    const authClient = supabase;
+    if (!isSupabaseConfigured || !sessionUserId || !authClient) {
+      userIdRef.current = null;
+      setRemoteReady(false);
+      return;
+    }
     let cancelled = false;
 
     const connect = async () => {
       try {
-        const session = await ensureAnonymousSession();
-        if (!session || cancelled) return;
-        userIdRef.current = session.userId;
+        const { data, error } = await authClient.auth.getSession();
+        if (error) throw error;
+        const session = data.session;
+        if (!session || session.user.is_anonymous || session.user.app_metadata?.provider !== 'google' || session.user.id !== sessionUserId || cancelled) return;
+        const userId = session.user.id;
+        userIdRef.current = userId;
 
-        const remote = await loadRemoteData(session.userId);
+        const remote = await loadRemoteData(userId);
         if (cancelled) return;
 
         const local = {
@@ -245,7 +261,7 @@ function AppShell() {
           localOnly.products.length ||
           Object.keys(localOnly.checklists).length
         ) {
-          await pushLocalData(session.userId, localOnly);
+          await pushLocalData(userId, localOnly);
         }
 
         setSyncState({ status: 'synced', lastSyncedAt: Date.now() });
@@ -263,7 +279,7 @@ function AppShell() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [sessionUserId]);
 
   useEffect(() => {
     if (!sessionUserId) {
@@ -568,17 +584,65 @@ function AppShell() {
       window.alert(`Não foi possível sair da conta: ${error.message}`);
       return;
     }
-    try {
-      const anonymousSession = await ensureAnonymousSession();
-      userIdRef.current = anonymousSession?.userId ?? null;
-    } catch (error) {
-      reportSyncError(error);
-    }
+    userIdRef.current = null;
+    setRemoteReady(false);
+    setSessionUserId(null);
   };
 
   const latest = historyItems[0] ?? null;
   const isHomeView = currentTab === 'inicio' && activeModuleView === null;
   const isNonHomeView = !isHomeView;
+
+  if (!authResolved) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F5F2EC] dark:bg-[#101827] text-sm text-slate-500" role="status">
+        Verificando sua sessão...
+      </div>
+    );
+  }
+
+  if (!authenticatedUser) {
+    return (
+      <LiquidGlassScene className="min-h-screen flex flex-col selection:bg-[#1F66D6] selection:text-white">
+        <main className="relative flex-1 flex items-center justify-center overflow-hidden px-5 py-12">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute -top-32 -right-24 h-96 w-96 rounded-full bg-[#5B9BFF]/15 blur-3xl" />
+            <div className="absolute -bottom-36 -left-24 h-96 w-96 rounded-full bg-[#3DD68C]/10 blur-3xl" />
+            <div className="absolute inset-0 opacity-[0.035]" style={{ backgroundImage: 'linear-gradient(rgba(100,116,139,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(100,116,139,.6) 1px, transparent 1px)', backgroundSize: '34px 34px' }} />
+          </div>
+          <section className="relative z-10 w-full max-w-md text-center">
+            <div className="mx-auto mb-7 flex h-16 w-16 items-center justify-center rounded-[22px] border border-[#5B9BFF]/30 bg-[#1F66D6]/10 shadow-sm">
+              <span className="text-2xl font-black tracking-tighter text-[#5B9BFF]">OE</span>
+            </div>
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.24em] text-[#5B9BFF]">OBra ENGEP</p>
+            <h1 className="text-3xl font-black leading-tight tracking-tight text-[#17243A] dark:text-white sm:text-4xl">
+              Conhecimento técnico para decisões melhores na obra.
+            </h1>
+            <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-slate-600 dark:text-[#9FB0C8]">
+              Reúna cálculos, normas, projetos e ferramentas técnicas em um só ambiente de trabalho.
+            </p>
+            <div className="mt-8 rounded-[28px] border border-[#6B7F9E]/20 bg-white/75 p-6 shadow-xl shadow-slate-900/5 backdrop-blur-xl dark:border-white/10 dark:bg-[#17243A]/80 dark:shadow-black/20">
+              <div className="mb-5 space-y-1">
+                <h2 className="text-lg font-bold text-[#17243A] dark:text-white">Acesse sua área de trabalho</h2>
+                <p className="text-xs leading-5 text-slate-500 dark:text-[#9FB0C8]">Entre com sua conta Google para continuar.</p>
+              </div>
+              <button type="button" onClick={() => void handleGoogleSignIn()} disabled={!isSupabaseConfigured}
+                className="flex min-h-12 w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-[#5B9BFF]/60 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15 dark:bg-white dark:text-slate-800 dark:hover:bg-slate-100">
+                <span aria-hidden="true" className="text-lg font-black text-[#4285F4]">G</span>
+                Entrar com Google
+              </button>
+              {!isSupabaseConfigured && <p className="mt-3 text-xs text-red-600">Autenticação indisponível: configure as variáveis públicas do Supabase.</p>}
+              <p className="mt-4 text-[11px] leading-5 text-slate-500 dark:text-[#8292AA]">O acesso à plataforma exige autenticação. Não há modo visitante.</p>
+            </div>
+            <div className="mt-7 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px] font-medium text-slate-500 dark:text-[#8292AA]">
+              <span>Calculadoras técnicas</span><span>Normas e manuais</span><span>Projetos e plantas</span>
+            </div>
+          </section>
+        </main>
+        <footer className="relative z-10 px-5 pb-6 text-center text-[10px] text-slate-400 dark:text-slate-600">OBra ENGEP · Ambiente técnico integrado</footer>
+      </LiquidGlassScene>
+    );
+  }
 
   return (
     <LiquidGlassScene className={`min-h-screen flex flex-col transition-colors selection:bg-[#1F66D6] selection:text-white ${activeModuleView === 'projetos' ? 'h-dvh overflow-hidden' : ''}`}>
