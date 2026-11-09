@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@vercel/functions": "3.6.1",
+    "@vercel/functions": "3.11.0",
     "date-fns": "^4.4.0",
     "@animateicons/react": "^0.13.0",
     "@google/genai": "^2.32.0",
