@@ -93,6 +93,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const livePlaybackTimeRef = useRef(0);
   const liveOutputCompleteRef = useRef(false);
   const liveInteractionInProgressRef = useRef(false);
+  const livePendingToolCallsRef = useRef(0);
   const livePlaybackSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const liveTurnRef = useRef<{ userId: string; assistantId: string; userText: string; assistantText: string } | null>(null);
   const liveShouldStopRef = useRef(false);
@@ -185,6 +186,15 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
               : node instanceof HTMLTextAreaElement ? 'textarea'
                 : node.tagName.toLocaleLowerCase(),
         description: node.getAttribute('data-robot-description') ?? '',
+        inputType: node instanceof HTMLInputElement ? node.type : undefined,
+        placeholder: 'placeholder' in node ? String(node.getAttribute('placeholder') ?? '') : '',
+        required: 'required' in node ? Boolean((node as HTMLInputElement).required) : false,
+        min: 'min' in node ? String((node as HTMLInputElement).min ?? '') : undefined,
+        max: 'max' in node ? String((node as HTMLInputElement).max ?? '') : undefined,
+        step: 'step' in node ? String((node as HTMLInputElement).step ?? '') : undefined,
+        options: node instanceof HTMLSelectElement
+          ? Array.from(node.options).map((option) => ({ label: option.textContent?.trim() ?? '', value: option.value })).slice(0, 30)
+          : undefined,
       }));
   };
 
@@ -192,8 +202,8 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     if (!Array.isArray(fields) || fields.length === 0 || fields.length > 20) {
       throw new Error('Informe entre 1 e 20 pares de campo e valor.');
     }
-    const root = document.querySelector<HTMLElement>('main');
-    if (!root) throw new Error('A área principal da aplicação não está disponível.');
+    const root = document.querySelector<HTMLElement>('[data-calculator-form]');
+    if (!root || root.getClientRects().length === 0) throw new Error('Abra uma calculadora antes de preencher os campos.');
     const controls = Array.from(root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
       'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="password"]):not([type="file"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="date"]):not([type="time"]):not([type="month"]):not([type="week"]):not([disabled]), textarea:not([disabled]), select:not([disabled])'
     )).filter((field) => field.getClientRects().length > 0 && !(field instanceof HTMLInputElement && field.readOnly) && !(field instanceof HTMLTextAreaElement && field.readOnly));
@@ -330,61 +340,52 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     calls: Array<{ id: string; name: string; args?: Record<string, unknown> }>,
     socket: WebSocket
   ) => {
+    livePendingToolCallsRef.current += 1;
     setConnectionStatus('working');
     console.info('[Gemini Live] Tool call received.', { calls: calls.map((call) => call.name) });
+    try {
     const functionResponses = await Promise.all(calls.map(async (call) => {
       const args = call.args ?? {};
       try {
         let result: Record<string, unknown>;
         if (call.name === 'get_current_screen_controls') {
           const controls = getVisibleScreenControls();
-          result = { status: 'ok', route: window.location.pathname, count: controls.length, controls };
+          const calculator = document.querySelector<HTMLElement>('[data-calculator-form]');
+          result = { status: 'ok', route: window.location.pathname, calculatorId: calculator?.dataset.calculatorId ?? null, count: controls.length, controls };
         } else if (call.name === 'open_calculator') {
           const calculatorId = args.calculatorId;
-          const allowedCalculatorIds = new Set([
-            'potencia_corrente', 'lei_ohm', 'dimensionamento_cabos', 'circuitos_disjuntores',
-            'conversao_eletrica', 'formulas_eletricas', 'calculadora_iluminacao',
-            'capacidade_conducao_corrente', 'calculadora_resistores', 'calculadora_corrente',
-            'calculadora_fita_led', 'reservatorio', 'vazao_pressao', 'perda_carga',
-            'diametro_tubo', 'concreto_materiais', 'tabela_aco', 'calculadora_telhado',
-            'pesos_proprios', 'conversor_pressao', 'conversor_potencia', 'alvenaria_blocos',
-            'calculadora_combustivel', 'conversor_areas',
-          ]);
-          if (typeof calculatorId !== 'string' || !allowedCalculatorIds.has(calculatorId)) {
-            throw new Error('Calculadora não reconhecida. Consulte a lista de IDs disponíveis na descrição da ferramenta.');
+          if (typeof calculatorId !== 'string' || !/^[a-z0-9_]{1,80}$/i.test(calculatorId)) {
+            throw new Error('Informe um identificador válido de calculadora.');
           }
           if (!onNavigateToModule) throw new Error('A navegação para calculadoras não está disponível.');
           onNavigateToModule('calculadoras', calculatorId);
-          result = { status: 'ok', calculatorId, message: 'Calculadora solicitada. Aguarde a tela abrir e consulte os campos disponíveis.' };
+          let calculatorRoot: HTMLElement | null = null;
+          for (let attempt = 0; attempt < 30; attempt += 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 100));
+            calculatorRoot = Array.from(document.querySelectorAll<HTMLElement>('[data-calculator-form]'))
+              .find((node) => node.dataset.calculatorId === calculatorId && node.getClientRects().length > 0) ?? null;
+            if (calculatorRoot) break;
+          }
+          if (!calculatorRoot) throw new Error('A calculadora solicitada não foi encontrada no catálogo atual.');
+          result = { status: 'ok', calculatorId, message: 'Calculadora aberta. Consulte os campos disponíveis antes de preenchê-los.' };
         } else if (call.name === 'fill_calculator_fields') {
           const calculatorId = args.calculatorId;
           if (typeof calculatorId === 'string' && calculatorId.trim()) {
-            const allowedCalculatorIds = new Set([
-              'potencia_corrente', 'lei_ohm', 'dimensionamento_cabos', 'circuitos_disjuntores',
-              'conversao_eletrica', 'formulas_eletricas', 'calculadora_iluminacao',
-              'capacidade_conducao_corrente', 'calculadora_resistores', 'calculadora_corrente',
-              'calculadora_fita_led', 'reservatorio', 'vazao_pressao', 'perda_carga',
-              'diametro_tubo', 'concreto_materiais', 'tabela_aco', 'calculadora_telhado',
-              'pesos_proprios', 'conversor_pressao', 'conversor_potencia', 'alvenaria_blocos',
-              'calculadora_combustivel', 'conversor_areas',
-            ]);
-            if (!allowedCalculatorIds.has(calculatorId)) throw new Error('Calculadora não reconhecida. Use um ID de calculadora suportado.');
+            if (!/^[a-z0-9_]{1,80}$/i.test(calculatorId)) throw new Error('Informe um identificador válido de calculadora.');
             if (!onNavigateToModule) throw new Error('A navegação para calculadoras não está disponível.');
             onNavigateToModule('calculadoras', calculatorId);
-            for (let attempt = 0; attempt < 20; attempt += 1) {
-              await new Promise((resolve) => window.setTimeout(resolve, 100));
-              const readyFields = document.querySelectorAll('main input:not([type="hidden"]):not([disabled]), main select:not([disabled]), main textarea:not([disabled])');
-              if (Array.from(readyFields).some((field) => (field as HTMLElement).getClientRects().length > 0)) break;
-            }
           } else if (!window.location.pathname.startsWith('/calculadoras')) {
             if (!onNavigateToModule) throw new Error('A navegação para calculadoras não está disponível.');
             onNavigateToModule('calculadoras');
-            for (let attempt = 0; attempt < 20; attempt += 1) {
-              await new Promise((resolve) => window.setTimeout(resolve, 100));
-              const readyFields = document.querySelectorAll('main input:not([type="hidden"]):not([disabled]), main select:not([disabled]), main textarea:not([disabled])');
-              if (Array.from(readyFields).some((field) => (field as HTMLElement).getClientRects().length > 0)) break;
-            }
           }
+          let calculatorRoot: HTMLElement | null = null;
+          for (let attempt = 0; attempt < 30; attempt += 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 100));
+            calculatorRoot = document.querySelector<HTMLElement>('[data-calculator-form]');
+            if (calculatorRoot?.getClientRects().length && (!calculatorId || calculatorRoot.dataset.calculatorId === calculatorId)) break;
+            calculatorRoot = null;
+          }
+          if (!calculatorRoot) throw new Error('A calculadora ainda não abriu ou o ID não corresponde à calculadora exibida.');
           const fillResult = await fillCalculatorFields(args.fields, args.submit === true);
           result = fillResult;
         } else if (call.name === 'highlight_ui_element') {
@@ -493,6 +494,9 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       socket.send(JSON.stringify({ toolResponse: { functionResponses } }));
       setConnectionStatus('thinking');
     }
+    } finally {
+      livePendingToolCallsRef.current = Math.max(0, livePendingToolCallsRef.current - 1);
+    }
   };
 
   const stopGeminiLive = () => {
@@ -517,6 +521,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     livePlaybackTimeRef.current = 0;
     liveOutputCompleteRef.current = false;
     liveInteractionInProgressRef.current = false;
+    livePendingToolCallsRef.current = 0;
     setIsListening(false);
     setIsGenerating(false);
     setConnectionStatus('idle');
@@ -1009,7 +1014,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       const muteOutput = inputAudioContext.createGain();
       muteOutput.gain.value = 0;
       processor.onaudioprocess = (event) => {
-        if (liveShouldStopRef.current || liveSessionRef.current !== socket) return;
+        if (liveShouldStopRef.current || liveSessionRef.current !== socket || livePendingToolCallsRef.current > 0) return;
         const input = event.inputBuffer.getChannelData(0);
         const pcm = resampleAudio(input, inputAudioContext.sampleRate, 16000);
         if (socket!.readyState === WebSocket.OPEN) {
