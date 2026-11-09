@@ -147,14 +147,15 @@ function AppShell() {
     const syncAuthState = (session: Session | null) => {
       if (!active) return;
       const user = session?.user;
+      const isGoogleUser = Boolean(user && !user.is_anonymous && user.app_metadata?.provider === 'google');
       const metadata = user?.user_metadata ?? {};
-      setAuthenticatedUser(user && !user.is_anonymous ? {
+      setAuthenticatedUser(isGoogleUser && user ? {
         id: user.id,
         email: user.email,
         name: metadata.full_name || metadata.name || metadata.given_name || undefined,
         avatarUrl: metadata.avatar_url || metadata.picture || undefined,
       } : null);
-      const nextUserId = user && !user.is_anonymous ? user.id : null;
+      const nextUserId = isGoogleUser && user ? user.id : null;
       if (userIdRef.current !== nextUserId) setProjects([]);
       userIdRef.current = nextUserId;
       setSessionUserId(nextUserId);
@@ -187,7 +188,7 @@ function AppShell() {
         const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
         const session = data.session;
-        if (!session || session.user.is_anonymous || session.user.id !== sessionUserId || cancelled) return;
+        if (!session || session.user.is_anonymous || session.user.app_metadata?.provider !== 'google' || session.user.id !== sessionUserId || cancelled) return;
         const userId = session.user.id;
         userIdRef.current = userId;
 
