@@ -21,6 +21,25 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import { getSupabaseAccessToken, supabase } from '../lib/supabase';
 import { RobotHeadAvatar } from './RobotHeadAvatar';
+import type { ModuleId } from '../types';
+
+const LANGUAGE_HINTS: Record<string, string[]> = {
+  'pt-BR': ['você', 'voce', 'seus', 'suas', 'favoritos', 'quero', 'preciso', 'como', 'qual', 'obrigado', 'não', 'nao'],
+  'es-ES': ['hola', 'quiero', 'necesito', 'mis', 'favoritos', 'puedes', 'cómo', 'como', 'qué', 'que', 'gracias', 'favor'],
+  'en-US': ['the', 'and', 'please', 'show', 'my', 'favorites', 'favourites', 'can', 'you', 'how', 'what', 'thanks'],
+  'fr-FR': ['bonjour', 'veux', 'mes', 'favoris', 'comment', 'merci', 'vous', 'pouvez'],
+};
+
+function detectSpeechLanguage(text: string, fallback: string): string {
+  const normalized = text.toLocaleLowerCase();
+  if (/[ñ¿¡]/.test(normalized)) return 'es-ES';
+  const words = new Set(normalized.match(/[a-záéíóúãõâêôçñü]+/g) ?? []);
+  const scores = Object.entries(LANGUAGE_HINTS).map(([language, hints]) => ({
+    language,
+    score: hints.filter((word) => words.has(word)).length,
+  })).sort((a, b) => b.score - a.score);
+  return scores[0]?.score >= 2 ? scores[0].language : fallback;
+}
 
 export interface ChatMessage {
   id: string;
@@ -36,9 +55,11 @@ interface VoiceAgentOrbModalProps {
   onClose: () => void;
   onStatusChange?: (state: 'sleeping' | 'idle' | 'listening' | 'thinking' | 'speaking' | 'working' | 'happy' | 'error') => void;
   onGuidingChange?: (guiding: boolean) => void;
+  onNavigateToSection?: (section: 'inicio' | 'biblioteca' | 'favoritos' | 'mais') => void;
+  onNavigateToModule?: (moduleId: ModuleId, itemId?: string) => void;
 }
 
-export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, onClose, onStatusChange, onGuidingChange }) => {
+export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, onClose, onStatusChange, onGuidingChange, onNavigateToSection, onNavigateToModule }) => {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
@@ -76,6 +97,99 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const liveTurnRef = useRef<{ userId: string; assistantId: string; userText: string; assistantText: string } | null>(null);
   const liveShouldStopRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const lastInputLanguageRef = useRef(
+    typeof navigator !== 'undefined' ? navigator.language || 'pt-BR' : 'pt-BR'
+  );
+
+  const loadCurrentUserFavorites = async (limit = 30) => {
+    if (!supabase) throw new Error('O acesso aos favoritos está indisponível.');
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    const user = userData.user;
+    if (userError || !user || user.is_anonymous || user.app_metadata?.provider !== 'google') {
+      throw new Error('Entre com sua conta Google para consultar seus favoritos.');
+    }
+    const { data, error } = await supabase
+      .from('favorites')
+      .select('item_type,item_id,title,subtitle,module_id,metadata,created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(Math.min(30, Math.max(1, limit)));
+    if (error) throw new Error('Não foi possível carregar os favoritos da sua conta.');
+    return data ?? [];
+  };
+
+  const executeLiveToolCalls = async (
+    calls: Array<{ id: string; name: string; args?: Record<string, unknown> }>,
+    socket: WebSocket
+  ) => {
+    setConnectionStatus('working');
+    const functionResponses = await Promise.all(calls.map(async (call) => {
+      const args = call.args ?? {};
+      try {
+        let result: Record<string, unknown>;
+        if (call.name === 'get_user_favorites') {
+          const requestedLimit = typeof args.limit === 'number' ? args.limit : 30;
+          const rows = await loadCurrentUserFavorites(requestedLimit);
+          result = {
+            status: rows.length > 0 ? 'ok' : 'no_results',
+            retryable: false,
+            message: rows.length > 0 ? 'Favoritos carregados da conta autenticada.' : 'A conta não possui favoritos salvos.',
+            count: rows.length,
+            favorites: rows.map((row) => ({
+              id: row.item_id,
+              type: row.item_type,
+              title: row.title,
+              subtitle: row.subtitle ?? '',
+              module: row.module_id,
+              addedAt: row.created_at,
+            })),
+          };
+        } else if (call.name === 'navigate_to_section') {
+          const section = args.section;
+          const mainSections = ['inicio', 'biblioteca', 'favoritos', 'mais'];
+          const moduleSections = ['calculadoras', 'manuais', 'projetos', 'ia', 'estetica', 'legislacao', 'contratos'];
+          if (typeof section !== 'string') throw new Error('A seção solicitada é inválida.');
+          if (mainSections.includes(section)) {
+            if (!onNavigateToSection) throw new Error('A navegação principal não está disponível.');
+            onNavigateToSection(section as 'inicio' | 'biblioteca' | 'favoritos' | 'mais');
+          } else if (moduleSections.includes(section)) {
+            if (!onNavigateToModule) throw new Error('A navegação dos módulos não está disponível.');
+            onNavigateToModule(section as ModuleId);
+          } else {
+            throw new Error('Esta seção não está disponível para navegação pelo assistente.');
+          }
+          result = { status: 'ok', retryable: false, message: 'Navegação concluída.', section };
+        } else if (call.name === 'open_favorite') {
+          const itemId = args.itemId;
+          if (typeof itemId !== 'string' || !itemId.trim()) throw new Error('Informe o identificador do favorito.');
+          const rows = await loadCurrentUserFavorites(30);
+          const favorite = rows.find((row) => row.item_id === itemId);
+          if (!favorite) throw new Error('Esse item não está nos seus favoritos.');
+          const moduleId = favorite.module_id;
+          if (typeof moduleId !== 'string' || !['calculadoras', 'manuais', 'projetos', 'ia', 'estetica', 'legislacao', 'contratos'].includes(moduleId)) {
+            throw new Error('Não foi possível identificar a seção deste favorito.');
+          }
+          if (!onNavigateToModule) throw new Error('A abertura de módulos não está disponível.');
+          onNavigateToModule(moduleId as ModuleId, favorite.item_id);
+          result = { status: 'ok', retryable: false, message: 'Favorito aberto com sucesso.', title: favorite.title, module: moduleId, itemId: favorite.item_id };
+        } else {
+          throw new Error('Ferramenta não reconhecida.');
+        }
+        return { id: call.id, name: call.name, response: result };
+      } catch (error) {
+        return {
+          id: call.id,
+          name: call.name,
+          response: { status: 'error', retryable: false, message: error instanceof Error ? error.message : 'Falha ao executar a ferramenta.' },
+        };
+      }
+    }));
+
+    if (socket.readyState === WebSocket.OPEN && liveSessionRef.current === socket) {
+      socket.send(JSON.stringify({ toolResponse: { functionResponses } }));
+      setConnectionStatus('thinking');
+    }
+  };
 
   const stopGeminiLive = () => {
     liveShouldStopRef.current = true;
@@ -265,9 +379,52 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         outputAudioTranscription: {},
         systemInstruction: {
           parts: [{
-            text: 'Você é o Assistente Técnico do OBra ENGEP. Responda em português do Brasil, com rigor técnico e linguagem de campo. Cite as normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC.',
+            text: 'Você é o Assistente Técnico do OBra ENGEP. Detecte automaticamente o idioma falado pelo usuário e responda sempre nesse mesmo idioma; não force português, não mude para espanhol ou outro idioma sem que o usuário o use e acompanhe imediatamente qualquer mudança de idioma. Use rigor técnico e linguagem de campo. Cite normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC. Você dispõe de ferramentas reais para consultar os favoritos da conta e navegar pelas seções do aplicativo. Quando perguntarem pelos favoritos, execute get_user_favorites antes de responder; quando pedirem para abrir um item, use open_favorite; quando pedirem para ir a uma seção, use navigate_to_section. Nunca diga que consultou, abriu ou navegou sem executar a ferramenta e receber sucesso. Não repita uma ferramenta após erro ou ausência de resultados e não faça mais de duas chamadas consecutivas sem informar o usuário.',
           }],
         },
+        tools: [{
+          functionDeclarations: [
+            {
+              name: 'get_user_favorites',
+              description: 'Consulta os favoritos reais da conta Google autenticada. Use antes de responder perguntas sobre quais itens estão salvos.',
+              behavior: 'NON_BLOCKING',
+              parameters: {
+                type: 'OBJECT',
+                properties: {
+                  limit: { type: 'INTEGER', description: 'Quantidade máxima de favoritos a retornar, entre 1 e 30.' },
+                },
+              },
+            },
+            {
+              name: 'navigate_to_section',
+              description: 'Navega para uma seção ou módulo existente do aplicativo OBra ENGEP.',
+              behavior: 'NON_BLOCKING',
+              parameters: {
+                type: 'OBJECT',
+                properties: {
+                  section: {
+                    type: 'STRING',
+                    enum: ['inicio', 'biblioteca', 'favoritos', 'mais', 'calculadoras', 'manuais', 'projetos', 'ia', 'estetica', 'legislacao', 'contratos'],
+                    description: 'Identificador da seção de destino.',
+                  },
+                },
+                required: ['section'],
+              },
+            },
+            {
+              name: 'open_favorite',
+              description: 'Abre um item que foi retornado pela ferramenta get_user_favorites.',
+              behavior: 'NON_BLOCKING',
+              parameters: {
+                type: 'OBJECT',
+                properties: {
+                  itemId: { type: 'STRING', description: 'ID exato do item favorito retornado anteriormente.' },
+                },
+                required: ['itemId'],
+              },
+            },
+          ],
+        }],
         realtimeInputConfig: {
           automaticActivityDetection: {
             disabled: false,
@@ -344,6 +501,10 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
               window.clearTimeout(setupTimeout);
               console.info('[Gemini Live] Session setup completed.');
               resolve();
+            }
+
+            if (Array.isArray(message.toolCall?.functionCalls) && message.toolCall.functionCalls.length > 0) {
+              void executeLiveToolCalls(message.toolCall.functionCalls, socket!);
             }
 
             const content = message.serverContent;
@@ -559,7 +720,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       window.speechSynthesis.cancel();
       const cleanText = text.replace(/[*#_`]/g, '').slice(0, 350);
       const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.lang = 'pt-BR';
+      utterance.lang = lastInputLanguageRef.current;
       utterance.rate = 1.05;
       utterance.onstart = () => setConnectionStatus('speaking');
       utterance.onend = () => setConnectionStatus('idle');
@@ -575,6 +736,10 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const handleSendMessage = async (textToSend?: string) => {
     const prompt = (textToSend || inputQuery).trim();
     if (!prompt || isGenerating) return;
+    lastInputLanguageRef.current = detectSpeechLanguage(
+      prompt,
+      typeof navigator !== 'undefined' ? navigator.language || 'pt-BR' : 'pt-BR'
+    );
 
     const userMsgId = `u-${Date.now()}`;
     const geminiMsgId = `g-${Date.now()}`;
@@ -930,7 +1095,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
-    recognition.lang = 'pt-BR';
+    recognition.lang = lastInputLanguageRef.current || (typeof navigator !== 'undefined' ? navigator.language : 'pt-BR');
     recognition.continuous = false;
     recognition.interimResults = true;
     speechRecognitionRef.current = recognition;

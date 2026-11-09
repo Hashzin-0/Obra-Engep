@@ -14,11 +14,11 @@ export const config = {
 
 const SYSTEM_INSTRUCTION = `Você é o Assistente Técnico do OBra ENGEP (obras, instalações prediais, segurança e estética automotiva).
 Diretrizes:
-1. Responda em português do Brasil, com rigor técnico e linguagem de campo.
+1. Detecte automaticamente o idioma da mensagem atual do usuário e responda no mesmo idioma, com naturalidade e terminologia técnica adequada. Não force português: acompanhe imediatamente mudanças de idioma e não traduza, a menos que solicitado.
 2. Cite as normas aplicáveis (NBR 5410, NBR 5626, NBR 6118, NBR 15575, NR-06, NR-10, NR-12, NR-18, NR-33, NR-35) sem reproduzir textos protegidos.
-3. Mostre premissas, fórmula e limitações do cálculo.
+3. Mostre premissas, fórmula, unidades e limitações dos cálculos.
 4. Em risco elétrico, trabalho em altura ou espaço confinado, reforce desenergização, LOTO, AR/PT, EPI/EPC e resgate.
-5. Não invente valores de norma, laudos, produtos ou contatos. Quando faltar dado, declare a lacuna.`;
+5. Não invente valores de norma, laudos, produtos, contatos ou dados pessoais. Quando faltar dado ou acesso, declare a limitação claramente.`;
 
 function json(res: ServerResponse, status: number, body: Record<string, unknown>) {
   res.statusCode = status;
@@ -135,9 +135,21 @@ export default async function handler(req: GeminiRequest, res: ServerResponse) {
       res.end();
     }
   } catch (error) {
-    console.error('[Gemini API] Request failed:', error instanceof Error ? error.name : 'unknown');
+    const apiError = error as { status?: unknown; message?: unknown };
+    const status = typeof apiError?.status === 'number' ? apiError.status : undefined;
+    const rawMessage = typeof apiError?.message === 'string' ? apiError.message : 'Erro não identificado do provedor.';
+    const safeMessage = rawMessage.replaceAll(apiKey, '[REDACTED]').slice(0, 400);
+    console.error('[Gemini API] Request failed.', { status, model, message: safeMessage });
+
+    let publicMessage = 'Falha temporária no processamento da IA. Tente novamente.';
+    if (status === 400) publicMessage = 'O Gemini rejeitou a solicitação. A configuração ou o conteúdo enviado não foi aceito.';
+    else if (status === 401 || status === 403) publicMessage = 'O Gemini recusou a autenticação ou a permissão desta solicitação.';
+    else if (status === 404) publicMessage = 'O modelo de texto configurado não está disponível para esta chave.';
+    else if (status === 429) publicMessage = 'O limite de uso do Gemini foi atingido. Aguarde e tente novamente.';
+    else if (status === 500 || status === 502 || status === 503) publicMessage = 'O serviço Gemini está temporariamente indisponível. Tente novamente.';
+
     if (!disconnected && !res.writableEnded && !res.destroyed) {
-      writeEvent(res, { type: 'error', error: 'Falha temporária no processamento da IA.' });
+      writeEvent(res, { type: 'error', error: publicMessage });
       res.end();
     }
   } finally {
