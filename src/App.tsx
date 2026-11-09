@@ -749,7 +749,7 @@ function AppShell() {
             initialTab={librarySubTab}
             initialItemId={librarySubItemId}
             onSectionChange={(section) => router.push(pathForLibrarySection(section))}
-            onItemChange={(itemId) => router.push(pathForLibrarySection(librarySubTab, itemId))}
+            onItemChange={(section, itemId) => router.push(pathForLibrarySection(section, itemId))}
             onAddFavorite={handleAddFavorite}
             isFavorite={isFavorite}
             products={products}
