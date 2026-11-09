@@ -1,5 +1,5 @@
-import ObraAppClient from './obra-app';
+import { redirect } from 'next/navigation';
 
-export default function HomePage() {
-  return <ObraAppClient />;
+export default function HomePage(): never {
+  redirect('/site');
 }
