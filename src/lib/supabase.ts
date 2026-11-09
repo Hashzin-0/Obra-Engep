@@ -15,14 +15,75 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
     })
   : null;
 
+// The app shell and AI entry points can request a session during the same first
+// render. Share the anonymous sign-in operation so they cannot race each other.
+let anonymousSessionInFlight: Promise<{ userId: string } | null> | null = null;
+
 export async function ensureAnonymousSession(): Promise<{ userId: string } | null> {
   if (!supabase) return null;
+  if (anonymousSessionInFlight) return anonymousSessionInFlight;
 
-  const { data: existing } = await supabase.auth.getSession();
-  if (existing.session?.user) return { userId: existing.session.user.id };
+  const pending = (async () => {
+    const { data: existing, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      throw new Error(`Não foi possível recuperar a sessão do Supabase: ${sessionError.message}`);
+    }
+    if (existing.session?.user) return { userId: existing.session.user.id };
 
-  const { data, error } = await supabase.auth.signInAnonymously();
-  if (error) throw new Error(`Falha ao iniciar sessão anônima: ${error.message}`);
-  if (!data.user) throw new Error('Supabase não retornou usuário anônimo.');
-  return { userId: data.user.id };
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (error) throw new Error(`Falha ao iniciar sessão anônima: ${error.message}`);
+    if (!data.user || !data.session?.access_token) {
+      throw new Error('Supabase não retornou uma sessão autenticada válida.');
+    }
+    return { userId: data.user.id };
+  })();
+
+  anonymousSessionInFlight = pending;
+  try {
+    return await pending;
+  } finally {
+    if (anonymousSessionInFlight === pending) anonymousSessionInFlight = null;
+  }
+}
+
+/**
+ * Wait for Supabase auth initialization, create a guest session when necessary,
+ * and refresh credentials that are about to expire before an AI request.
+ */
+export async function getSupabaseAccessToken(): Promise<string> {
+  if (!supabase) throw new Error('Serviço de autenticação indisponível.');
+
+  await ensureAnonymousSession();
+
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    throw new Error(`Não foi possível recuperar a sessão do Supabase: ${error.message}`);
+  }
+
+  let session = data.session;
+  if (!session) {
+    // A session can disappear between initialization and this read. Re-run the
+    // single-flight bootstrap once, then read the newly persisted credentials.
+    await ensureAnonymousSession();
+    const retry = await supabase.auth.getSession();
+    if (retry.error || !retry.data.session) {
+      throw new Error('Não foi possível estabelecer uma sessão autenticada. Atualize a página e tente novamente.');
+    }
+    session = retry.data.session;
+  }
+
+  const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
+  if (expiresAt > 0 && expiresAt <= Date.now() + 60_000) {
+    const refreshed = await supabase.auth.refreshSession();
+    if (refreshed.error || !refreshed.data.session) {
+      throw new Error('A sessão do Supabase expirou e não pôde ser renovada. Entre novamente.');
+    }
+    session = refreshed.data.session;
+  }
+
+  if (!session.access_token) {
+    throw new Error('O Supabase não forneceu um token de acesso válido. Entre novamente.');
+  }
+
+  return session.access_token;
 }
