@@ -185,9 +185,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
               : node instanceof HTMLTextAreaElement ? 'textarea'
                 : node.tagName.toLocaleLowerCase(),
         description: node.getAttribute('data-robot-description') ?? '',
-        value: node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement || node instanceof HTMLSelectElement
-          ? node.value
-          : undefined,
       }));
   };
 
@@ -374,11 +371,19 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             if (!allowedCalculatorIds.has(calculatorId)) throw new Error('Calculadora não reconhecida. Use um ID de calculadora suportado.');
             if (!onNavigateToModule) throw new Error('A navegação para calculadoras não está disponível.');
             onNavigateToModule('calculadoras', calculatorId);
-            await new Promise((resolve) => window.setTimeout(resolve, 350));
+            for (let attempt = 0; attempt < 20; attempt += 1) {
+              await new Promise((resolve) => window.setTimeout(resolve, 100));
+              const readyFields = document.querySelectorAll('main input:not([type="hidden"]):not([disabled]), main select:not([disabled]), main textarea:not([disabled])');
+              if (Array.from(readyFields).some((field) => (field as HTMLElement).getClientRects().length > 0)) break;
+            }
           } else if (!window.location.pathname.startsWith('/calculadoras')) {
             if (!onNavigateToModule) throw new Error('A navegação para calculadoras não está disponível.');
             onNavigateToModule('calculadoras');
-            await new Promise((resolve) => window.setTimeout(resolve, 350));
+            for (let attempt = 0; attempt < 20; attempt += 1) {
+              await new Promise((resolve) => window.setTimeout(resolve, 100));
+              const readyFields = document.querySelectorAll('main input:not([type="hidden"]):not([disabled]), main select:not([disabled]), main textarea:not([disabled])');
+              if (Array.from(readyFields).some((field) => (field as HTMLElement).getClientRects().length > 0)) break;
+            }
           }
           const fillResult = await fillCalculatorFields(args.fields, args.submit === true);
           result = fillResult;
@@ -713,7 +718,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
                       type: 'OBJECT',
                       properties: {
                         label: { type: 'STRING', description: 'Rótulo visível exato do campo.' },
-                        value: { type: 'STRING', description: 'Valor textual, numérico ou opção correspondente ao campo.' },
+                        value: { type: 'STRING', description: 'Valor do campo em texto. Envie números como texto decimal e caixas de seleção como true ou false.' },
                       },
                       required: ['label', 'value'],
                     },
