@@ -39,7 +39,7 @@ interface LibraryViewProps {
   onDeleteProduct: (id: string) => void;
   onSaveNote: (note: NotebookNote) => void;
   onSectionChange?: (section: LibrarySection) => void;
-  onItemChange?: (itemId: string) => void;
+  onItemChange?: (section: LibrarySection, itemId: string) => void;
 }
 
 type LibrarySection = 'nrs' | 'abnt' | 'legislacao' | 'estetica' | 'manuais';
@@ -187,7 +187,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 key={nr.id}
                 onClick={() => {
                   setSelectedNRId(nr.id);
-                  onItemChange?.(nr.id);
+                  onItemChange?.('nrs', nr.id);
                 }}
                 className={`p-2.5 rounded-xl border text-left transition ${
                   nr.id === selectedNRId
@@ -459,7 +459,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                         key={prod.id}
                         onClick={() => {
                           setSelectedProductId(prod.id);
-                          onItemChange?.(prod.id);
+                          onItemChange?.('estetica', prod.id);
                         }}
                         className={`p-2.5 rounded-xl border text-left transition ${
                           prod.id === currentProduct?.id
@@ -662,7 +662,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 key={manual.id}
                 onClick={() => {
                   setSelectedManualId(manual.id);
-                  onItemChange?.(manual.id);
+                  onItemChange?.('manuais', manual.id);
                 }}
                 className={`p-3 rounded-xl border text-left transition ${
                   manual.id === currentManual.id
