@@ -176,7 +176,8 @@ function AppShell() {
   }, []);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !sessionUserId || !supabase) {
+    const authClient = supabase;
+    if (!isSupabaseConfigured || !sessionUserId || !authClient) {
       userIdRef.current = null;
       setRemoteReady(false);
       return;
@@ -185,7 +186,7 @@ function AppShell() {
 
     const connect = async () => {
       try {
-        const { data, error } = await supabase.auth.getSession();
+        const { data, error } = await authClient.auth.getSession();
         if (error) throw error;
         const session = data.session;
         if (!session || session.user.is_anonymous || session.user.app_metadata?.provider !== 'google' || session.user.id !== sessionUserId || cancelled) return;
