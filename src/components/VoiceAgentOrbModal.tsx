@@ -165,7 +165,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   };
 
   const normalizeUiLabel = (value: string) =>
-    value.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, ' ').trim();
+    value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, ' ').trim();
 
   const getVisibleScreenControls = () => {
     const root = document.querySelector<HTMLElement>('main');
@@ -198,7 +198,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     const root = document.querySelector<HTMLElement>('main');
     if (!root) throw new Error('A área principal da aplicação não está disponível.');
     const controls = Array.from(root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
-      'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="password"]):not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="date"]):not([type="time"]):not([type="month"]):not([type="week"]):not([disabled]), textarea:not([disabled]), select:not([disabled])'
+      'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="password"]):not([type="file"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="date"]):not([type="time"]):not([type="month"]):not([type="week"]):not([disabled]), textarea:not([disabled]), select:not([disabled])'
     )).filter((field) => field.getClientRects().length > 0 && !(field instanceof HTMLInputElement && field.readOnly) && !(field instanceof HTMLTextAreaElement && field.readOnly));
 
     const filled: string[] = [];
@@ -227,6 +227,20 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       }
       const field = matches[0];
       let nextValue = String(value);
+      if (field instanceof HTMLInputElement && field.type === 'checkbox') {
+        const normalized = normalizeUiLabel(nextValue);
+        if (typeof value !== 'boolean' && !['sim', 'nao', 'true', 'false', '1', '0'].includes(normalized)) {
+          errors.push(`O campo ${label} espera um valor verdadeiro/falso.`);
+          continue;
+        }
+        const checked = typeof value === 'boolean' ? value : ['sim', 'true', '1'].includes(normalized);
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set;
+        setter?.call(field, checked);
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+        filled.push(label);
+        continue;
+      }
       if (field instanceof HTMLSelectElement) {
         const normalized = normalizeUiLabel(nextValue);
         const option = Array.from(field.options).find((item) =>
@@ -279,7 +293,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const highlightUiElement = (query: string) => {
     const root = document.querySelector<HTMLElement>('main');
     if (!root) throw new Error('A tela principal não está disponível.');
-    const normalizedQuery = normalizeUiLabel(query.replace(/^(botao|botão|campo|aba|secao|seção)\\s+/i, ''));
+    const normalizedQuery = normalizeUiLabel(query.replace(/^(botao|botão|campo|aba|secao|seção)\s+/i, ''));
     if (normalizedQuery.length < 2) throw new Error('Informe o nome visível do elemento que deseja destacar.');
     const candidates = Array.from(root.querySelectorAll<HTMLElement>(
       'button, a[href], input, select, textarea, [role="button"], [data-robot-guide], h1, h2, h3, [data-robot-label]'
@@ -330,14 +344,34 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           result = { status: 'ok', route: window.location.pathname, count: controls.length, controls };
         } else if (call.name === 'open_calculator') {
           const calculatorId = args.calculatorId;
-          if (typeof calculatorId !== 'string' || !/^[a-z0-9_]+$/.test(calculatorId)) throw new Error('Identificador de calculadora inválido.');
+          const allowedCalculatorIds = new Set([
+            'potencia_corrente', 'lei_ohm', 'dimensionamento_cabos', 'circuitos_disjuntores',
+            'conversao_eletrica', 'formulas_eletricas', 'calculadora_iluminacao',
+            'capacidade_conducao_corrente', 'calculadora_resistores', 'calculadora_corrente',
+            'calculadora_fita_led', 'reservatorio', 'vazao_pressao', 'perda_carga',
+            'diametro_tubo', 'concreto_materiais', 'tabela_aco', 'calculadora_telhado',
+            'pesos_proprios', 'conversor_pressao', 'conversor_potencia', 'alvenaria_blocos',
+            'calculadora_combustivel', 'conversor_areas',
+          ]);
+          if (typeof calculatorId !== 'string' || !allowedCalculatorIds.has(calculatorId)) {
+            throw new Error('Calculadora não reconhecida. Consulte a lista de IDs disponíveis na descrição da ferramenta.');
+          }
           if (!onNavigateToModule) throw new Error('A navegação para calculadoras não está disponível.');
           onNavigateToModule('calculadoras', calculatorId);
           result = { status: 'ok', calculatorId, message: 'Calculadora solicitada. Aguarde a tela abrir e consulte os campos disponíveis.' };
         } else if (call.name === 'fill_calculator_fields') {
           const calculatorId = args.calculatorId;
           if (typeof calculatorId === 'string' && calculatorId.trim()) {
-            if (!/^[a-z0-9_]+$/.test(calculatorId)) throw new Error('Identificador de calculadora inválido.');
+            const allowedCalculatorIds = new Set([
+              'potencia_corrente', 'lei_ohm', 'dimensionamento_cabos', 'circuitos_disjuntores',
+              'conversao_eletrica', 'formulas_eletricas', 'calculadora_iluminacao',
+              'capacidade_conducao_corrente', 'calculadora_resistores', 'calculadora_corrente',
+              'calculadora_fita_led', 'reservatorio', 'vazao_pressao', 'perda_carga',
+              'diametro_tubo', 'concreto_materiais', 'tabela_aco', 'calculadora_telhado',
+              'pesos_proprios', 'conversor_pressao', 'conversor_potencia', 'alvenaria_blocos',
+              'calculadora_combustivel', 'conversor_areas',
+            ]);
+            if (!allowedCalculatorIds.has(calculatorId)) throw new Error('Calculadora não reconhecida. Use um ID de calculadora suportado.');
             if (!onNavigateToModule) throw new Error('A navegação para calculadoras não está disponível.');
             onNavigateToModule('calculadoras', calculatorId);
             await new Promise((resolve) => window.setTimeout(resolve, 350));
