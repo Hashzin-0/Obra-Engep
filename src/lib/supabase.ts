@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string | undefined;
@@ -16,10 +16,10 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
   : null;
 
 /**
- * Return a valid access token only for a Google-authenticated user.
- * Guest/anonymous sessions are intentionally rejected.
+ * Resolve a current Google-authenticated session and refresh it when near expiry.
+ * Anonymous and non-Google sessions are never accepted.
  */
-export async function getSupabaseAccessToken(): Promise<string> {
+export async function getSupabaseSession(): Promise<Session> {
   if (!supabase) throw new Error('Serviço de autenticação indisponível.');
 
   const { data, error } = await supabase.auth.getSession();
@@ -29,7 +29,7 @@ export async function getSupabaseAccessToken(): Promise<string> {
 
   let session = data.session;
   if (!session || session.user.is_anonymous || session.user.app_metadata?.provider !== 'google') {
-    throw new Error('Entre com sua conta Google para utilizar os recursos de IA.');
+    throw new Error('Entre com sua conta Google para utilizar este recurso.');
   }
 
   const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
@@ -45,5 +45,10 @@ export async function getSupabaseAccessToken(): Promise<string> {
     throw new Error('O Supabase não forneceu um token de acesso válido. Entre novamente.');
   }
 
+  return session;
+}
+
+export async function getSupabaseAccessToken(): Promise<string> {
+  const session = await getSupabaseSession();
   return session.access_token;
 }
