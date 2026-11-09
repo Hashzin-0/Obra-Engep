@@ -22,6 +22,7 @@ import { useTheme } from '../context/ThemeContext';
 import { getSupabaseAccessToken, supabase } from '../lib/supabase';
 import { RobotHeadAvatar } from './RobotHeadAvatar';
 import type { ModuleId } from '../types';
+import { contractModels } from '../data/contractsCatalog';
 
 const LANGUAGE_HINTS: Record<string, string[]> = {
   'pt-BR': ['você', 'voce', 'seus', 'suas', 'favoritos', 'quero', 'preciso', 'como', 'qual', 'obrigado', 'não', 'nao'],
@@ -57,9 +58,10 @@ interface VoiceAgentOrbModalProps {
   onGuidingChange?: (guiding: boolean) => void;
   onNavigateToSection?: (section: 'inicio' | 'biblioteca' | 'favoritos' | 'mais') => void;
   onNavigateToModule?: (moduleId: ModuleId, itemId?: string) => void;
+  getProjectOverview?: () => Array<{ id: string; name: string; type: string; stage: string; updatedAt: string; walls: number; rooms: number; openings: number }>;
 }
 
-export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, onClose, onStatusChange, onGuidingChange, onNavigateToSection, onNavigateToModule }) => {
+export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, onClose, onStatusChange, onGuidingChange, onNavigateToSection, onNavigateToModule, getProjectOverview }) => {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
@@ -297,6 +299,38 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     return { status: errors.length ? 'partial' : 'ok', filled, errors, submitted };
   };
 
+  const fillContractFields = (fields: unknown) => {
+    if (!Array.isArray(fields) || fields.length === 0 || fields.length > 30) throw new Error('Informe entre 1 e 30 pares de campo e valor.');
+    const root = document.querySelector<HTMLElement>('[data-agent-form="contract-editor"]');
+    if (!root || root.getClientRects().length === 0) throw new Error('Abra um modelo de contrato e entre na etapa de dados para preencher os campos.');
+    const controls = Array.from(root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input:not([type="hidden"]):not([disabled]), textarea:not([disabled])')).filter((field) => field.getClientRects().length > 0 && !field.readOnly);
+    const filled: string[] = [];
+    const errors: string[] = [];
+    for (const entry of fields) {
+      if (!entry || typeof entry !== 'object' || !('label' in entry) || !('value' in entry)) { errors.push('Parâmetro de campo inválido.'); continue; }
+      const label = (entry as { label: unknown }).label;
+      const value = (entry as { value: unknown }).value;
+      if (typeof label !== 'string' || !label.trim() || !['string', 'number', 'boolean'].includes(typeof value)) { errors.push('Cada campo precisa de uma chave/rótulo e um valor textual, numérico ou booleano.'); continue; }
+      const wanted = normalizeUiLabel(label);
+      const matches = controls.filter((field, index) => {
+        const key = field.dataset.agentField ?? '';
+        return key === label || normalizeUiLabel(key) === wanted || normalizeUiLabel(getGuideFieldLabel(field, index)) === wanted;
+      });
+      if (matches.length !== 1) {
+        errors.push(matches.length === 0 ? 'Campo "' + label + '" não encontrado no formulário do contrato atual.' : 'O identificador "' + label + '" corresponde a mais de um campo; use a chave exata.');
+        continue;
+      }
+      const field = matches[0];
+      const prototype = field instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(prototype, 'value')?.set?.call(field, String(value));
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+      if (!field.checkValidity()) { field.reportValidity(); errors.push('O valor informado para ' + label + ' não passou na validação.'); continue; }
+      filled.push(field.dataset.agentField || getGuideFieldLabel(field, controls.indexOf(field)));
+    }
+    return { status: errors.length ? 'partial' : 'ok', filled, errors, saved: false, generated: false, message: 'Campos preenchidos. O documento não foi gerado nem salvo.' };
+  };
+
   const highlightUiElement = (query: string) => {
     const root = document.querySelector<HTMLElement>('main');
     if (!root) throw new Error('A tela principal não está disponível.');
@@ -351,7 +385,9 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         if (call.name === 'get_current_screen_controls') {
           const controls = getVisibleScreenControls();
           const calculator = document.querySelector<HTMLElement>('[data-calculator-form]');
-          result = { status: 'ok', route: window.location.pathname, calculatorId: calculator?.dataset.calculatorId ?? null, count: controls.length, controls };
+          const activeForm = document.querySelector<HTMLElement>('[data-agent-form]');
+          const screenTitle = document.querySelector<HTMLElement>('main h1, main h2')?.textContent?.trim() ?? '';
+          result = { status: 'ok', route: window.location.pathname, screenTitle, calculatorId: calculator?.dataset.calculatorId ?? null, activeForm: activeForm?.dataset.agentForm ?? null, activeFormId: activeForm?.dataset.agentFormId ?? null, count: controls.length, controls };
         } else if (call.name === 'open_calculator') {
           const calculatorId = args.calculatorId;
           if (typeof calculatorId !== 'string' || !/^[a-z0-9_]{1,80}$/i.test(calculatorId)) {
