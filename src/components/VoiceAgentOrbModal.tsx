@@ -22,6 +22,7 @@ import { useTheme } from '../context/ThemeContext';
 import { getSupabaseAccessToken, supabase } from '../lib/supabase';
 import { RobotHeadAvatar } from './RobotHeadAvatar';
 import type { ModuleId } from '../types';
+import type { CanvasAgentApi, CanvasAgentKind } from '../views/FloorPlanEditorView';
 import { contractModels } from '../data/contractsCatalog';
 
 const LANGUAGE_HINTS: Record<string, string[]> = {
@@ -59,9 +60,10 @@ interface VoiceAgentOrbModalProps {
   onNavigateToSection?: (section: 'inicio' | 'biblioteca' | 'favoritos' | 'mais') => void;
   onNavigateToModule?: (moduleId: ModuleId, itemId?: string) => void;
   getProjectOverview?: () => Array<{ id: string; name: string; type: string; stage: string; updatedAt: string; walls: number; rooms: number; openings: number }>;
+  getCanvasAgent?: () => CanvasAgentApi | null;
 }
 
-export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, onClose, onStatusChange, onGuidingChange, onNavigateToSection, onNavigateToModule, getProjectOverview }) => {
+export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, onClose, onStatusChange, onGuidingChange, onNavigateToSection, onNavigateToModule, getProjectOverview, getCanvasAgent }) => {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
@@ -460,6 +462,53 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           const normalized = normalizeUiLabel(query);
           const matches = contractModels.filter((model) => normalizeUiLabel(model.title + ' ' + model.description + ' ' + model.regime + ' ' + model.category).includes(normalized)).slice(0, 8);
           result = { status: matches.length ? 'ok' : 'no_results', count: matches.length, templates: matches.map((model) => ({ id: model.id, title: model.title, category: model.category, regime: model.regime, description: model.description, requiredFields: model.fields.filter((field) => field.required).map((field) => ({ key: field.key, label: field.label })) })) };
+
+        } else if (call.name === 'get_canvas_overview') {
+          let api = getCanvasAgent?.() ?? null;
+          if (!api) {
+            if (!onNavigateToModule) throw new Error('A navegação para o Canvas não está disponível.');
+            onNavigateToModule('projetos');
+            for (let attempt = 0; attempt < 40; attempt += 1) {
+              await new Promise((resolve) => window.setTimeout(resolve, 100));
+              api = getCanvasAgent?.() ?? null;
+              if (api) break;
+            }
+          }
+          if (!api) throw new Error('O Canvas ainda não disponibilizou o projeto ativo. Aguarde a abertura do editor e tente novamente.');
+          result = api.getOverview();
+        } else if (call.name === 'select_canvas_element') {
+          const kind = args.kind, id = args.id;
+          if (typeof kind !== 'string' || !['wall', 'opening', 'electrical', 'hydraulic', 'furniture'].includes(kind) || typeof id !== 'string') throw new Error('Informe o tipo e o ID exato do elemento retornado por get_canvas_overview.');
+          let api = getCanvasAgent?.() ?? null;
+          if (!api) {
+            if (!onNavigateToModule) throw new Error('A navegação para o Canvas não está disponível.');
+            onNavigateToModule('projetos');
+            for (let attempt = 0; attempt < 40; attempt += 1) { await new Promise((resolve) => window.setTimeout(resolve, 100)); api = getCanvasAgent?.() ?? null; if (api) break; }
+          }
+          if (!api) throw new Error('O Canvas não está pronto para selecionar elementos.');
+          result = api.selectElement(kind as CanvasAgentKind, id);
+          try { highlightUiElement('Planta 2D'); } catch { /* The object selection remains highlighted on the canvas. */ }
+        } else if (call.name === 'add_canvas_element') {
+          let api = getCanvasAgent?.() ?? null;
+          if (!api) {
+            if (!onNavigateToModule) throw new Error('A navegação para o Canvas não está disponível.');
+            onNavigateToModule('projetos');
+            for (let attempt = 0; attempt < 40; attempt += 1) { await new Promise((resolve) => window.setTimeout(resolve, 100)); api = getCanvasAgent?.() ?? null; if (api) break; }
+          }
+          if (!api) throw new Error('O Canvas não está pronto para adicionar elementos.');
+          result = api.addElement(args);
+        } else if (call.name === 'move_canvas_element') {
+          const kind = args.kind, id = args.id, x = args.x, y = args.y;
+          if (typeof kind !== 'string' || !['wall', 'opening', 'electrical', 'hydraulic', 'furniture'].includes(kind) || typeof id !== 'string' || typeof x !== 'number' || typeof y !== 'number') throw new Error('Informe kind, ID, x e y numéricos do elemento.');
+          const api = getCanvasAgent?.();
+          if (!api) throw new Error('Abra o módulo Projetos e aguarde o Canvas carregar antes de mover um elemento.');
+          result = api.moveElement(kind as CanvasAgentKind, id, x, y);
+        } else if (call.name === 'delete_canvas_element') {
+          const kind = args.kind, id = args.id, confirmed = args.confirmed;
+          if (typeof kind !== 'string' || !['wall', 'opening', 'electrical', 'hydraulic', 'furniture'].includes(kind) || typeof id !== 'string' || typeof confirmed !== 'boolean') throw new Error('Informe kind, ID e confirmed booleano.');
+          const api = getCanvasAgent?.();
+          if (!api) throw new Error('Abra o módulo Projetos e aguarde o Canvas carregar antes de excluir um elemento.');
+          result = api.deleteElement(kind as CanvasAgentKind, id, confirmed);
         } else if (call.name === 'get_project_overview') {
           if (!getProjectOverview) throw new Error('O resumo dos projetos não está disponível nesta sessão.');
           const projects = getProjectOverview();
@@ -765,7 +814,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         outputAudioTranscription: {},
         systemInstruction: {
           parts: [{
-            text: 'Você é o Assistente Técnico do OBra ENGEP. Detecte automaticamente o idioma falado pelo usuário e responda sempre nesse mesmo idioma; não force português, não mude para espanhol ou outro idioma sem que o usuário o use e acompanhe imediatamente qualquer mudança de idioma. Use rigor técnico e linguagem de campo. Cite normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC. Você é o agente operacional por voz do OBra ENGEP. Além de conversar, pode inspecionar a tela, abrir calculadoras, preencher campos e destacar elementos da interface com o robô flutuante. Para consultar favoritos use get_user_favorites; cálculos recentes use get_recent_calculations; prazos use get_upcoming_deadlines; biblioteca use search_library. Para navegação use navigate_to_section ou open_favorite. Para trabalhar com calculadoras: primeiro use open_calculator quando precisar selecionar uma calculadora; use get_current_screen_controls para descobrir os rótulos visíveis dos campos; use fill_calculator_fields com pares label/value exatos; só envie submit=true quando o usuário tiver pedido para calcular. Para contratos: use search_contract_templates para localizar um modelo; depois use open_contract_template com o ID retornado para abrir o formulário correspondente; use get_current_screen_controls para conferir os rótulos e chaves e fill_contract_fields para preencher somente os valores informados. Essa ferramenta nunca gera nem salva o documento; aguarde pedido explícito e use a ação apropriada da interface. Para projetos, use get_project_overview antes de responder sobre os projetos salvos e não invente detalhes da planta. Não invente valores ausentes: pergunte ao usuário antes de preencher um campo que dependa de informação não fornecida. Para apontar um controle, use highlight_ui_element com o texto visível/aria-label e explique o que ele faz; o robô se posicionará acima do alvo e o destacará. Use clear_ui_highlight quando terminar. Nunca diga que preencheu, calculou, abriu ou destacou sem receber sucesso da ferramenta. O preenchimento altera somente os campos indicados; não salva, envia, exclui ou confirma operações externas sem autorização explícita. Não repita uma ferramenta após erro ou ausência de resultados e não faça mais de duas chamadas consecutivas sem informar o usuário.',
+            text: 'Você é o Assistente Técnico do OBra ENGEP. Detecte automaticamente o idioma falado pelo usuário e responda sempre nesse mesmo idioma; não force português, não mude para espanhol ou outro idioma sem que o usuário o use e acompanhe imediatamente qualquer mudança de idioma. Use rigor técnico e linguagem de campo. Cite normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC. Você é o agente operacional por voz do OBra ENGEP. Além de conversar, pode inspecionar a tela, abrir calculadoras, preencher campos e destacar elementos da interface com o robô flutuante. Para consultar favoritos use get_user_favorites; cálculos recentes use get_recent_calculations; prazos use get_upcoming_deadlines; biblioteca use search_library. Para navegação use navigate_to_section ou open_favorite. Para trabalhar com calculadoras: primeiro use open_calculator quando precisar selecionar uma calculadora; use get_current_screen_controls para descobrir os rótulos visíveis dos campos; use fill_calculator_fields com pares label/value exatos; só envie submit=true quando o usuário tiver pedido para calcular. Para contratos: use search_contract_templates para localizar um modelo; depois use open_contract_template com o ID retornado para abrir o formulário correspondente; use get_current_screen_controls para conferir os rótulos e chaves e fill_contract_fields para preencher somente os valores informados. Essa ferramenta nunca gera nem salva o documento; aguarde pedido explícito e use a ação apropriada da interface. Para projetos, use get_project_overview antes de responder sobre os projetos salvos e não invente detalhes da planta. Para editar plantas, use get_canvas_overview para identificar o projeto, pavimento e IDs reais; use select_canvas_element para selecionar/destacar um objeto; add_canvas_element e move_canvas_element somente após pedido explícito do usuário. Coordenadas são pixels do Canvas, portanto confirme referências/posições com o usuário quando não estiverem claras. Antes de excluir qualquer objeto, explique o impacto e peça confirmação explícita; só então chame delete_canvas_element com confirmed=true. Não exclua paredes por voz, pois podem sustentar junções, aberturas e cômodos. Após cada alteração, confirme somente o resultado retornado pela ferramenta. Não invente valores ausentes: pergunte ao usuário antes de preencher um campo que dependa de informação não fornecida. Para apontar um controle, use highlight_ui_element com o texto visível/aria-label e explique o que ele faz; o robô se posicionará acima do alvo e o destacará. Use clear_ui_highlight quando terminar. Nunca diga que preencheu, calculou, abriu ou destacou sem receber sucesso da ferramenta. O preenchimento altera somente os campos indicados; não salva, envia, exclui ou confirma operações externas sem autorização explícita. Não repita uma ferramenta após erro ou ausência de resultados e não faça mais de duas chamadas consecutivas sem informar o usuário.',
           }],
         },
         tools: [{
@@ -827,6 +876,49 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
               description: 'Pesquisa o catálogo real de modelos de contratos disponíveis no OBra ENGEP e retorna IDs, regimes e campos obrigatórios.',
               behavior: 'NON_BLOCKING',
               parameters: { type: 'OBJECT', properties: { query: { type: 'STRING', description: 'Tipo de contrato, atividade, regime ou termo de pesquisa.' } }, required: ['query'] },
+            },
+
+            {
+              name: 'get_canvas_overview',
+              description: 'Abre o módulo Projetos se necessário e consulta o projeto e pavimento ativos do Canvas, incluindo elementos com IDs, tipos, coordenadas e contagens.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: {} },
+            },
+            {
+              name: 'select_canvas_element',
+              description: 'Seleciona e destaca um elemento existente no Canvas 2D pelo tipo e ID exato retornado por get_canvas_overview. O painel de propriedades fica disponível para inspeção.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { kind: { type: 'STRING', enum: ['wall', 'opening', 'electrical', 'hydraulic', 'furniture'] }, id: { type: 'STRING' } }, required: ['kind', 'id'] },
+            },
+            {
+              name: 'add_canvas_element',
+              description: 'Adiciona um elemento real ao pavimento ativo. Para parede use kind=wall e x1,y1,x2,y2; para abertura use kind=opening, type door/window, wallId, x,y; para elétrica/hidráulica informe kind, type, x,y; para mobiliário informe kind=furniture, catalogId, x,y. Use somente quando o usuário pedir explicitamente a alteração.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: {
+                kind: { type: 'STRING', enum: ['wall', 'opening', 'electrical', 'hydraulic', 'furniture'] },
+                type: { type: 'STRING' }, catalogId: { type: 'STRING' }, wallId: { type: 'STRING' },
+                x: { type: 'NUMBER' }, y: { type: 'NUMBER' }, x1: { type: 'NUMBER' }, y1: { type: 'NUMBER' },
+                x2: { type: 'NUMBER' }, y2: { type: 'NUMBER' }, width: { type: 'NUMBER' }, thickness: { type: 'NUMBER' },
+                diameterMm: { type: 'NUMBER' }, circuit: { type: 'STRING' }, label: { type: 'STRING' },
+              }, required: ['kind'] },
+            },
+            {
+              name: 'move_canvas_element',
+              description: 'Move um elemento existente para as coordenadas x,y em pixels da planta. Aberturas permanecem anexadas à parede; rotas elétricas/hidráulicas preservam seu comprimento. Paredes inteiras não podem ser movidas por voz devido às junções e cômodos conectados.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: {
+                kind: { type: 'STRING', enum: ['wall', 'opening', 'electrical', 'hydraulic', 'furniture'] },
+                id: { type: 'STRING' }, x: { type: 'NUMBER' }, y: { type: 'NUMBER' },
+              }, required: ['kind', 'id', 'x', 'y'] },
+            },
+            {
+              name: 'delete_canvas_element',
+              description: 'Exclui uma abertura, componente elétrico/hidráulico ou móvel do pavimento ativo. Exige confirmed=true somente depois de o usuário confirmar explicitamente a exclusão. Paredes não podem ser excluídas por voz para preservar a topologia.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: {
+                kind: { type: 'STRING', enum: ['wall', 'opening', 'electrical', 'hydraulic', 'furniture'] },
+                id: { type: 'STRING' }, confirmed: { type: 'BOOLEAN' },
+              }, required: ['kind', 'id', 'confirmed'] },
             },
             {
               name: 'get_project_overview',
