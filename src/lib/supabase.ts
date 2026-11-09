@@ -28,14 +28,14 @@ export async function getSupabaseAccessToken(): Promise<string> {
   }
 
   let session = data.session;
-  if (!session || session.user.is_anonymous) {
+  if (!session || session.user.is_anonymous || session.user.app_metadata?.provider !== 'google') {
     throw new Error('Entre com sua conta Google para utilizar os recursos de IA.');
   }
 
   const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
   if (expiresAt > 0 && expiresAt <= Date.now() + 60_000) {
     const refreshed = await supabase.auth.refreshSession();
-    if (refreshed.error || !refreshed.data.session || refreshed.data.session.user.is_anonymous) {
+    if (refreshed.error || !refreshed.data.session || refreshed.data.session.user.is_anonymous || refreshed.data.session.user.app_metadata?.provider !== 'google') {
       throw new Error('Sua sessão expirou. Entre novamente com o Google.');
     }
     session = refreshed.data.session;
