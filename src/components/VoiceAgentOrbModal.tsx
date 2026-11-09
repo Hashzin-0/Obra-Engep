@@ -164,6 +164,157 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     return data ?? [];
   };
 
+  const normalizeUiLabel = (value: string) =>
+    value.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, ' ').trim();
+
+  const getVisibleScreenControls = () => {
+    const root = document.querySelector<HTMLElement>('main');
+    if (!root) return [];
+    const nodes = Array.from(root.querySelectorAll<HTMLElement>(
+      'input:not([type="hidden"]):not([type="password"]):not([type="file"]):not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]), a[href], [role="button"], [data-robot-guide]'
+    ));
+    return nodes
+      .filter((node) => node.getClientRects().length > 0)
+      .slice(0, 80)
+      .map((node, index) => ({
+        index,
+        label: getGuideFieldLabel(node, index),
+        role: node instanceof HTMLButtonElement ? 'button'
+          : node instanceof HTMLSelectElement ? 'select'
+            : node instanceof HTMLInputElement ? 'input'
+              : node instanceof HTMLTextAreaElement ? 'textarea'
+                : node.tagName.toLocaleLowerCase(),
+        description: node.getAttribute('data-robot-description') ?? '',
+        value: node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement || node instanceof HTMLSelectElement
+          ? node.value
+          : undefined,
+      }));
+  };
+
+  const fillCalculatorFields = async (fields: unknown, submit: boolean) => {
+    if (!Array.isArray(fields) || fields.length === 0 || fields.length > 20) {
+      throw new Error('Informe entre 1 e 20 pares de campo e valor.');
+    }
+    const root = document.querySelector<HTMLElement>('main');
+    if (!root) throw new Error('A área principal da aplicação não está disponível.');
+    const controls = Array.from(root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+      'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="password"]):not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="date"]):not([type="time"]):not([type="month"]):not([type="week"]):not([disabled]), textarea:not([disabled]), select:not([disabled])'
+    )).filter((field) => field.getClientRects().length > 0 && !(field instanceof HTMLInputElement && field.readOnly) && !(field instanceof HTMLTextAreaElement && field.readOnly));
+
+    const filled: string[] = [];
+    const errors: string[] = [];
+    for (const entry of fields) {
+      if (!entry || typeof entry !== 'object' || !('label' in entry) || !('value' in entry)) {
+        errors.push('Parâmetro de campo inválido.');
+        continue;
+      }
+      const label = (entry as { label: unknown }).label;
+      const value = (entry as { value: unknown }).value;
+      if (typeof label !== 'string' || !label.trim() || !['string', 'number', 'boolean'].includes(typeof value)) {
+        errors.push('Cada campo precisa de um rótulo e um valor textual, numérico ou booleano.');
+        continue;
+      }
+      const wanted = normalizeUiLabel(label);
+      const matches = controls.filter((field, index) => {
+        const actual = normalizeUiLabel(getGuideFieldLabel(field, index));
+        return actual === wanted || (wanted.length >= 4 && actual.includes(wanted));
+      });
+      if (matches.length !== 1) {
+        errors.push(matches.length === 0
+          ? `Campo "${label}" não encontrado na calculadora atual.`
+          : `O rótulo "${label}" corresponde a mais de um campo; especifique melhor.`);
+        continue;
+      }
+      const field = matches[0];
+      let nextValue = String(value);
+      if (field instanceof HTMLSelectElement) {
+        const normalized = normalizeUiLabel(nextValue);
+        const option = Array.from(field.options).find((item) =>
+          normalizeUiLabel(item.value) === normalized || normalizeUiLabel(item.textContent ?? '') === normalized
+        );
+        if (!option) {
+          errors.push(`Valor "${nextValue}" não corresponde a uma opção de ${label}.`);
+          continue;
+        }
+        nextValue = option.value;
+      } else if (field instanceof HTMLInputElement && field.type === 'number') {
+        const numeric = typeof value === 'number' ? value : Number(nextValue.replace(',', '.'));
+        if (!Number.isFinite(numeric)) {
+          errors.push(`O valor de ${label} precisa ser numérico.`);
+          continue;
+        }
+        nextValue = String(numeric);
+      }
+      const prototype = field instanceof HTMLSelectElement
+        ? HTMLSelectElement.prototype
+        : field instanceof HTMLTextAreaElement
+          ? HTMLTextAreaElement.prototype
+          : HTMLInputElement.prototype;
+      const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+      setter?.call(field, nextValue);
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+      if (!field.checkValidity()) {
+        field.reportValidity();
+        errors.push(`O valor informado para ${label} não passou na validação do campo.`);
+        continue;
+      }
+      filled.push(label);
+    }
+
+    let submitted = false;
+    if (submit && errors.length === 0) {
+      const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>('button:not([disabled])'))
+        .filter((button) => button.getClientRects().length > 0);
+      const calculateButton = buttons.find((button) =>
+        /^(calcular|calcular resultado|dimensionar|gerar resultado)$/i.test(button.textContent?.trim() ?? '')
+      );
+      if (!calculateButton) throw new Error('Os campos foram preenchidos, mas não encontrei um botão de cálculo nesta tela.');
+      calculateButton.click();
+      submitted = true;
+    }
+    return { status: errors.length ? 'partial' : 'ok', filled, errors, submitted };
+  };
+
+  const highlightUiElement = (query: string) => {
+    const root = document.querySelector<HTMLElement>('main');
+    if (!root) throw new Error('A tela principal não está disponível.');
+    const normalizedQuery = normalizeUiLabel(query.replace(/^(botao|botão|campo|aba|secao|seção)\\s+/i, ''));
+    if (normalizedQuery.length < 2) throw new Error('Informe o nome visível do elemento que deseja destacar.');
+    const candidates = Array.from(root.querySelectorAll<HTMLElement>(
+      'button, a[href], input, select, textarea, [role="button"], [data-robot-guide], h1, h2, h3, [data-robot-label]'
+    )).filter((node) => node.getClientRects().length > 0);
+    const ranked = candidates.map((node, index) => {
+      const label = getGuideFieldLabel(node, index);
+      const normalized = normalizeUiLabel(label);
+      const text = normalizeUiLabel(node.innerText ?? node.textContent ?? '');
+      const accessible = normalizeUiLabel(node.getAttribute('aria-label') ?? '');
+      const score = normalized === normalizedQuery || accessible === normalizedQuery || text === normalizedQuery
+        ? 3
+        : normalized.includes(normalizedQuery) || text.includes(normalizedQuery) || accessible.includes(normalizedQuery)
+          ? 2 : 0;
+      return { node, label, score };
+    }).filter((item) => item.score > 0).sort((a, b) => b.score - a.score);
+    if (!ranked.length) throw new Error(`Não encontrei "${query}" nesta tela. Consulte get_current_screen_controls para ver os rótulos disponíveis.`);
+    if (ranked.length > 1 && ranked[0].score === ranked[1].score && ranked[0].label !== ranked[1].label) {
+      throw new Error(`Encontrei mais de um elemento correspondente a "${query}". Use o rótulo completo.`);
+    }
+    const target = ranked[0].node;
+    guideFieldsRef.current.forEach((field) => field.classList.remove('robot-guide-highlight'));
+    tourTargetsRef.current.forEach((field) => field.classList.remove('robot-guide-highlight'));
+    guideFieldsRef.current = [];
+    tourTargetsRef.current = [target];
+    tourIndexRef.current = 0;
+    isTouringControlsRef.current = true;
+    setIsFormGuiding(false);
+    isFormGuidingRef.current = false;
+    setIsTouringControls(true);
+    setIsVoiceMode(true);
+    onGuidingChange?.(true);
+    updateGuideTarget(target);
+    return { status: 'ok', highlighted: ranked[0].label, message: 'Robô posicionado acima do elemento e destaque visual aplicado.' };
+  };
+
   const executeLiveToolCalls = async (
     calls: Array<{ id: string; name: string; args?: Record<string, unknown> }>,
     socket: WebSocket
@@ -174,7 +325,37 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       const args = call.args ?? {};
       try {
         let result: Record<string, unknown>;
-        if (call.name === 'get_recent_calculations') {
+        if (call.name === 'get_current_screen_controls') {
+          const controls = getVisibleScreenControls();
+          result = { status: 'ok', route: window.location.pathname, count: controls.length, controls };
+        } else if (call.name === 'open_calculator') {
+          const calculatorId = args.calculatorId;
+          if (typeof calculatorId !== 'string' || !/^[a-z0-9_]+$/.test(calculatorId)) throw new Error('Identificador de calculadora inválido.');
+          if (!onNavigateToModule) throw new Error('A navegação para calculadoras não está disponível.');
+          onNavigateToModule('calculadoras', calculatorId);
+          result = { status: 'ok', calculatorId, message: 'Calculadora solicitada. Aguarde a tela abrir e consulte os campos disponíveis.' };
+        } else if (call.name === 'fill_calculator_fields') {
+          const calculatorId = args.calculatorId;
+          if (typeof calculatorId === 'string' && calculatorId.trim()) {
+            if (!/^[a-z0-9_]+$/.test(calculatorId)) throw new Error('Identificador de calculadora inválido.');
+            if (!onNavigateToModule) throw new Error('A navegação para calculadoras não está disponível.');
+            onNavigateToModule('calculadoras', calculatorId);
+            await new Promise((resolve) => window.setTimeout(resolve, 350));
+          } else if (!window.location.pathname.startsWith('/calculadoras')) {
+            if (!onNavigateToModule) throw new Error('A navegação para calculadoras não está disponível.');
+            onNavigateToModule('calculadoras');
+            await new Promise((resolve) => window.setTimeout(resolve, 350));
+          }
+          const fillResult = await fillCalculatorFields(args.fields, args.submit === true);
+          result = fillResult;
+        } else if (call.name === 'highlight_ui_element') {
+          const target = args.target;
+          if (typeof target !== 'string') throw new Error('Informe o nome visível do elemento que deseja destacar.');
+          result = highlightUiElement(target);
+        } else if (call.name === 'clear_ui_highlight') {
+          cancelFormGuide();
+          result = { status: 'ok', message: 'Destaque removido e robô recolhido.' };
+        } else if (call.name === 'get_recent_calculations') {
           const requestedLimit = typeof args.limit === 'number' ? args.limit : 10;
           const rows = await loadRecentCalculations(requestedLimit);
           result = {
@@ -463,11 +644,67 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         outputAudioTranscription: {},
         systemInstruction: {
           parts: [{
-            text: 'Você é o Assistente Técnico do OBra ENGEP. Detecte automaticamente o idioma falado pelo usuário e responda sempre nesse mesmo idioma; não force português, não mude para espanhol ou outro idioma sem que o usuário o use e acompanhe imediatamente qualquer mudança de idioma. Use rigor técnico e linguagem de campo. Cite normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC. Você dispõe de ferramentas reais para consultar favoritos, histórico de cálculos, prazos, pesquisar a biblioteca técnica e navegar pelo aplicativo. Quando perguntarem pelos favoritos, execute get_user_favorites; sobre cálculos recentes, execute get_recent_calculations; sobre prazos, execute get_upcoming_deadlines; para localizar normas, NRs, legislação ou manuais, execute search_library; quando pedirem para abrir um item salvo, use open_favorite; quando pedirem para ir a uma seção, use navigate_to_section. Nunca diga que consultou, abriu, pesquisou ou navegou sem executar a ferramenta e receber sucesso. Não repita uma ferramenta após erro ou ausência de resultados e não faça mais de duas chamadas consecutivas sem informar o usuário.',
+            text: 'Você é o Assistente Técnico do OBra ENGEP. Detecte automaticamente o idioma falado pelo usuário e responda sempre nesse mesmo idioma; não force português, não mude para espanhol ou outro idioma sem que o usuário o use e acompanhe imediatamente qualquer mudança de idioma. Use rigor técnico e linguagem de campo. Cite normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC. Você é o agente operacional por voz do OBra ENGEP. Além de conversar, pode inspecionar a tela, abrir calculadoras, preencher campos e destacar elementos da interface com o robô flutuante. Para consultar favoritos use get_user_favorites; cálculos recentes use get_recent_calculations; prazos use get_upcoming_deadlines; biblioteca use search_library. Para navegação use navigate_to_section ou open_favorite. Para trabalhar com calculadoras: primeiro use open_calculator quando precisar selecionar uma calculadora; use get_current_screen_controls para descobrir os rótulos visíveis dos campos; use fill_calculator_fields com pares label/value exatos; só envie submit=true quando o usuário tiver pedido para calcular. Não invente valores ausentes: pergunte ao usuário antes de preencher um campo que dependa de informação não fornecida. Para apontar um controle, use highlight_ui_element com o texto visível/aria-label e explique o que ele faz; o robô se posicionará acima do alvo e o destacará. Use clear_ui_highlight quando terminar. Nunca diga que preencheu, calculou, abriu ou destacou sem receber sucesso da ferramenta. O preenchimento altera somente os campos indicados; não salva, envia, exclui ou confirma operações externas sem autorização explícita. Não repita uma ferramenta após erro ou ausência de resultados e não faça mais de duas chamadas consecutivas sem informar o usuário.',
           }],
         },
         tools: [{
           functionDeclarations: [
+            {
+              name: 'get_current_screen_controls',
+              description: 'Inspeciona os campos e controles visíveis da tela atual. Use antes de preencher calculadoras ou destacar um controle quando não souber o rótulo exato.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: {} },
+            },
+            {
+              name: 'open_calculator',
+              description: 'Abre uma calculadora específica no módulo de calculadoras. Use IDs como potencia_corrente, lei_ohm, dimensionamento_cabos, reservatorio, vazao_pressao, perda_carga, diametro_tubo, concreto_materiais, calculadora_telhado, alvenaria_blocos e calculadora_combustivel.',
+              behavior: 'NON_BLOCKING',
+              parameters: {
+                type: 'OBJECT',
+                properties: { calculatorId: { type: 'STRING', description: 'ID da calculadora solicitada.' } },
+                required: ['calculatorId'],
+              },
+            },
+            {
+              name: 'fill_calculator_fields',
+              description: 'Preenche campos visíveis da calculadora aberta usando os rótulos reais da interface. Informe pares label/value. Não invente valores. submit deve ser true somente quando o usuário pedir para executar o cálculo.',
+              behavior: 'NON_BLOCKING',
+              parameters: {
+                type: 'OBJECT',
+                properties: {
+                  calculatorId: { type: 'STRING', description: 'ID opcional da calculadora a abrir antes de preencher.' },
+                  fields: {
+                    type: 'ARRAY',
+                    items: {
+                      type: 'OBJECT',
+                      properties: {
+                        label: { type: 'STRING', description: 'Rótulo visível exato do campo.' },
+                        value: { type: 'STRING', description: 'Valor textual, numérico ou opção correspondente ao campo.' },
+                      },
+                      required: ['label', 'value'],
+                    },
+                  },
+                  submit: { type: 'BOOLEAN', description: 'Executar o cálculo após preencher. Use true somente quando solicitado.' },
+                },
+                required: ['fields'],
+              },
+            },
+            {
+              name: 'highlight_ui_element',
+              description: 'Move o robô flutuante para cima de um botão, campo, aba ou seção visível e aplica destaque visual no elemento. Use o rótulo visível ou aria-label.',
+              behavior: 'NON_BLOCKING',
+              parameters: {
+                type: 'OBJECT',
+                properties: { target: { type: 'STRING', description: 'Texto visível ou rótulo acessível do elemento a destacar.' } },
+                required: ['target'],
+              },
+            },
+            {
+              name: 'clear_ui_highlight',
+              description: 'Remove o destaque visual e encerra a orientação flutuante do robô.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: {} },
+            },
             {
               name: 'get_recent_calculations',
               description: 'Consulta os cálculos mais recentes salvos no histórico da conta autenticada. Use quando o usuário perguntar sobre seus cálculos recentes.',
