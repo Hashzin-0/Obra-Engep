@@ -807,6 +807,8 @@ function AppShell() {
         }}
         onStatusChange={setAgentState}
         onGuidingChange={setIsAgentGuiding}
+        onNavigateToSection={handleTabChange}
+        onNavigateToModule={handleNavigateModule}
       />
 
       <OnboardingModal
