@@ -68,6 +68,7 @@ import {
   writeStored,
 } from './services/persistence';
 import { ensureUuid } from './utils/uuid';
+import type { CanvasAgentApi } from './views/FloorPlanEditorView';
 
 export default function App() {
   return (
@@ -130,6 +131,7 @@ function AppShell() {
     readStored(STORAGE_KEYS.nrChecks, {})
   );
   const [projects, setProjects] = useState<FloorPlanProject[]>([]);
+  const canvasAgentApiRef = useRef<CanvasAgentApi | null>(null);
 
   const [syncState, setSyncState] = useState<SyncState>({
     status: isSupabaseConfigured ? 'connecting' : 'disabled',
@@ -729,6 +731,7 @@ function AppShell() {
             projects={projects}
             onSaveProject={handleSaveProject}
             onDeleteProject={handleDeleteProject}
+            onRegisterAgentApi={(api) => { canvasAgentApiRef.current = api; }}
           />
         ) : activeModuleView === 'ia' ? (
           <AIStudiesView key={aiInitialTab} initialTab={aiInitialTab} />
@@ -812,6 +815,7 @@ function AppShell() {
         onGuidingChange={setIsAgentGuiding}
         onNavigateToSection={handleTabChange}
         onNavigateToModule={handleNavigateModule}
+        getCanvasAgent={() => canvasAgentApiRef.current}
         getProjectOverview={() => projects.map((project) => ({
           id: project.id,
           name: project.name,
