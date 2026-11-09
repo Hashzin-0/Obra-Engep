@@ -812,6 +812,16 @@ function AppShell() {
         onGuidingChange={setIsAgentGuiding}
         onNavigateToSection={handleTabChange}
         onNavigateToModule={handleNavigateModule}
+        getProjectOverview={() => projects.map((project) => ({
+          id: project.id,
+          name: project.name,
+          type: project.type,
+          stage: project.stage,
+          updatedAt: project.updatedAt,
+          walls: project.walls.length,
+          rooms: project.rooms?.length ?? 0,
+          openings: project.openings.length,
+        }))}
       />
 
       <OnboardingModal
