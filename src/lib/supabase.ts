@@ -15,37 +15,6 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
     })
   : null;
 
-// The app shell and AI entry points can request a session during the same first
-// render. Share the anonymous sign-in operation so they cannot race each other.
-let anonymousSessionInFlight: Promise<{ userId: string } | null> | null = null;
-
-export async function ensureAnonymousSession(): Promise<{ userId: string } | null> {
-  if (!supabase) return null;
-  if (anonymousSessionInFlight) return anonymousSessionInFlight;
-
-  const pending = (async () => {
-    const { data: existing, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) {
-      throw new Error(`Não foi possível recuperar a sessão do Supabase: ${sessionError.message}`);
-    }
-    if (existing.session?.user) return { userId: existing.session.user.id };
-
-    const { data, error } = await supabase.auth.signInAnonymously();
-    if (error) throw new Error(`Falha ao iniciar sessão anônima: ${error.message}`);
-    if (!data.user || !data.session?.access_token) {
-      throw new Error('Supabase não retornou uma sessão autenticada válida.');
-    }
-    return { userId: data.user.id };
-  })();
-
-  anonymousSessionInFlight = pending;
-  try {
-    return await pending;
-  } finally {
-    if (anonymousSessionInFlight === pending) anonymousSessionInFlight = null;
-  }
-}
-
 /**
  * Return a valid access token only for a Google-authenticated user.
  * Guest/anonymous sessions are intentionally rejected.
