@@ -47,13 +47,11 @@ export async function ensureAnonymousSession(): Promise<{ userId: string } | nul
 }
 
 /**
- * Wait for Supabase auth initialization, create a guest session when necessary,
- * and refresh credentials that are about to expire before an AI request.
+ * Return a valid access token only for a Google-authenticated user.
+ * Guest/anonymous sessions are intentionally rejected.
  */
 export async function getSupabaseAccessToken(): Promise<string> {
   if (!supabase) throw new Error('Serviço de autenticação indisponível.');
-
-  await ensureAnonymousSession();
 
   const { data, error } = await supabase.auth.getSession();
   if (error) {
@@ -61,22 +59,15 @@ export async function getSupabaseAccessToken(): Promise<string> {
   }
 
   let session = data.session;
-  if (!session) {
-    // A session can disappear between initialization and this read. Re-run the
-    // single-flight bootstrap once, then read the newly persisted credentials.
-    await ensureAnonymousSession();
-    const retry = await supabase.auth.getSession();
-    if (retry.error || !retry.data.session) {
-      throw new Error('Não foi possível estabelecer uma sessão autenticada. Atualize a página e tente novamente.');
-    }
-    session = retry.data.session;
+  if (!session || session.user.is_anonymous) {
+    throw new Error('Entre com sua conta Google para utilizar os recursos de IA.');
   }
 
   const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
   if (expiresAt > 0 && expiresAt <= Date.now() + 60_000) {
     const refreshed = await supabase.auth.refreshSession();
-    if (refreshed.error || !refreshed.data.session) {
-      throw new Error('A sessão do Supabase expirou e não pôde ser renovada. Entre novamente.');
+    if (refreshed.error || !refreshed.data.session || refreshed.data.session.user.is_anonymous) {
+      throw new Error('Sua sessão expirou. Entre novamente com o Google.');
     }
     session = refreshed.data.session;
   }
