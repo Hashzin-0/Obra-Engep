@@ -51,7 +51,17 @@ import { FURNITURE_CATALOG, type FurnitureCatalogItem } from '../data/furnitureC
 
 type ToolMode = 'select' | 'wall' | 'door' | 'window' | 'socket' | 'light' | 'cold_water' | 'dimension' | 'wire' | 'conduit' | 'switch' | 'panel' | 'data_point' | 'grounding' | 'solar_panel' | 'water_pipe' | 'sewage_pipe' | 'vent_pipe' | 'rain_pipe' | 'sink' | 'faucet' | 'shower' | 'toilet' | 'floor_drain' | 'cleanout' | 'inspection_box' | 'tank' | 'heater' | 'grease_trap' | 'pool';
 
+export type CanvasAgentKind = 'wall' | 'opening' | 'electrical' | 'hydraulic' | 'furniture';
+export interface CanvasAgentApi {
+  getOverview: () => Record<string, unknown>;
+  selectElement: (kind: CanvasAgentKind, id: string) => Record<string, unknown>;
+  addElement: (args: Record<string, unknown>) => Record<string, unknown>;
+  moveElement: (kind: CanvasAgentKind, id: string, x: number, y: number) => Record<string, unknown>;
+  deleteElement: (kind: CanvasAgentKind, id: string, confirmed: boolean) => Record<string, unknown>;
+}
+
 interface FloorPlanEditorViewProps {
+  onRegisterAgentApi?: (api: CanvasAgentApi | null) => void;
   onOpenCalendarModal?: () => void;
   onOpenVoiceAssistant?: () => void;
   deadlines?: ProjectDeadline[];
@@ -80,6 +90,7 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   projects = [],
   onSaveProject,
   onDeleteProject,
+  onRegisterAgentApi,
 }) => {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
@@ -162,6 +173,142 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
     setHistory(newHistory); setHistoryIndex(newHistory.length - 1); setProject(normalized); setActiveLevelId(levelId);
      onSaveProject?.(normalized);
   };
+
+  useEffect(() => {
+    if (!onRegisterAgentApi) return;
+    const elementRows = () => [
+      ...project.walls.map((item) => ({ id: item.id, kind: 'wall' as const, type: 'parede', label: 'Parede', x: (item.x1 + item.x2) / 2, y: (item.y1 + item.y2) / 2, x1: item.x1, y1: item.y1, x2: item.x2, y2: item.y2, thickness: item.thickness, locked: Boolean(item.locked) })),
+      ...project.openings.map((item) => ({ id: item.id, kind: 'opening' as const, type: item.type, label: item.type === 'door' ? 'Porta' : 'Janela', x: item.x, y: item.y, wallId: item.wallId, width: item.width, locked: Boolean(item.locked) })),
+      ...project.electrical.map((item) => ({ id: item.id, kind: 'electrical' as const, type: item.type, label: item.label, x: item.x, y: item.y, x2: item.x2, y2: item.y2, circuit: item.circuit, locked: Boolean(item.locked) })),
+      ...project.hydraulic.map((item) => ({ id: item.id, kind: 'hydraulic' as const, type: item.type, label: item.label, x: item.x, y: item.y, x2: item.x2, y2: item.y2, diameterMm: item.diameterMm, locked: Boolean(item.locked) })),
+      ...(project.furniture ?? []).map((item) => ({ id: item.id, kind: 'furniture' as const, type: item.category, label: item.name, x: item.x, y: item.y, rotation: item.rotation, locked: Boolean(item.locked) })),
+    ];
+    const api: CanvasAgentApi = {
+      getOverview: () => {
+        const levels = (project.levels ?? []).slice().sort((a, b) => a.level - b.level).map((level) => ({
+          id: level.id, name: level.name, kind: level.kind, level: level.level,
+          counts: { walls: level.walls.length, rooms: (level.rooms ?? []).length, openings: level.openings.length, electrical: level.electrical.length, hydraulic: level.hydraulic.length, furniture: (level.furniture ?? []).length },
+        }));
+        const rows = elementRows();
+        return {
+          status: 'ok', project: { id: project.id, name: project.name, type: project.type, stage: project.stage, updatedAt: project.updatedAt },
+          activeLevel: { id: activeLevelId, name: project.levels?.find((level) => level.id === activeLevelId)?.name ?? 'Térreo' },
+          levels, counts: { walls: project.walls.length, rooms: (project.rooms ?? []).length, openings: project.openings.length, electrical: project.electrical.length, hydraulic: project.hydraulic.length, furniture: (project.furniture ?? []).length, total: rows.length },
+          elements: rows.slice(0, 120),
+        };
+      },
+      selectElement: (kind, id) => {
+        const item = elementRows().find((entry) => entry.kind === kind && entry.id === id);
+        if (!item) throw new Error('Elemento não encontrado no pavimento ativo.');
+        setShow3D(false); setTool('select');
+        const target = { kind, id };
+        setSelectedObject(target); setSelectedObjects([target]);
+        canvasRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        return { status: 'ok', selected: item, message: 'Elemento selecionado e destacado na planta 2D. O painel de propriedades foi aberto.' };
+      },
+      addElement: (args) => {
+        const kind = args.kind;
+        const id = ensureUuid(typeof kind === 'string' ? kind : 'canvas-agent');
+        if (kind === 'wall') {
+          const x1 = Number(args.x1), y1 = Number(args.y1), x2 = Number(args.x2), y2 = Number(args.y2);
+          if (![x1, y1, x2, y2].every(Number.isFinite) || Math.hypot(x2 - x1, y2 - y1) < 10) throw new Error('Parede exige coordenadas x1, y1, x2 e y2 válidas e comprimento mínimo de 10 px.');
+          const item: WallSegment = { id, x1, y1, x2, y2, thickness: Math.max(5, Math.min(40, Number(args.thickness) || 15)) };
+          updateProjectState({ ...project, walls: [...project.walls, item] });
+          setSelectedObject({ kind: 'wall', id }); setSelectedObjects([{ kind: 'wall', id }]);
+          return { status: 'ok', created: { id, kind, x1, y1, x2, y2, thickness: item.thickness }, saved: true };
+        }
+        const x = Number(args.x), y = Number(args.y);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error('O elemento exige coordenadas x e y numéricas em pixels da planta.');
+        if (kind === 'opening') {
+          const type = args.type;
+          if (type !== 'door' && type !== 'window') throw new Error('A abertura precisa ser do tipo door ou window.');
+          const wallId = typeof args.wallId === 'string' ? args.wallId : '';
+          const wall = project.walls.find((item) => item.id === wallId);
+          if (!wall) throw new Error('Informe o ID de uma parede existente para anexar a porta ou janela.');
+          const vx = wall.x2 - wall.x1, vy = wall.y2 - wall.y1, lengthSquared = vx * vx + vy * vy || 1;
+          const t = Math.max(0, Math.min(1, ((x - wall.x1) * vx + (y - wall.y1) * vy) / lengthSquared));
+          const px = wall.x1 + t * vx, py = wall.y1 + t * vy;
+          if (Math.hypot(px - x, py - y) > 30) throw new Error('A posição informada está a mais de 30 px da parede escolhida.');
+          const item: OpeningItem = { id, type, wallId, x: px, y: py, width: Math.max(40, Math.min(240, Number(args.width) || (type === 'door' ? 80 : 100))), rotation: Math.atan2(vy, vx) * 180 / Math.PI };
+          updateProjectState({ ...project, openings: [...project.openings, item] });
+          setSelectedObject({ kind: 'opening', id }); setSelectedObjects([{ kind: 'opening', id }]);
+          return { status: 'ok', created: { id, kind, type, wallId, x: px, y: py, width: item.width }, saved: true };
+        }
+        if (kind === 'electrical') {
+          const allowed = ['socket', 'switch', 'light', 'panel', 'wire', 'conduit', 'data_point', 'grounding', 'solar_panel'];
+          if (typeof args.type !== 'string' || !allowed.includes(args.type)) throw new Error('Tipo elétrico inválido. Tipos permitidos: ' + allowed.join(', '));
+          const type = args.type as ElectricalItem['type'];
+          const labels: Record<string, string> = { socket: 'Tomada TUG', switch: 'Interruptor', light: 'Ponto de luz', panel: 'Quadro de distribuição', wire: 'Fiação elétrica', conduit: 'Eletroduto elétrico', data_point: 'Ponto de dados', grounding: 'Ponto de aterramento', solar_panel: 'Painel solar fotovoltaico' };
+          const item: ElectricalItem = { id, type, x, y, circuit: typeof args.circuit === 'string' ? args.circuit.slice(0, 80) : 'A definir', label: typeof args.label === 'string' ? args.label.slice(0, 100) : labels[type] };
+          updateProjectState({ ...project, electrical: [...project.electrical, item] });
+          setSelectedObject({ kind: 'electrical', id }); setSelectedObjects([{ kind: 'electrical', id }]);
+          return { status: 'ok', created: { id, kind, type, label: item.label, x, y }, saved: true };
+        }
+        if (kind === 'hydraulic') {
+          const allowed = ['cold_water', 'hot_water', 'sink', 'faucet', 'shower', 'toilet', 'floor_drain', 'cleanout', 'inspection_box', 'tank', 'heater', 'grease_trap', 'pool'];
+          if (typeof args.type !== 'string' || !allowed.includes(args.type)) throw new Error('Tipo hidráulico inválido. Tipos permitidos: ' + allowed.join(', '));
+          const type = args.type as HydraulicItem['type'];
+          const labels: Record<string, string> = { cold_water: 'Ponto de água fria', hot_water: 'Ponto de água quente', sink: 'Pia', faucet: 'Torneira', shower: 'Chuveiro', toilet: 'Bacia sanitária', floor_drain: 'Ralo sifonado', cleanout: 'Ponto de limpeza', inspection_box: 'Caixa de inspeção', tank: 'Reservatório de água', heater: 'Aquecedor de água', grease_trap: 'Caixa de gordura', pool: 'Piscina' };
+          const item: HydraulicItem = { id, type, x, y, diameterMm: Math.max(0, Math.min(300, Number(args.diameterMm) || 25)), label: typeof args.label === 'string' ? args.label.slice(0, 100) : labels[type] };
+          updateProjectState({ ...project, hydraulic: [...project.hydraulic, item] });
+          setSelectedObject({ kind: 'hydraulic', id }); setSelectedObjects([{ kind: 'hydraulic', id }]);
+          return { status: 'ok', created: { id, kind, type, label: item.label, x, y, diameterMm: item.diameterMm }, saved: true };
+        }
+        if (kind === 'furniture') {
+          const catalogId = args.catalogId;
+          const item = FURNITURE_CATALOG.find((entry) => entry.id === catalogId);
+          if (!item) throw new Error('Informe um catalogId existente no catálogo de mobiliário.');
+          const placed = { id, catalogId: item.id, name: item.name, category: item.category, x, y, rotation: 0, widthIn: item.widthIn, depthIn: item.depthIn, heightIn: item.heightIn, symbolUrl: item.symbolUrl, modelUrl: item.modelUrl, thumbnailUrl: item.thumbnailUrl };
+          updateProjectState({ ...project, furniture: [...(project.furniture ?? []), placed] });
+          setSelectedObject({ kind: 'furniture', id }); setSelectedObjects([{ kind: 'furniture', id }]);
+          return { status: 'ok', created: { id, kind, catalogId, label: item.name, x, y }, saved: true };
+        }
+        throw new Error('Tipo de elemento não suportado.');
+      },
+      moveElement: (kind, id, x, y) => {
+        if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error('As coordenadas de destino precisam ser numéricas.');
+        const current = elementRows().find((entry) => entry.kind === kind && entry.id === id);
+        if (!current) throw new Error('Elemento não encontrado no pavimento ativo.');
+        if (current.locked) throw new Error('O elemento está bloqueado. Desbloqueie-o na interface antes de mover.');
+        if (kind === 'wall') throw new Error('Mover uma parede inteira por voz ainda não está disponível porque pode afetar junções e cômodos conectados. Use os controles de vértice no Canvas.');
+        const dx = x - Number(current.x), dy = y - Number(current.y);
+        if (kind === 'opening') {
+          const opening = project.openings.find((item) => item.id === id)!;
+          const wall = project.walls.find((item) => item.id === opening.wallId);
+          if (!wall) throw new Error('A parede associada à abertura não existe mais.');
+          const vx = wall.x2 - wall.x1, vy = wall.y2 - wall.y1, lengthSquared = vx * vx + vy * vy || 1;
+          const t = Math.max(0, Math.min(1, ((x - wall.x1) * vx + (y - wall.y1) * vy) / lengthSquared));
+          const px = wall.x1 + t * vx, py = wall.y1 + t * vy;
+          if (Math.hypot(px - x, py - y) > 30) throw new Error('A nova posição precisa permanecer a até 30 px da parede associada.');
+          updateProjectState({ ...project, openings: project.openings.map((item) => item.id === id ? { ...item, x: px, y: py, rotation: Math.atan2(vy, vx) * 180 / Math.PI } : item) });
+        } else if (kind === 'electrical') {
+          updateProjectState({ ...project, electrical: project.electrical.map((item) => item.id === id ? { ...item, x, y, ...(item.x2 !== undefined ? { x2: item.x2 + dx } : {}), ...(item.y2 !== undefined ? { y2: item.y2 + dy } : {}) } : item) });
+        } else if (kind === 'hydraulic') {
+          updateProjectState({ ...project, hydraulic: project.hydraulic.map((item) => item.id === id ? { ...item, x, y, ...(item.x2 !== undefined ? { x2: item.x2 + dx } : {}), ...(item.y2 !== undefined ? { y2: item.y2 + dy } : {}) } : item) });
+        } else {
+          updateProjectState({ ...project, furniture: (project.furniture ?? []).map((item) => item.id === id ? { ...item, x, y } : item) });
+        }
+        setSelectedObject({ kind, id }); setSelectedObjects([{ kind, id }]);
+        return { status: 'ok', moved: { kind, id, from: { x: current.x, y: current.y }, to: { x, y } }, saved: true };
+      },
+      deleteElement: (kind, id, confirmed) => {
+        if (!confirmed) throw new Error('Exclusão bloqueada. Solicite confirmação explícita do usuário e repita com confirmed=true.');
+        const current = elementRows().find((entry) => entry.kind === kind && entry.id === id);
+        if (!current) throw new Error('Elemento não encontrado no pavimento ativo.');
+        if (current.locked) throw new Error('O elemento está bloqueado. Desbloqueie-o na interface antes de excluir.');
+        if (kind === 'wall') throw new Error('Exclusão de paredes pelo agente está desativada para preservar junções, aberturas e cômodos. Faça essa alteração manualmente no Canvas.');
+        if (kind === 'opening') updateProjectState({ ...project, openings: project.openings.filter((item) => item.id !== id) });
+        else if (kind === 'electrical') updateProjectState({ ...project, electrical: project.electrical.filter((item) => item.id !== id) });
+        else if (kind === 'hydraulic') updateProjectState({ ...project, hydraulic: project.hydraulic.filter((item) => item.id !== id) });
+        else updateProjectState({ ...project, furniture: (project.furniture ?? []).filter((item) => item.id !== id) });
+        setSelectedObject(null); setSelectedObjects([]);
+        return { status: 'ok', deleted: { kind, id }, saved: true };
+      },
+    };
+    onRegisterAgentApi(api);
+    return () => onRegisterAgentApi(null);
+  });
+
   const handleCreateLevel = () => {
     const kindInput = window.prompt('Tipo de pavimento: subsolo, terreo ou superior', 'superior');
     if (!kindInput || !['subsolo','terreo','superior'].includes(kindInput.trim().toLowerCase())) return;
