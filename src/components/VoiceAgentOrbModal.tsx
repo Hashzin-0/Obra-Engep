@@ -119,7 +119,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   };
 
   const executeLiveToolCalls = async (
-    calls: Array<{ id?: string; name?: string; args?: Record<string, unknown> }>,
+    calls: Array<{ id: string; name: string; args?: Record<string, unknown> }>,
     socket: WebSocket
   ) => {
     setConnectionStatus('working');
@@ -131,6 +131,9 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           const requestedLimit = typeof args.limit === 'number' ? args.limit : 30;
           const rows = await loadCurrentUserFavorites(requestedLimit);
           result = {
+            status: rows.length > 0 ? 'ok' : 'no_results',
+            retryable: false,
+            message: rows.length > 0 ? 'Favoritos carregados da conta autenticada.' : 'A conta não possui favoritos salvos.',
             count: rows.length,
             favorites: rows.map((row) => ({
               id: row.item_id,
@@ -155,7 +158,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           } else {
             throw new Error('Esta seção não está disponível para navegação pelo assistente.');
           }
-          result = { success: true, section };
+          result = { status: 'ok', retryable: false, message: 'Navegação concluída.', section };
         } else if (call.name === 'open_favorite') {
           const itemId = args.itemId;
           if (typeof itemId !== 'string' || !itemId.trim()) throw new Error('Informe o identificador do favorito.');
@@ -168,16 +171,16 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           }
           if (!onNavigateToModule) throw new Error('A abertura de módulos não está disponível.');
           onNavigateToModule(moduleId as ModuleId, favorite.item_id);
-          result = { success: true, title: favorite.title, module: moduleId, itemId: favorite.item_id };
+          result = { status: 'ok', retryable: false, message: 'Favorito aberto com sucesso.', title: favorite.title, module: moduleId, itemId: favorite.item_id };
         } else {
           throw new Error('Ferramenta não reconhecida.');
         }
-        return { id: call.id, name: call.name, response: { result } };
+        return { id: call.id, name: call.name, response: result };
       } catch (error) {
         return {
           id: call.id,
           name: call.name,
-          response: { error: error instanceof Error ? error.message : 'Falha ao executar a ferramenta.' },
+          response: { status: 'error', retryable: false, message: error instanceof Error ? error.message : 'Falha ao executar a ferramenta.' },
         };
       }
     }));
@@ -376,7 +379,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         outputAudioTranscription: {},
         systemInstruction: {
           parts: [{
-            text: 'Você é o Assistente Técnico do OBra ENGEP. Detecte automaticamente o idioma falado pelo usuário e responda sempre nesse mesmo idioma; não force português, não mude para espanhol ou outro idioma sem que o usuário o use e acompanhe imediatamente qualquer mudança de idioma. Use rigor técnico e linguagem de campo. Cite normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC. Você dispõe de ferramentas reais para consultar os favoritos da conta e navegar pelas seções do aplicativo. Quando perguntarem pelos favoritos, execute get_user_favorites antes de responder; quando pedirem para abrir um item, use open_favorite; quando pedirem para ir a uma seção, use navigate_to_section. Nunca diga que consultou, abriu ou navegou sem executar a ferramenta e receber sucesso.',
+            text: 'Você é o Assistente Técnico do OBra ENGEP. Detecte automaticamente o idioma falado pelo usuário e responda sempre nesse mesmo idioma; não force português, não mude para espanhol ou outro idioma sem que o usuário o use e acompanhe imediatamente qualquer mudança de idioma. Use rigor técnico e linguagem de campo. Cite normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC. Você dispõe de ferramentas reais para consultar os favoritos da conta e navegar pelas seções do aplicativo. Quando perguntarem pelos favoritos, execute get_user_favorites antes de responder; quando pedirem para abrir um item, use open_favorite; quando pedirem para ir a uma seção, use navigate_to_section. Nunca diga que consultou, abriu ou navegou sem executar a ferramenta e receber sucesso. Não repita uma ferramenta após erro ou ausência de resultados e não faça mais de duas chamadas consecutivas sem informar o usuário.',
           }],
         },
         tools: [{
@@ -384,6 +387,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             {
               name: 'get_user_favorites',
               description: 'Consulta os favoritos reais da conta Google autenticada. Use antes de responder perguntas sobre quais itens estão salvos.',
+              behavior: 'NON_BLOCKING',
               parameters: {
                 type: 'OBJECT',
                 properties: {
@@ -394,6 +398,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             {
               name: 'navigate_to_section',
               description: 'Navega para uma seção ou módulo existente do aplicativo OBra ENGEP.',
+              behavior: 'NON_BLOCKING',
               parameters: {
                 type: 'OBJECT',
                 properties: {
@@ -409,6 +414,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             {
               name: 'open_favorite',
               description: 'Abre um item que foi retornado pela ferramenta get_user_favorites.',
+              behavior: 'NON_BLOCKING',
               parameters: {
                 type: 'OBJECT',
                 properties: {
