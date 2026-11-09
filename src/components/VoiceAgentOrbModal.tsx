@@ -188,6 +188,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
               : node instanceof HTMLTextAreaElement ? 'textarea'
                 : node.tagName.toLocaleLowerCase(),
         description: node.getAttribute('data-robot-description') ?? '',
+        fieldKey: node.dataset.agentField ?? null,
         inputType: node instanceof HTMLInputElement ? node.type : undefined,
         placeholder: 'placeholder' in node ? String(node.getAttribute('placeholder') ?? '') : '',
         required: 'required' in node ? Boolean((node as HTMLInputElement).required) : false,
@@ -525,12 +526,13 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           };
         } else if (call.name === 'navigate_to_section') {
           const section = args.section;
+          const normalizedSection = section === 'fav' ? 'favoritos' : section === 'home' ? 'inicio' : section;
           const mainSections = ['inicio', 'biblioteca', 'favoritos', 'mais'];
           const moduleSections = ['calculadoras', 'manuais', 'projetos', 'ia', 'estetica', 'legislacao', 'contratos'];
           if (typeof section !== 'string') throw new Error('A seção solicitada é inválida.');
-          if (mainSections.includes(section)) {
+          if (mainSections.includes(normalizedSection)) {
             if (!onNavigateToSection) throw new Error('A navegação principal não está disponível.');
-            onNavigateToSection(section as 'inicio' | 'biblioteca' | 'favoritos' | 'mais');
+            onNavigateToSection(normalizedSection as 'inicio' | 'biblioteca' | 'favoritos' | 'mais');
           } else if (moduleSections.includes(section)) {
             if (!onNavigateToModule) throw new Error('A navegação dos módulos não está disponível.');
             onNavigateToModule(section as ModuleId);
@@ -896,7 +898,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
                 properties: {
                   section: {
                     type: 'STRING',
-                    enum: ['inicio', 'biblioteca', 'favoritos', 'mais', 'calculadoras', 'manuais', 'projetos', 'ia', 'estetica', 'legislacao', 'contratos'],
+                    enum: ['inicio', 'home', 'biblioteca', 'favoritos', 'fav', 'mais', 'calculadoras', 'manuais', 'projetos', 'ia', 'estetica', 'legislacao', 'contratos'],
                     description: 'Identificador da seção de destino.',
                   },
                 },
