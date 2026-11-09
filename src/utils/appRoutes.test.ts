@@ -19,6 +19,8 @@ test('top-level tabs use clean root paths', () => {
   assert.equal(pathForTab('mais'), '/mais');
   assert.equal(pathForTab('inicio'), '/');
   assert.equal(resolveAppRoute('/fav').tab, 'favoritos');
+  assert.equal(resolveAppRoute('/site/fav').tab, 'inicio');
+  assert.equal(resolveAppRoute('/site').tab, 'inicio');
 });
 
 test('library section and item deep links resolve', () => {
