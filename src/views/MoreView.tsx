@@ -17,7 +17,7 @@ import {
   disablePushNotifications, enablePushNotifications, notificationPermission, pushSupported, sendTestPush, subscriptionState, } from '../services/push';
 import { buildBackup, restoreBackup } from '../services/persistence';
 import { saveFeedback } from '../services/remoteRepository';
-import { ensureAnonymousSession, isSupabaseConfigured } from '../lib/supabase';
+import { getSupabaseSession, isSupabaseConfigured } from '../lib/supabase';
 import { exportToLocalCalendar, getGoogleCalendarUrl } from '../utils/calendarSync';
 import { CalendarCheck } from 'lucide-react';
 
