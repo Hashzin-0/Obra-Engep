@@ -220,12 +220,27 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
         const kind = args.kind;
         const id = ensureUuid(typeof kind === 'string' ? kind : 'canvas-agent');
         if (kind === 'wall') {
-          const x1 = Number(args.x1), y1 = Number(args.y1), x2 = Number(args.x2), y2 = Number(args.y2);
-          if (![x1, y1, x2, y2].every(Number.isFinite) || Math.hypot(x2 - x1, y2 - y1) < 10) throw new Error('Parede exige coordenadas x1, y1, x2 e y2 válidas e comprimento mínimo de 10 px.');
+          const rawX1 = Number(args.x1), rawY1 = Number(args.y1), rawX2 = Number(args.x2), rawY2 = Number(args.y2);
+          if (![rawX1, rawY1, rawX2, rawY2].every(Number.isFinite)) throw new Error('Parede exige coordenadas x1, y1, x2 e y2 válidas.');
+          const snapVertex = (point: { x: number; y: number }) => {
+            const nearest = project.walls.flatMap((wall) => [{ x: wall.x1, y: wall.y1 }, { x: wall.x2, y: wall.y2 }])
+              .map((vertex) => ({ ...vertex, distance: Math.hypot(vertex.x - point.x, vertex.y - point.y) }))
+              .filter((vertex) => vertex.distance <= 18)
+              .sort((a, b) => a.distance - b.distance)[0];
+            return nearest ? { x: nearest.x, y: nearest.y } : point;
+          };
+          const start = snapVertex({ x: rawX1, y: rawY1 }), end = snapVertex({ x: rawX2, y: rawY2 });
+          const { x: x1, y: y1 } = start, { x: x2, y: y2 } = end;
+          if (Math.hypot(x2 - x1, y2 - y1) < 10) throw new Error('A parede precisa ter pelo menos 10 px após o encaixe nos vértices existentes.');
+          const duplicate = project.walls.some((wall) =>
+            (Math.hypot(wall.x1 - x1, wall.y1 - y1) < 2 && Math.hypot(wall.x2 - x2, wall.y2 - y2) < 2) ||
+            (Math.hypot(wall.x2 - x1, wall.y2 - y1) < 2 && Math.hypot(wall.x1 - x2, wall.y1 - y2) < 2)
+          );
+          if (duplicate) throw new Error('Já existe uma parede entre esses dois vértices.');
           const item: WallSegment = { id, x1, y1, x2, y2, thickness: Math.max(5, Math.min(40, Number(args.thickness) || 15)) };
           updateProjectState({ ...project, walls: [...project.walls, item] });
           setSelectedObject({ kind: 'wall', id }); setSelectedObjects([{ kind: 'wall', id }]);
-          return { status: 'ok', created: { id, kind, x1, y1, x2, y2, thickness: item.thickness }, saved: true };
+          return { status: 'ok', created: { id, kind, x1, y1, x2, y2, thickness: item.thickness }, snappedToExistingVertices: Math.hypot(rawX1 - x1, rawY1 - y1) > 0 || Math.hypot(rawX2 - x2, rawY2 - y2) > 0, saved: true };
         }
         const x = Number(args.x), y = Number(args.y);
         if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error('O elemento exige coordenadas x e y numéricas em pixels da planta.');
