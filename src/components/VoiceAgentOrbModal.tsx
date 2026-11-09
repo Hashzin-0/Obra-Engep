@@ -620,7 +620,8 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             }
 
             const content = message.serverContent;
-            if (!content) return;
+            const interactionStatus = message.interactionStatus ?? content?.interactionStatus;
+            if (content) {
             if (content.inputTranscription?.text) {
               liveOutputCompleteRef.current = false;
               appendLiveTranscript('user', content.inputTranscription.text);
@@ -652,7 +653,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
               setConnectionStatus('listening');
             } else if (content.turnComplete) {
               liveOutputCompleteRef.current = true;
-              if (content.interactionStatus !== 'IN_PROGRESS') {
+              if (interactionStatus !== 'IN_PROGRESS') {
                 liveInteractionInProgressRef.current = false;
                 liveTurnRef.current = null;
               }
@@ -661,12 +662,14 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
               }
             }
 
-            // Extended Thinking can emit turnComplete for intermediate speech.
-            // Keep the session in the thinking state until interactionStatus is IDLE.
-            if (content.interactionStatus === 'IN_PROGRESS') {
+            }
+
+            // Extended Thinking emits interactionStatus at the top level. A turnComplete
+            // event is not necessarily the end of background reasoning or tool execution.
+            if (interactionStatus === 'IN_PROGRESS') {
               liveInteractionInProgressRef.current = true;
               if (livePlaybackSourcesRef.current.length === 0) setConnectionStatus('thinking');
-            } else if (content.interactionStatus === 'IDLE') {
+            } else if (interactionStatus === 'IDLE') {
               liveInteractionInProgressRef.current = false;
               liveTurnRef.current = null;
               if (livePlaybackSourcesRef.current.length === 0) setConnectionStatus('listening');
