@@ -118,6 +118,52 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     return data ?? [];
   };
 
+  const getAuthenticatedGoogleUser = async () => {
+    if (!supabase) throw new Error('O acesso aos dados da conta está indisponível.');
+    const { data, error } = await supabase.auth.getUser();
+    const user = data.user;
+    if (error || !user || user.is_anonymous || user.app_metadata?.provider !== 'google') {
+      throw new Error('Entre com sua conta Google para consultar estes dados.');
+    }
+    return user;
+  };
+
+  const loadRecentCalculations = async (limit = 10) => {
+    const user = await getAuthenticatedGoogleUser();
+    const { data, error } = await supabase!
+      .from('calculation_history')
+      .select('id,title,category,result_value,result_unit,formula,created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(Math.min(20, Math.max(1, limit)));
+    if (error) throw new Error('Não foi possível consultar o histórico de cálculos.');
+    return data ?? [];
+  };
+
+  const loadUpcomingDeadlines = async (limit = 10) => {
+    const user = await getAuthenticatedGoogleUser();
+    const { data, error } = await supabase!
+      .from('deadlines')
+      .select('id,title,description,due_date,due_time,priority,status,category,project_name')
+      .eq('user_id', user.id)
+      .neq('status', 'concluido')
+      .order('due_date', { ascending: true })
+      .limit(Math.min(20, Math.max(1, limit)));
+    if (error) throw new Error('Não foi possível consultar os prazos da conta.');
+    return data ?? [];
+  };
+
+  const searchLibraryItems = async (query: string) => {
+    if (!supabase || query.trim().length < 2) throw new Error('Informe ao menos dois caracteres para pesquisar na biblioteca.');
+    const { data, error } = await supabase
+      .from('library_items')
+      .select('id,kind,code,title,summary,official_url')
+      .ilike('title', `%${query.trim().slice(0, 100)}%`)
+      .limit(8);
+    if (error) throw new Error('Não foi possível pesquisar na biblioteca técnica.');
+    return data ?? [];
+  };
+
   const executeLiveToolCalls = async (
     calls: Array<{ id: string; name: string; args?: Record<string, unknown> }>,
     socket: WebSocket
@@ -127,7 +173,43 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       const args = call.args ?? {};
       try {
         let result: Record<string, unknown>;
-        if (call.name === 'get_user_favorites') {
+        if (call.name === 'get_recent_calculations') {
+          const requestedLimit = typeof args.limit === 'number' ? args.limit : 10;
+          const rows = await loadRecentCalculations(requestedLimit);
+          result = {
+            status: rows.length > 0 ? 'ok' : 'no_results',
+            retryable: false,
+            count: rows.length,
+            calculations: rows.map((row) => ({
+              id: row.id,
+              title: row.title,
+              category: row.category,
+              result: row.result_value,
+              unit: row.result_unit ?? '',
+              formula: row.formula ?? '',
+              createdAt: row.created_at,
+            })),
+          };
+        } else if (call.name === 'get_upcoming_deadlines') {
+          const requestedLimit = typeof args.limit === 'number' ? args.limit : 10;
+          const rows = await loadUpcomingDeadlines(requestedLimit);
+          result = {
+            status: rows.length > 0 ? 'ok' : 'no_results',
+            retryable: false,
+            count: rows.length,
+            deadlines: rows,
+          };
+        } else if (call.name === 'search_library') {
+          const query = args.query;
+          if (typeof query !== 'string' || query.trim().length < 2) throw new Error('Informe um termo com pelo menos dois caracteres.');
+          const rows = await searchLibraryItems(query);
+          result = {
+            status: rows.length > 0 ? 'ok' : 'no_results',
+            retryable: false,
+            count: rows.length,
+            items: rows,
+          };
+        } else if (call.name === 'get_user_favorites') {
           const requestedLimit = typeof args.limit === 'number' ? args.limit : 30;
           const rows = await loadCurrentUserFavorites(requestedLimit);
           result = {
@@ -186,6 +268,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     }));
 
     if (socket.readyState === WebSocket.OPEN && liveSessionRef.current === socket) {
+      console.info('[Gemini Live] Returning tool responses.', { count: functionResponses.length, names: functionResponses.map((item) => item.name) });
       socket.send(JSON.stringify({ toolResponse: { functionResponses } }));
       setConnectionStatus('thinking');
     }
@@ -384,6 +467,34 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         },
         tools: [{
           functionDeclarations: [
+            {
+              name: 'get_recent_calculations',
+              description: 'Consulta os cálculos mais recentes salvos no histórico da conta autenticada. Use quando o usuário perguntar sobre seus cálculos recentes.',
+              behavior: 'NON_BLOCKING',
+              parameters: {
+                type: 'OBJECT',
+                properties: { limit: { type: 'INTEGER', description: 'Quantidade máxima de resultados, entre 1 e 20.' } },
+              },
+            },
+            {
+              name: 'get_upcoming_deadlines',
+              description: 'Consulta prazos e tarefas ainda não concluídos da conta autenticada.',
+              behavior: 'NON_BLOCKING',
+              parameters: {
+                type: 'OBJECT',
+                properties: { limit: { type: 'INTEGER', description: 'Quantidade máxima de resultados, entre 1 e 20.' } },
+              },
+            },
+            {
+              name: 'search_library',
+              description: 'Pesquisa títulos da biblioteca técnica do OBra ENGEP, incluindo normas, NRs, legislação e manuais.',
+              behavior: 'NON_BLOCKING',
+              parameters: {
+                type: 'OBJECT',
+                properties: { query: { type: 'STRING', description: 'Termo técnico ou título a pesquisar.' } },
+                required: ['query'],
+              },
+            },
             {
               name: 'get_user_favorites',
               description: 'Consulta os favoritos reais da conta Google autenticada. Use antes de responder perguntas sobre quais itens estão salvos.',
