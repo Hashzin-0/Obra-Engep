@@ -19,7 +19,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
-import { supabase } from '../lib/supabase';
+import { getSupabaseAccessToken, supabase } from '../lib/supabase';
 import { RobotHeadAvatar } from './RobotHeadAvatar';
 
 export interface ChatMessage {
@@ -214,10 +214,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       liveOutputAudioContextRef.current = outputAudioContext;
       await Promise.all([inputAudioContext.resume(), outputAudioContext.resume()]);
 
-      if (!supabase) throw new Error('Serviço de autenticação indisponível.');
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      if (sessionError || !accessToken) throw new Error('Sua sessão expirou. Entre novamente para utilizar a IA.');
+      const accessToken = await getSupabaseAccessToken();
       if (liveShouldStopRef.current) return;
 
       microphone = await navigator.mediaDevices.getUserMedia({
@@ -605,10 +602,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     setExpandedThoughts((prev) => ({ ...prev, [geminiMsgId]: true }));
 
     try {
-      if (!supabase) throw new Error('Serviço de autenticação indisponível.');
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      if (sessionError || !accessToken) throw new Error('Sua sessão expirou. Entre novamente para utilizar a IA.');
+      const accessToken = await getSupabaseAccessToken();
 
       const response = await fetch('/api/gemini/realtime-chat', {
         method: 'POST',
