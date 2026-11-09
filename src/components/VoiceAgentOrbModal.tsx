@@ -424,6 +424,21 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           if (!calculatorRoot) throw new Error('A calculadora ainda não abriu ou o ID não corresponde à calculadora exibida.');
           const fillResult = await fillCalculatorFields(args.fields, args.submit === true);
           result = fillResult;
+        } else if (call.name === 'open_contract_template') {
+          const modelId = args.modelId;
+          if (typeof modelId !== 'string' || !contractModels.some((model) => model.id === modelId)) throw new Error('O modelo solicitado não existe no catálogo de contratos. Use search_contract_templates para consultar os IDs disponíveis.');
+          if (!onNavigateToModule) throw new Error('A navegação para contratos não está disponível.');
+          onNavigateToModule('contratos', modelId);
+          let contractForm: HTMLElement | null = null;
+          for (let attempt = 0; attempt < 30; attempt += 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 100));
+            contractForm = document.querySelector<HTMLElement>('[data-agent-form="contract-editor"]');
+            if (contractForm?.dataset.agentFormId === modelId && contractForm.getClientRects().length) break;
+            contractForm = null;
+          }
+          if (!contractForm) throw new Error('O modelo foi selecionado, mas o formulário ainda não ficou disponível. Consulte a tela e tente novamente.');
+          const model = contractModels.find((item) => item.id === modelId)!;
+          result = { status: 'ok', modelId, title: model.title, requiredFields: model.fields.filter((field) => field.required).map((field) => ({ key: field.key, label: field.label })), message: 'Modelo aberto. Consulte os controles antes de preencher.' };
         } else if (call.name === 'fill_contract_fields') {
           if (!window.location.pathname.startsWith('/contratos')) {
             if (!onNavigateToModule) throw new Error('A navegação para contratos não está disponível.');
@@ -748,7 +763,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         outputAudioTranscription: {},
         systemInstruction: {
           parts: [{
-            text: 'Você é o Assistente Técnico do OBra ENGEP. Detecte automaticamente o idioma falado pelo usuário e responda sempre nesse mesmo idioma; não force português, não mude para espanhol ou outro idioma sem que o usuário o use e acompanhe imediatamente qualquer mudança de idioma. Use rigor técnico e linguagem de campo. Cite normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC. Você é o agente operacional por voz do OBra ENGEP. Além de conversar, pode inspecionar a tela, abrir calculadoras, preencher campos e destacar elementos da interface com o robô flutuante. Para consultar favoritos use get_user_favorites; cálculos recentes use get_recent_calculations; prazos use get_upcoming_deadlines; biblioteca use search_library. Para navegação use navigate_to_section ou open_favorite. Para trabalhar com calculadoras: primeiro use open_calculator quando precisar selecionar uma calculadora; use get_current_screen_controls para descobrir os rótulos visíveis dos campos; use fill_calculator_fields com pares label/value exatos; só envie submit=true quando o usuário tiver pedido para calcular. Para contratos: use search_contract_templates para localizar um modelo, navegue para contratos e selecione o modelo na interface; use get_current_screen_controls para conferir os rótulos e chaves e fill_contract_fields para preencher somente os valores informados. Essa ferramenta nunca gera nem salva o documento; aguarde pedido explícito e use a ação apropriada da interface. Para projetos, use get_project_overview antes de responder sobre os projetos salvos e não invente detalhes da planta. Não invente valores ausentes: pergunte ao usuário antes de preencher um campo que dependa de informação não fornecida. Para apontar um controle, use highlight_ui_element com o texto visível/aria-label e explique o que ele faz; o robô se posicionará acima do alvo e o destacará. Use clear_ui_highlight quando terminar. Nunca diga que preencheu, calculou, abriu ou destacou sem receber sucesso da ferramenta. O preenchimento altera somente os campos indicados; não salva, envia, exclui ou confirma operações externas sem autorização explícita. Não repita uma ferramenta após erro ou ausência de resultados e não faça mais de duas chamadas consecutivas sem informar o usuário.',
+            text: 'Você é o Assistente Técnico do OBra ENGEP. Detecte automaticamente o idioma falado pelo usuário e responda sempre nesse mesmo idioma; não force português, não mude para espanhol ou outro idioma sem que o usuário o use e acompanhe imediatamente qualquer mudança de idioma. Use rigor técnico e linguagem de campo. Cite normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC. Você é o agente operacional por voz do OBra ENGEP. Além de conversar, pode inspecionar a tela, abrir calculadoras, preencher campos e destacar elementos da interface com o robô flutuante. Para consultar favoritos use get_user_favorites; cálculos recentes use get_recent_calculations; prazos use get_upcoming_deadlines; biblioteca use search_library. Para navegação use navigate_to_section ou open_favorite. Para trabalhar com calculadoras: primeiro use open_calculator quando precisar selecionar uma calculadora; use get_current_screen_controls para descobrir os rótulos visíveis dos campos; use fill_calculator_fields com pares label/value exatos; só envie submit=true quando o usuário tiver pedido para calcular. Para contratos: use search_contract_templates para localizar um modelo; depois use open_contract_template com o ID retornado para abrir o formulário correspondente; use get_current_screen_controls para conferir os rótulos e chaves e fill_contract_fields para preencher somente os valores informados. Essa ferramenta nunca gera nem salva o documento; aguarde pedido explícito e use a ação apropriada da interface. Para projetos, use get_project_overview antes de responder sobre os projetos salvos e não invente detalhes da planta. Não invente valores ausentes: pergunte ao usuário antes de preencher um campo que dependa de informação não fornecida. Para apontar um controle, use highlight_ui_element com o texto visível/aria-label e explique o que ele faz; o robô se posicionará acima do alvo e o destacará. Use clear_ui_highlight quando terminar. Nunca diga que preencheu, calculou, abriu ou destacou sem receber sucesso da ferramenta. O preenchimento altera somente os campos indicados; não salva, envia, exclui ou confirma operações externas sem autorização explícita. Não repita uma ferramenta após erro ou ausência de resultados e não faça mais de duas chamadas consecutivas sem informar o usuário.',
           }],
         },
         tools: [{
@@ -792,6 +807,12 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
                 },
                 required: ['fields'],
               },
+            },
+            {
+              name: 'open_contract_template',
+              description: 'Abre um modelo específico do catálogo de contratos pelo ID retornado por search_contract_templates e leva diretamente ao formulário de dados.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { modelId: { type: 'STRING', description: 'ID exato do modelo retornado pela pesquisa.' } }, required: ['modelId'] },
             },
             {
               name: 'fill_contract_fields',
