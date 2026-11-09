@@ -5,7 +5,7 @@ import { contractCategories, contractModels } from '../data/contractsCatalog';
 import type { ContractModel, GeneratedContract } from '../types';
 import { deleteContract, listContracts, saveContract } from '../services/contractsRepository';
 
-interface Props { userId: string | null; onBack: () => void; }
+interface Props { userId: string | null; onBack: () => void; initialModelId?: string; }
 type Screen = 'catalog' | 'editor' | 'document';
 
 const emptyFields = (model: ContractModel) => Object.fromEntries(model.fields.map((field) => [field.key, ''])) as Record<string, string>;
@@ -56,7 +56,7 @@ function downloadPdf(contract: GeneratedContract) {
   pdf.save(`${contract.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`);
 }
 
-export const ContractsView: React.FC<Props> = ({ userId, onBack }) => {
+export const ContractsView: React.FC<Props> = ({ userId, onBack, initialModelId }) => {
   const [screen, setScreen] = useState<Screen>('catalog');
   const [selected, setSelected] = useState<ContractModel | null>(null);
   const [category, setCategory] = useState('todos');
@@ -86,6 +86,12 @@ export const ContractsView: React.FC<Props> = ({ userId, onBack }) => {
   const start = (model: ContractModel) => {
     setSelected(model); setFields(emptyFields(model)); setScreen('editor'); setError('');
   };
+
+  useEffect(() => {
+    if (!initialModelId) return;
+    const model = contractModels.find((item) => item.id === initialModelId);
+    if (model) start(model);
+  }, [initialModelId]);
 
   const updateField = (key: string, value: string) => setFields((current) => ({ ...current, [key]: value }));
 
