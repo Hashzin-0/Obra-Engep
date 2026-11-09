@@ -30,7 +30,7 @@
     "motion": "^12.23.24",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
-    "ws": "^8.22.0",
+    "ws": "^8.22.1",
     "simple-liquid-glass": "5.7.0",
     "robot-heads": "^0.3.0",
     "next": "^16.4.5"
