@@ -82,20 +82,20 @@ export async function enablePushNotifications(): Promise<{ message: string }> {
       const { error } = await supabase
         .from('notification_preferences')
         .upsert(
-          { user_id: session.userId, enabled: true, reminders_enabled: true, updates_enabled: true },
+          { user_id: session.user.id, enabled: true, reminders_enabled: true, updates_enabled: true },
           { onConflict: 'user_id' }
         );
       if (error) throw new Error(error.message);
     }
 
-    await recordPrivacyConsent(session.userId, 'granted');
+    await recordPrivacyConsent(session.user.id, 'granted');
   } catch (error) {
-    await deletePushSubscription(session.userId, subscription.endpoint).catch(() => undefined);
+    await deletePushSubscription(session.user.id, subscription.endpoint).catch(() => undefined);
     await subscription.unsubscribe().catch(() => false);
     if (supabase) {
       try {
         await supabase.from('notification_preferences')
-          .upsert({ user_id: session.userId, enabled: false }, { onConflict: 'user_id' });
+          .upsert({ user_id: session.user.id, enabled: false }, { onConflict: 'user_id' });
       } catch {
         // The subscription has already been removed locally and remote cleanup was attempted.
       }
@@ -118,10 +118,10 @@ export async function disablePushNotifications(): Promise<{ message: string }> {
   if (supabase && session) {
     const { error } = await supabase
       .from('notification_preferences')
-      .upsert({ user_id: session.userId, enabled: false }, { onConflict: 'user_id' });
+      .upsert({ user_id: session.user.id, enabled: false }, { onConflict: 'user_id' });
     if (error) throw new Error('Notificações desativadas, mas não foi possível atualizar a preferência na conta.');
     try {
-      await recordPrivacyConsent(session.userId, 'revoked');
+      await recordPrivacyConsent(session.user.id, 'revoked');
     } catch {
       return { message: 'Notificações desativadas. O histórico da revogação não pôde ser sincronizado; tente novamente quando estiver online.' };
     }
