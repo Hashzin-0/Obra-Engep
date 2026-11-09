@@ -526,10 +526,10 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           };
         } else if (call.name === 'navigate_to_section') {
           const section = args.section;
+          if (typeof section !== 'string') throw new Error('A seção solicitada é inválida.');
           const normalizedSection = section === 'fav' ? 'favoritos' : section === 'home' ? 'inicio' : section;
           const mainSections = ['inicio', 'biblioteca', 'favoritos', 'mais'];
           const moduleSections = ['calculadoras', 'manuais', 'projetos', 'ia', 'estetica', 'legislacao', 'contratos'];
-          if (typeof section !== 'string') throw new Error('A seção solicitada é inválida.');
           if (mainSections.includes(normalizedSection)) {
             if (!onNavigateToSection) throw new Error('A navegação principal não está disponível.');
             onNavigateToSection(normalizedSection as 'inicio' | 'biblioteca' | 'favoritos' | 'mais');
