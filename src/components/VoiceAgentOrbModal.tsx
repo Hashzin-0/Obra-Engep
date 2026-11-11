@@ -1591,7 +1591,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const cancelFormGuide = () => {
     guideFieldsRef.current.forEach((field) => field.classList.remove('robot-guide-highlight'));
     guideFieldsRef.current = [];
-    setGuideTargetRect(null);
     isFormGuidingRef.current = false;
     setIsFormGuiding(false);
     isTouringControlsRef.current = false;
@@ -1631,8 +1630,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       setIsTouringControls(false);
       tourTargetsRef.current.forEach((target) => target.classList.remove('robot-guide-highlight'));
       tourTargetsRef.current = [];
-      setGuideTargetRect(null);
-      onGuidingChange?.(false);
+        onGuidingChange?.(false);
       setConnectionStatus('happy');
       window.setTimeout(() => setConnectionStatus('idle'), 1800);
       return;
