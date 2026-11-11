@@ -70,6 +70,14 @@ import {
 import { ensureUuid } from './utils/uuid';
 import type { CanvasAgentApi } from './views/FloorPlanEditorView';
 
+type VoiceHeaderControls = {
+  isVoiceMode: boolean;
+  isMicrophoneMuted: boolean;
+  startVoiceMode: () => void;
+  toggleMicrophoneMute: () => void;
+  exitVoiceMode: () => void;
+};
+
 export default function App() {
   return (
     <ThemeProvider>
@@ -92,6 +100,8 @@ function AppShell() {
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [voiceHeaderControls, setVoiceHeaderControls] = useState<VoiceHeaderControls | null>(null);
+  const handleVoiceUiChange = useCallback((controls: VoiceHeaderControls) => setVoiceHeaderControls(controls), []);
   const [agentState, setAgentState] = useState<'sleeping' | 'idle' | 'listening' | 'thinking' | 'speaking' | 'working' | 'happy' | 'error'>('sleeping');
   const [isAgentGuiding, setIsAgentGuiding] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(
@@ -667,6 +677,12 @@ function AppShell() {
         onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)}
         agentState={isVoiceModalOpen ? agentState : 'sleeping'}
         isAgentGuiding={isAgentGuiding}
+        voiceAssistantOpen={isVoiceModalOpen}
+        isVoiceMode={voiceHeaderControls?.isVoiceMode ?? false}
+        isMicrophoneMuted={voiceHeaderControls?.isMicrophoneMuted ?? false}
+        onStartVoiceMode={voiceHeaderControls?.startVoiceMode}
+        onToggleMicrophoneMute={voiceHeaderControls?.toggleMicrophoneMute}
+        onExitVoiceMode={voiceHeaderControls?.exitVoiceMode}
         onBackToHome={isNonHomeView ? () => handleTabChange('inicio') : undefined}
       />}
 
@@ -816,10 +832,12 @@ function AppShell() {
         isOpen={isVoiceModalOpen}
         onClose={() => {
           setIsVoiceModalOpen(false);
+          setVoiceHeaderControls(null);
           setIsAgentGuiding(false);
           setAgentState('sleeping');
         }}
         onStatusChange={setAgentState}
+        onVoiceUiChange={handleVoiceUiChange}
         onGuidingChange={setIsAgentGuiding}
         onNavigateToSection={handleTabChange}
         onNavigateToModule={handleNavigateModule}
