@@ -17,6 +17,9 @@ import {
   Loader2,
   Copy,
   Check,
+  Mic,
+  MicOff,
+  MessageSquare,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { getSupabaseAccessToken, supabase } from '../lib/supabase';
@@ -71,6 +74,8 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   const [isListening, setIsListening] = useState(false);
+  const [isMicrophoneMuted, setIsMicrophoneMuted] = useState(false);
+  const isMicrophoneMutedRef = useRef(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [audioFeedbackEnabled, setAudioFeedbackEnabled] = useState(true);
   const [expandedThoughts, setExpandedThoughts] = useState<Record<string, boolean>>({});
@@ -373,6 +378,60 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     return { status: 'ok', highlighted: ranked[0].label, message: 'Robô posicionado acima do elemento e destaque visual aplicado.' };
   };
 
+  const resolveCanvasAgent = async (toolName: string): Promise<CanvasAgentApi> => {
+    const startedAt = Date.now();
+    const initialRoute = window.location.pathname;
+    let api = getCanvasAgent?.() ?? null;
+    console.info('[Gemini Live][Canvas] API resolution started.', {
+      tool: toolName,
+      route: initialRoute,
+      apiAvailable: Boolean(api),
+    });
+    if (!api) {
+      if (!onNavigateToModule) {
+        console.error('[Gemini Live][Canvas] Navigation callback is unavailable.', { tool: toolName, route: initialRoute });
+        throw new Error('A navegação para o Canvas não está disponível nesta sessão.');
+      }
+      console.info('[Gemini Live][Canvas] Requesting navigation to Projetos.', { tool: toolName, route: initialRoute });
+      onNavigateToModule('projetos');
+      for (let attempt = 1; attempt <= 40; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 100));
+        api = getCanvasAgent?.() ?? null;
+        if (api) {
+          console.info('[Gemini Live][Canvas] Editor API became available.', {
+            tool: toolName,
+            attempts: attempt,
+            elapsedMs: Date.now() - startedAt,
+            route: window.location.pathname,
+          });
+          break;
+        }
+        if (attempt % 10 === 0) {
+          console.info('[Gemini Live][Canvas] Waiting for editor registration.', {
+            tool: toolName,
+            attempts: attempt,
+            elapsedMs: Date.now() - startedAt,
+            route: window.location.pathname,
+            canvasElements: document.querySelectorAll('canvas').length,
+          });
+        }
+      }
+    }
+    if (!api) {
+      const diagnostics = {
+        tool: toolName,
+        elapsedMs: Date.now() - startedAt,
+        initialRoute,
+        currentRoute: window.location.pathname,
+        canvasElements: document.querySelectorAll('canvas').length,
+        mainPresent: Boolean(document.querySelector('main')),
+      };
+      console.error('[Gemini Live][Canvas] Editor API registration timed out.', diagnostics);
+      throw new Error('O editor de Projetos não registrou a API do Canvas após 4 segundos. Diagnóstico: rota ' + diagnostics.currentRoute + ', elementos canvas encontrados: ' + diagnostics.canvasElements + '. Consulte os logs [Gemini Live][Canvas].');
+    }
+    return api;
+  };
+
   const executeLiveToolCalls = async (
     calls: Array<{ id: string; name: string; args?: Record<string, unknown> }>,
     socket: WebSocket
@@ -383,6 +442,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     try {
     const functionResponses = await Promise.all(calls.map(async (call) => {
       const args = call.args ?? {};
+      let stage = 'dispatch';
       try {
         let result: Record<string, unknown>;
         if (call.name === 'get_current_screen_controls') {
@@ -464,62 +524,50 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           result = { status: matches.length ? 'ok' : 'no_results', count: matches.length, templates: matches.map((model) => ({ id: model.id, title: model.title, category: model.category, regime: model.regime, description: model.description, requiredFields: model.fields.filter((field) => field.required).map((field) => ({ key: field.key, label: field.label })) })) };
 
         } else if (call.name === 'get_canvas_overview') {
-          let api = getCanvasAgent?.() ?? null;
-          if (!api) {
-            if (!onNavigateToModule) throw new Error('A navegação para o Canvas não está disponível.');
-            onNavigateToModule('projetos');
-            for (let attempt = 0; attempt < 40; attempt += 1) {
-              await new Promise((resolve) => window.setTimeout(resolve, 100));
-              api = getCanvasAgent?.() ?? null;
-              if (api) break;
-            }
-          }
-          if (!api) throw new Error('O Canvas ainda não disponibilizou o projeto ativo. Aguarde a abertura do editor e tente novamente.');
+          stage = 'canvas-api-resolution';
+          const api = await resolveCanvasAgent(call.name);
+          stage = 'canvas-get-overview';
           result = api.getOverview();
+          console.info('[Gemini Live][Canvas] Overview completed.', { tool: call.name, status: result.status, route: window.location.pathname });
         } else if (call.name === 'select_canvas_level') {
           const id = args.id;
           if (typeof id !== 'string') throw new Error('Informe o ID exato do pavimento retornado por get_canvas_overview.');
-          let api = getCanvasAgent?.() ?? null;
-          if (!api) {
-            if (!onNavigateToModule) throw new Error('A navegação para o Canvas não está disponível.');
-            onNavigateToModule('projetos');
-            for (let attempt = 0; attempt < 40; attempt += 1) { await new Promise((resolve) => window.setTimeout(resolve, 100)); api = getCanvasAgent?.() ?? null; if (api) break; }
-          }
-          if (!api) throw new Error('O Canvas não está pronto para trocar de pavimento.');
+          stage = 'canvas-api-resolution';
+          const api = await resolveCanvasAgent(call.name);
+          stage = 'canvas-select-level';
           result = api.selectLevel(id);
+          console.info('[Gemini Live][Canvas] Level selection completed.', { tool: call.name, levelId: id, status: result.status });
         } else if (call.name === 'select_canvas_element') {
           const kind = args.kind, id = args.id;
           if (typeof kind !== 'string' || !['wall', 'opening', 'electrical', 'hydraulic', 'furniture'].includes(kind) || typeof id !== 'string') throw new Error('Informe o tipo e o ID exato do elemento retornado por get_canvas_overview.');
-          let api = getCanvasAgent?.() ?? null;
-          if (!api) {
-            if (!onNavigateToModule) throw new Error('A navegação para o Canvas não está disponível.');
-            onNavigateToModule('projetos');
-            for (let attempt = 0; attempt < 40; attempt += 1) { await new Promise((resolve) => window.setTimeout(resolve, 100)); api = getCanvasAgent?.() ?? null; if (api) break; }
-          }
-          if (!api) throw new Error('O Canvas não está pronto para selecionar elementos.');
+          stage = 'canvas-api-resolution';
+          const api = await resolveCanvasAgent(call.name);
+          stage = 'canvas-select-element';
           result = api.selectElement(kind as CanvasAgentKind, id);
+          console.info('[Gemini Live][Canvas] Element selection completed.', { tool: call.name, kind, elementId: id, status: result.status });
           try { highlightUiElement('Planta 2D'); } catch { /* The object selection remains highlighted on the canvas. */ }
         } else if (call.name === 'add_canvas_element') {
-          let api = getCanvasAgent?.() ?? null;
-          if (!api) {
-            if (!onNavigateToModule) throw new Error('A navegação para o Canvas não está disponível.');
-            onNavigateToModule('projetos');
-            for (let attempt = 0; attempt < 40; attempt += 1) { await new Promise((resolve) => window.setTimeout(resolve, 100)); api = getCanvasAgent?.() ?? null; if (api) break; }
-          }
-          if (!api) throw new Error('O Canvas não está pronto para adicionar elementos.');
+          stage = 'canvas-api-resolution';
+          const api = await resolveCanvasAgent(call.name);
+          stage = 'canvas-add-element';
           result = api.addElement(args);
+          console.info('[Gemini Live][Canvas] Element creation completed.', { tool: call.name, kind: args.kind, status: result.status });
         } else if (call.name === 'move_canvas_element') {
           const kind = args.kind, id = args.id, x = args.x, y = args.y;
           if (typeof kind !== 'string' || !['wall', 'opening', 'electrical', 'hydraulic', 'furniture'].includes(kind) || typeof id !== 'string' || typeof x !== 'number' || typeof y !== 'number') throw new Error('Informe kind, ID, x e y numéricos do elemento.');
-          const api = getCanvasAgent?.();
-          if (!api) throw new Error('Abra o módulo Projetos e aguarde o Canvas carregar antes de mover um elemento.');
+          stage = 'canvas-api-resolution';
+          const api = await resolveCanvasAgent(call.name);
+          stage = 'canvas-move-element';
           result = api.moveElement(kind as CanvasAgentKind, id, x, y);
+          console.info('[Gemini Live][Canvas] Element move completed.', { tool: call.name, kind, elementId: id, status: result.status });
         } else if (call.name === 'delete_canvas_element') {
           const kind = args.kind, id = args.id, confirmed = args.confirmed;
           if (typeof kind !== 'string' || !['wall', 'opening', 'electrical', 'hydraulic', 'furniture'].includes(kind) || typeof id !== 'string' || typeof confirmed !== 'boolean') throw new Error('Informe kind, ID e confirmed booleano.');
-          const api = getCanvasAgent?.();
-          if (!api) throw new Error('Abra o módulo Projetos e aguarde o Canvas carregar antes de excluir um elemento.');
+          stage = 'canvas-api-resolution';
+          const api = await resolveCanvasAgent(call.name);
+          stage = 'canvas-delete-element';
           result = api.deleteElement(kind as CanvasAgentKind, id, confirmed);
+          console.info('[Gemini Live][Canvas] Element deletion completed.', { tool: call.name, kind, elementId: id, status: result.status });
         } else if (call.name === 'get_project_overview') {
           if (!getProjectOverview) throw new Error('O resumo dos projetos não está disponível nesta sessão.');
           const projects = getProjectOverview();
@@ -618,10 +666,19 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         }
         return { id: call.id, name: call.name, response: result };
       } catch (error) {
+        const message = error instanceof Error ? error.message : 'Falha ao executar a ferramenta.';
+        console.error('[Gemini Live][Tool] Execution failed.', {
+          tool: call.name,
+          stage,
+          route: typeof window !== 'undefined' ? window.location.pathname : 'unknown',
+          errorName: error instanceof Error ? error.name : 'unknown',
+          errorMessage: message,
+          canvasApiAvailable: call.name.startsWith('canvas_') || call.name === 'get_canvas_overview' ? Boolean(getCanvasAgent?.()) : undefined,
+        });
         return {
           id: call.id,
           name: call.name,
-          response: { status: 'error', retryable: false, message: error instanceof Error ? error.message : 'Falha ao executar a ferramenta.' },
+          response: { status: 'error', retryable: false, message },
         };
       }
     }));
@@ -661,6 +718,8 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     livePendingToolCallsRef.current = 0;
     setIsListening(false);
     setIsGenerating(false);
+    isMicrophoneMutedRef.current = false;
+    setIsMicrophoneMuted(false);
     setConnectionStatus('idle');
   };
 
@@ -781,6 +840,8 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
       liveStreamRef.current = microphone;
+      microphone.getAudioTracks().forEach((track) => { track.enabled = !isMicrophoneMutedRef.current; });
+      console.info('[Gemini Live][Audio] Microphone stream acquired.', { trackCount: microphone.getAudioTracks().length, muted: isMicrophoneMutedRef.current });
       if (liveShouldStopRef.current) {
         microphone.getTracks().forEach((track) => track.stop());
         if (liveStreamRef.current === microphone) liveStreamRef.current = null;
@@ -1766,6 +1827,14 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     startVoiceCapture();
   };
 
+  const toggleMicrophoneMute = () => {
+    const nextMuted = !isMicrophoneMutedRef.current;
+    isMicrophoneMutedRef.current = nextMuted;
+    liveStreamRef.current?.getAudioTracks().forEach((track) => { track.enabled = !nextMuted; });
+    setIsMicrophoneMuted(nextMuted);
+    console.info('[Gemini Live][Audio] Microphone mute changed.', { muted: nextMuted, activeTracks: liveStreamRef.current?.getAudioTracks().length ?? 0 });
+  };
+
   const exitVoiceMode = () => {
     stopGeminiLive();
     cancelFormGuide();
@@ -1783,7 +1852,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-end p-3 sm:p-4 bg-transparent pointer-events-none">
       <div
-        className={`pointer-events-auto w-full max-w-xl rounded-3xl border shadow-2xl flex flex-col overflow-hidden max-h-[82vh] transition-colors ${
+        className={`pointer-events-auto ${isVoiceMode ? 'w-auto max-w-[360px] max-h-[88px]' : 'w-full max-w-xl max-h-[82vh]'} rounded-3xl border shadow-2xl flex flex-col overflow-hidden transition-colors ${
           isDark
             ? 'bg-[#101827] border-[#2A3A55] text-[#E8EDF5]'
             : 'bg-[#FFFFFF] border-[#D9E0EC] text-[#101827]'
@@ -1792,7 +1861,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         {/* Header bar */}
         <div className="p-3 border-b border-[#2A3A55]/60 flex items-center justify-between gap-3 bg-gradient-to-r from-[#17243A] via-[#101827] to-[#17243A]">
           <div className="flex items-center gap-3">
-            {!isFormGuiding && !isTouringControls && <RobotHeadAvatar state={isListening ? 'listening' : connectionStatus} size={42} />}
+            {(!isFormGuiding && !isTouringControls) || isVoiceMode ? <RobotHeadAvatar state={isListening ? 'listening' : connectionStatus} size={42} /> : null}
             {!isVoiceMode && <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-sm text-white leading-tight">Assistente OBra ENGEP</h3>
@@ -1800,10 +1869,17 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
               </div>
               <p className="text-[11px] text-[#9FB0C8]">Mesmo agente, agora com orientação visual</p>
             </div>}
-            {isVoiceMode && <span className="text-xs font-semibold text-white">Modo voz</span>}
+            {isVoiceMode && <div className="flex items-center gap-1.5" aria-label="Controles do modo de voz">
+              <button type="button" onClick={toggleMicrophoneMute} aria-label={isMicrophoneMuted ? 'Reativar microfone' : 'Silenciar microfone'} title={isMicrophoneMuted ? 'Reativar microfone' : 'Silenciar microfone'} className={`p-2 rounded-xl border transition ${isMicrophoneMuted ? 'border-red-400/50 bg-red-500/15 text-red-300' : 'border-[#5B9BFF]/40 bg-[#1F66D6]/15 text-[#9FC4FF]'}`}>
+                {isMicrophoneMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
+              <button type="button" onClick={exitVoiceMode} aria-label="Voltar ao chat de texto" title="Voltar ao chat de texto" className="p-2 rounded-xl border border-[#5B9BFF]/40 bg-[#1F66D6]/15 text-[#9FC4FF] transition hover:bg-[#1F66D6]/30">
+                <MessageSquare className="w-4 h-4" />
+              </button>
+            </div>}
           </div>
           <div className="flex items-center gap-1.5">
-            {isVoiceMode && <button onClick={exitVoiceMode} className="px-2.5 py-2 rounded-xl border border-[#5B9BFF]/40 text-[#9FC4FF] text-[11px] font-semibold">Voltar ao chat</button>}
+
             {(isFormGuiding || isTouringControls) && (
               <button onClick={cancelFormGuide} className="px-2.5 py-2 rounded-xl border border-[#F5B93A]/40 text-[#F5B93A] text-[11px] font-semibold">
                 Encerrar guia
@@ -1834,7 +1910,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         )}
 
         {/* Central Robot Head: tap to open a bidirectional Gemini Live WebSocket session. */}
-        {!isFormGuiding && !isTouringControls && <div className="py-4 px-4 bg-gradient-to-b from-[#17243A]/50 to-transparent flex flex-col items-center justify-center border-b border-[#2A3A55]/40 relative">
+        {!isVoiceMode && !isFormGuiding && !isTouringControls && <div className="py-4 px-4 bg-gradient-to-b from-[#17243A]/50 to-transparent flex flex-col items-center justify-center border-b border-[#2A3A55]/40 relative">
           <button
             onClick={toggleVoiceMode}
             aria-label={isListening ? 'Parar captura de voz' : 'Falar com o assistente'}
