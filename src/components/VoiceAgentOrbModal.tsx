@@ -84,7 +84,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const isTouringControlsRef = useRef(false);
   const tourTargetsRef = useRef<HTMLElement[]>([]);
   const tourIndexRef = useRef(0);
-  const [guideFieldIndex, setGuideFieldIndex] = useState(0);
   const guideFieldIndexRef = useRef(0);
   const isFormGuidingRef = useRef(false);
   const guideFieldsRef = useRef<Array<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>>([]);
@@ -1572,7 +1571,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     setIsVoiceMode(true);
     guideFieldsRef.current.forEach((field) => field.classList.remove('robot-guide-highlight'));
     guideFieldsRef.current = fields;
-    setGuideFieldIndex(0);
     guideFieldIndexRef.current = 0;
     isFormGuidingRef.current = true;
     setIsFormGuiding(true);
@@ -1712,7 +1710,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     const nextField = guideFieldsRef.current[nextIndex];
     if (nextField) {
       guideFieldIndexRef.current = nextIndex;
-      setGuideFieldIndex(nextIndex);
       updateGuideTarget(nextField);
       speakGuidePrompt(nextField, nextIndex);
       return;
