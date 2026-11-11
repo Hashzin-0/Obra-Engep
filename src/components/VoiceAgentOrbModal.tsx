@@ -64,9 +64,10 @@ interface VoiceAgentOrbModalProps {
   onNavigateToModule?: (moduleId: ModuleId, itemId?: string) => void;
   getProjectOverview?: () => Array<{ id: string; name: string; type: string; stage: string; updatedAt: string; walls: number; rooms: number; openings: number }>;
   getCanvasAgent?: () => CanvasAgentApi | null;
+  onVoiceUiChange?: (controls: { isVoiceMode: boolean; isMicrophoneMuted: boolean; startVoiceMode: () => void; toggleMicrophoneMute: () => void; exitVoiceMode: () => void }) => void;
 }
 
-export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, onClose, onStatusChange, onGuidingChange, onNavigateToSection, onNavigateToModule, getProjectOverview, getCanvasAgent }) => {
+export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, onClose, onStatusChange, onGuidingChange, onNavigateToSection, onNavigateToModule, getProjectOverview, getCanvasAgent, onVoiceUiChange }) => {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
@@ -178,14 +179,14 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, ' ').trim();
 
   const getVisibleScreenControls = () => {
-    const root = document.querySelector<HTMLElement>('main');
+    const root = document.body;
     if (!root) return [];
     const nodes = Array.from(root.querySelectorAll<HTMLElement>(
       'input:not([type="hidden"]):not([type="password"]):not([type="file"]):not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]), a[href], [role="button"], [data-robot-guide]'
     ));
     return nodes
       .filter((node) => node.getClientRects().length > 0)
-      .slice(0, 80)
+      .slice(0, 160)
       .map((node, index) => ({
         index,
         label: getGuideFieldLabel(node, index),
@@ -340,8 +341,8 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   };
 
   const highlightUiElement = (query: string) => {
-    const root = document.querySelector<HTMLElement>('main');
-    if (!root) throw new Error('A tela principal não está disponível.');
+    const root = document.body;
+    if (!root) throw new Error('A interface do aplicativo não está disponível.');
     const normalizedQuery = normalizeUiLabel(query.replace(/^(botao|botão|campo|aba|secao|seção)\s+/i, ''));
     if (normalizedQuery.length < 2) throw new Error('Informe o nome visível do elemento que deseja destacar.');
     const candidates = Array.from(root.querySelectorAll<HTMLElement>(
@@ -443,10 +444,12 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     const functionResponses = await Promise.all(calls.map(async (call) => {
       const args = call.args ?? {};
       let stage = 'dispatch';
+      console.info('[Gemini Live][Tool] Execution started.', { tool: call.name, callId: call.id, route: window.location.pathname });
       try {
         let result: Record<string, unknown>;
         if (call.name === 'get_current_screen_controls') {
           const controls = getVisibleScreenControls();
+          console.info('[Gemini Live][UI] Visible controls inspected.', { route: window.location.pathname, count: controls.length, labels: controls.map((control) => control.label).slice(0, 80), accountControlFound: controls.some((control) => normalizeUiLabel(control.label).includes('conta')) });
           const calculator = document.querySelector<HTMLElement>('[data-calculator-form]');
           const activeForm = document.querySelector<HTMLElement>('[data-agent-form]');
           const screenTitle = document.querySelector<HTMLElement>('main h1, main h2')?.textContent?.trim() ?? '';
@@ -664,6 +667,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         } else {
           throw new Error('Ferramenta não reconhecida.');
         }
+        console.info('[Gemini Live][Tool] Execution completed.', { tool: call.name, callId: call.id, status: result.status ?? 'ok', route: window.location.pathname });
         return { id: call.id, name: call.name, response: result };
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Falha ao executar a ferramenta.';
@@ -1139,6 +1143,15 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             }
 
             const message = JSON.parse(rawData);
+            console.info('[Gemini Live][WS] Server message received.', {
+              keys: Object.keys(message),
+              toolCalls: Array.isArray(message.toolCall?.functionCalls) ? message.toolCall.functionCalls.map((call: { name?: string }) => call.name ?? 'unknown') : [],
+              hasServerContent: Boolean(message.serverContent),
+              hasInputTranscription: Boolean(message.serverContent?.inputTranscription?.text),
+              hasOutputTranscription: Boolean(message.serverContent?.outputTranscription?.text),
+              turnComplete: Boolean(message.serverContent?.turnComplete),
+              interrupted: Boolean(message.serverContent?.interrupted),
+            });
             if (message.error) {
               const detail = message.error.message || message.error.code || 'Erro não especificado pelo Gemini Live.';
               console.error('[Gemini Live] Server rejected the session:', detail);
@@ -1842,12 +1855,24 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     setConnectionStatus('idle');
   };
 
+  const startVoiceMode = () => {
+    if (isVoiceMode) return;
+    setIsVoiceMode(true);
+    startVoiceCapture();
+  };
+
+  useEffect(() => {
+    onVoiceUiChange?.({ isVoiceMode, isMicrophoneMuted, startVoiceMode, toggleMicrophoneMute, exitVoiceMode });
+  }, [isVoiceMode, isMicrophoneMuted, onVoiceUiChange]);
+
   const sampleVoicePrompts = [
     'Qual cabo e disjuntor para chuveiro 7500W?',
     'Exigências da NR-35 para ancoragem em altura',
     'Qual a diluição de APC para sujeira pesada?',
     'Como calcular queda de tensão NBR 5410?',
   ];
+
+  if (!isOpen || isVoiceMode) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-end p-3 sm:p-4 bg-transparent pointer-events-none">
@@ -1861,7 +1886,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         {/* Header bar */}
         <div className="p-3 border-b border-[#2A3A55]/60 flex items-center justify-between gap-3 bg-gradient-to-r from-[#17243A] via-[#101827] to-[#17243A]">
           <div className="flex items-center gap-3">
-            {(!isFormGuiding && !isTouringControls) || isVoiceMode ? <RobotHeadAvatar state={isListening ? 'listening' : connectionStatus} size={42} /> : null}
             {!isVoiceMode && <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-sm text-white leading-tight">Assistente OBra ENGEP</h3>
@@ -1897,34 +1921,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             </button>
           </div>
         </div>
-
-        {/* Robot companion follows the active form field without intercepting page gestures. */}
-        {guideTargetRect && (isFormGuiding || isTouringControls) && (
-          <div className="fixed z-[70] pointer-events-none flex items-end gap-2 robot-guide-companion" style={{ top: guideTargetRect.top, left: guideTargetRect.left }}>
-            <RobotHeadAvatar state={isListening ? 'listening' : connectionStatus === 'speaking' ? 'speaking' : 'working'} size={76} />
-            <div className="max-w-[190px] rounded-2xl border border-[#8da6b7]/50 bg-[#101827]/95 px-3 py-2 text-[11px] text-white shadow-xl">
-              {isTouringControls ? `Controle ${tourIndexRef.current + 1} de ${tourTargetsRef.current.length}` : `Campo ${guideFieldIndex + 1} de ${guideFieldsRef.current.length}`}
-              <div className="text-[#c7d7df]">{isTouringControls && tourTargetsRef.current[tourIndexRef.current] ? getGuideFieldLabel(tourTargetsRef.current[tourIndexRef.current], tourIndexRef.current) : guideFieldsRef.current[guideFieldIndex] ? getGuideFieldLabel(guideFieldsRef.current[guideFieldIndex], guideFieldIndex) : 'Preparando próximo campo'}</div>
-            </div>
-          </div>
-        )}
-
-        {/* Central Robot Head: tap to open a bidirectional Gemini Live WebSocket session. */}
-        {!isVoiceMode && !isFormGuiding && !isTouringControls && <div className="py-4 px-4 bg-gradient-to-b from-[#17243A]/50 to-transparent flex flex-col items-center justify-center border-b border-[#2A3A55]/40 relative">
-          <button
-            onClick={toggleVoiceMode}
-            aria-label={isListening ? 'Parar captura de voz' : 'Falar com o assistente'}
-            className="rounded-2xl min-w-[112px] min-h-[112px] flex items-center justify-center focus-visible:outline-offset-4"
-          >
-            <RobotHeadAvatar state={isListening ? 'listening' : connectionStatus} size={104} />
-          </button>
-          <div className="mt-2 text-center space-y-1">
-            <div className="text-xs font-semibold text-[#c7d7df]">
-              {isListening ? 'Ouvindo você…' : connectionStatus === 'thinking' ? 'Analisando sua solicitação…' : connectionStatus === 'speaking' ? 'Falando com você…' : isFormGuiding ? 'Preenchimento guiado ativo' : isTouringControls ? 'Orientação da tela ativa' : 'Toque no robô para conversar'}
-            </div>
-            <p className="text-[10px] text-[#9FB0C8]">O estado do robô acompanha o estado real da conversa.</p>
-          </div>
-        </div>}
 
         {/* Quick Voice Prompts and contextual page guidance */}
         {!isVoiceMode && <div className="px-3 py-2 bg-[#17243A]/40 border-b border-[#2A3A55]/30 flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs">
