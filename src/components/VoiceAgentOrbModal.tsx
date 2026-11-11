@@ -682,9 +682,15 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     }));
 
     if (socket.readyState === WebSocket.OPEN && liveSessionRef.current === socket) {
-      console.info('[Gemini Live] Returning tool responses.', { count: functionResponses.length, names: functionResponses.map((item) => item.name) });
+      console.info('[Gemini Live][Tool] Returning tool responses to model.', { count: functionResponses.length, names: functionResponses.map((item) => item.name) });
       socket.send(JSON.stringify({ toolResponse: { functionResponses } }));
       setConnectionStatus('thinking');
+    } else {
+      console.error('[Gemini Live][Tool] Could not return tool responses because the session is no longer open.', {
+        readyState: socket.readyState,
+        isCurrentSession: liveSessionRef.current === socket,
+        tools: functionResponses.map((item) => item.name),
+      });
     }
     } finally {
       livePendingToolCallsRef.current = Math.max(0, livePendingToolCallsRef.current - 1);
