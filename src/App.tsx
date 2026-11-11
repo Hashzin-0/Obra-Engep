@@ -751,6 +751,12 @@ function AppShell() {
             key={sessionUserId ?? 'anonymous'}
             onOpenCalendarModal={() => setIsCalendarModalOpen(true)}
             onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)}
+            voiceAssistantOpen={isVoiceModalOpen}
+            isVoiceMode={voiceHeaderControls?.isVoiceMode ?? false}
+            isMicrophoneMuted={voiceHeaderControls?.isMicrophoneMuted ?? false}
+            onStartVoiceMode={voiceHeaderControls?.startVoiceMode}
+            onToggleMicrophoneMute={voiceHeaderControls?.toggleMicrophoneMute}
+            onExitVoiceMode={voiceHeaderControls?.exitVoiceMode}
             deadlines={deadlines}
             projects={projects}
             onSaveProject={handleSaveProject}
