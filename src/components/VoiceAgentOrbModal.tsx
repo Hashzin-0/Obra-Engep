@@ -1814,8 +1814,17 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     startVoiceCapture();
   };
 
+  const voiceActionsRef = useRef({ startVoiceMode, toggleMicrophoneMute, exitVoiceMode });
+  voiceActionsRef.current = { startVoiceMode, toggleMicrophoneMute, exitVoiceMode };
+
   useEffect(() => {
-    onVoiceUiChange?.({ isVoiceMode, isMicrophoneMuted, startVoiceMode, toggleMicrophoneMute, exitVoiceMode });
+    onVoiceUiChange?.({
+      isVoiceMode,
+      isMicrophoneMuted,
+      startVoiceMode: () => voiceActionsRef.current.startVoiceMode(),
+      toggleMicrophoneMute: () => voiceActionsRef.current.toggleMicrophoneMute(),
+      exitVoiceMode: () => voiceActionsRef.current.exitVoiceMode(),
+    });
   }, [isVoiceMode, isMicrophoneMuted, onVoiceUiChange]);
 
   const sampleVoicePrompts = [
