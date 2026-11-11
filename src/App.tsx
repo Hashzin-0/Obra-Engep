@@ -518,7 +518,11 @@ function AppShell() {
   };
 
   const handleNavigateModule = (moduleId: ModuleId, subItem?: string) => {
-    router.push(pathForModule(moduleId, subItem));
+    const targetPath = pathForModule(moduleId, subItem);
+    if (moduleId === 'projetos') {
+      console.info('[Canvas Agent] AppShell navigation requested.', { from: pathname, to: targetPath, editorApiAvailable: Boolean(canvasAgentApiRef.current) });
+    }
+    router.push(targetPath);
     if (moduleId === 'contratos') {
       setActiveModuleView('contratos');
       setCurrentTab('inicio');
