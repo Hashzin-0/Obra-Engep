@@ -17,9 +17,6 @@ import {
   Loader2,
   Copy,
   Check,
-  Mic,
-  MicOff,
-  MessageSquare,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { getSupabaseAccessToken, supabase } from '../lib/supabase';
@@ -1854,14 +1851,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
                 <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-[#1F66D6] text-white font-bold">Aguardando</span>
               </div>
               <p className="text-[11px] text-[#9FB0C8]">Mesmo agente, agora com orientação visual</p>
-            </div>}
-            {isVoiceMode && <div className="flex items-center gap-1.5" aria-label="Controles do modo de voz">
-              <button type="button" onClick={toggleMicrophoneMute} aria-label={isMicrophoneMuted ? 'Reativar microfone' : 'Silenciar microfone'} title={isMicrophoneMuted ? 'Reativar microfone' : 'Silenciar microfone'} className={`p-2 rounded-xl border transition ${isMicrophoneMuted ? 'border-red-400/50 bg-red-500/15 text-red-300' : 'border-[#5B9BFF]/40 bg-[#1F66D6]/15 text-[#9FC4FF]'}`}>
-                {isMicrophoneMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-              </button>
-              <button type="button" onClick={exitVoiceMode} aria-label="Voltar ao chat de texto" title="Voltar ao chat de texto" className="p-2 rounded-xl border border-[#5B9BFF]/40 bg-[#1F66D6]/15 text-[#9FC4FF] transition hover:bg-[#1F66D6]/30">
-                <MessageSquare className="w-4 h-4" />
-              </button>
             </div>}
           </div>
           <div className="flex items-center gap-1.5">
