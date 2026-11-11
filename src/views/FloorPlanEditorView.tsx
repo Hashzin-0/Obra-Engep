@@ -338,8 +338,18 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
       },
     };
     onRegisterAgentApi(api);
-    return () => onRegisterAgentApi(null);
-  });
+    console.info('[Canvas Agent] Editor API registered.', {
+      projectLoaded: Boolean(project.id),
+      levelCount: project.levels?.length ?? 0,
+      activeLevelId,
+      canvasMounted: Boolean(canvasRef.current),
+    });
+  }, [project, activeLevelId, history, historyIndex, isNightMode, onSaveProject, onRegisterAgentApi]);
+
+  useEffect(() => () => {
+    console.info('[Canvas Agent] Editor unmounted; unregistering API.');
+    onRegisterAgentApi?.(null);
+  }, [onRegisterAgentApi]);
 
   const handleCreateLevel = () => {
     const kindInput = window.prompt('Tipo de pavimento: subsolo, terreo ou superior', 'superior');
