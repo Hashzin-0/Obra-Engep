@@ -5,7 +5,7 @@ import { contractCategories, contractModels } from '../data/contractsCatalog';
 import type { ContractModel, GeneratedContract } from '../types';
 import { deleteContract, listContracts, saveContract } from '../services/contractsRepository';
 
-interface Props { userId: string | null; onBack: () => void; }
+interface Props { userId: string | null; onBack: () => void; initialModelId?: string; }
 type Screen = 'catalog' | 'editor' | 'document';
 
 const emptyFields = (model: ContractModel) => Object.fromEntries(model.fields.map((field) => [field.key, ''])) as Record<string, string>;
@@ -56,7 +56,7 @@ function downloadPdf(contract: GeneratedContract) {
   pdf.save(`${contract.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`);
 }
 
-export const ContractsView: React.FC<Props> = ({ userId, onBack }) => {
+export const ContractsView: React.FC<Props> = ({ userId, onBack, initialModelId }) => {
   const [screen, setScreen] = useState<Screen>('catalog');
   const [selected, setSelected] = useState<ContractModel | null>(null);
   const [category, setCategory] = useState('todos');
@@ -86,6 +86,12 @@ export const ContractsView: React.FC<Props> = ({ userId, onBack }) => {
   const start = (model: ContractModel) => {
     setSelected(model); setFields(emptyFields(model)); setScreen('editor'); setError('');
   };
+
+  useEffect(() => {
+    if (!initialModelId) return;
+    const model = contractModels.find((item) => item.id === initialModelId);
+    if (model) start(model);
+  }, [initialModelId]);
 
   const updateField = (key: string, value: string) => setFields((current) => ({ ...current, [key]: value }));
 
@@ -185,9 +191,9 @@ export const ContractsView: React.FC<Props> = ({ userId, onBack }) => {
         <h2 className="text-sm font-bold text-white">Quem participa e quais são as obrigações</h2>
         {selected.parties.map((party) => <div key={party.party} className="rounded-xl bg-[#101B2D] p-3"><h3 className="text-xs font-bold text-[#DCE6F4]">{party.party}</h3><p className="mt-1 text-xs leading-relaxed text-[#9FB0C8]">{party.duties}</p></div>)}
       </section>
-      <section className={panelClass + ' space-y-3'}>
+      <section className={panelClass + ' space-y-3'} data-agent-form="contract-editor" data-agent-form-id={selected.id}>
         <h2 className="text-sm font-bold text-white">Dados para elaboração</h2>
-        {selected.fields.map((field) => <label key={field.key} className="block space-y-1.5"><span className="text-xs font-semibold text-[#C6D2E2]">{field.label}{field.required ? ' *' : ''}</span>{field.multiline ? <textarea rows={3} value={fields[field.key] ?? ''} onChange={(event) => updateField(field.key, event.target.value)} className={inputClass} /> : <input value={fields[field.key] ?? ''} onChange={(event) => updateField(field.key, event.target.value)} className={inputClass} />}</label>)}
+        {selected.fields.map((field) => <label key={field.key} className="block space-y-1.5"><span className="text-xs font-semibold text-[#C6D2E2]">{field.label}{field.required ? ' *' : ''}</span>{field.multiline ? <textarea rows={3} data-agent-field={field.key} value={fields[field.key] ?? ''} onChange={(event) => updateField(field.key, event.target.value)} className={inputClass} /> : <input data-agent-field={field.key} value={fields[field.key] ?? ''} onChange={(event) => updateField(field.key, event.target.value)} className={inputClass} />}</label>)}
       </section>
       <section className={panelClass + ' space-y-3'}>
         <h2 className="text-sm font-bold text-white">Fundamentação jurídica por modelo</h2>

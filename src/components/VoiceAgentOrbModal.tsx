@@ -22,6 +22,8 @@ import { useTheme } from '../context/ThemeContext';
 import { getSupabaseAccessToken, supabase } from '../lib/supabase';
 import { RobotHeadAvatar } from './RobotHeadAvatar';
 import type { ModuleId } from '../types';
+import type { CanvasAgentApi, CanvasAgentKind } from '../views/FloorPlanEditorView';
+import { contractModels } from '../data/contractsCatalog';
 
 const LANGUAGE_HINTS: Record<string, string[]> = {
   'pt-BR': ['você', 'voce', 'seus', 'suas', 'favoritos', 'quero', 'preciso', 'como', 'qual', 'obrigado', 'não', 'nao'],
@@ -57,9 +59,11 @@ interface VoiceAgentOrbModalProps {
   onGuidingChange?: (guiding: boolean) => void;
   onNavigateToSection?: (section: 'inicio' | 'biblioteca' | 'favoritos' | 'mais') => void;
   onNavigateToModule?: (moduleId: ModuleId, itemId?: string) => void;
+  getProjectOverview?: () => Array<{ id: string; name: string; type: string; stage: string; updatedAt: string; walls: number; rooms: number; openings: number }>;
+  getCanvasAgent?: () => CanvasAgentApi | null;
 }
 
-export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, onClose, onStatusChange, onGuidingChange, onNavigateToSection, onNavigateToModule }) => {
+export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, onClose, onStatusChange, onGuidingChange, onNavigateToSection, onNavigateToModule, getProjectOverview, getCanvasAgent }) => {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
@@ -93,6 +97,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const livePlaybackTimeRef = useRef(0);
   const liveOutputCompleteRef = useRef(false);
   const liveInteractionInProgressRef = useRef(false);
+  const livePendingToolCallsRef = useRef(0);
   const livePlaybackSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const liveTurnRef = useRef<{ userId: string; assistantId: string; userText: string; assistantText: string } | null>(null);
   const liveShouldStopRef = useRef(false);
@@ -118,16 +123,451 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     return data ?? [];
   };
 
+  const getAuthenticatedGoogleUser = async () => {
+    if (!supabase) throw new Error('O acesso aos dados da conta está indisponível.');
+    const { data, error } = await supabase.auth.getUser();
+    const user = data.user;
+    if (error || !user || user.is_anonymous || user.app_metadata?.provider !== 'google') {
+      throw new Error('Entre com sua conta Google para consultar estes dados.');
+    }
+    return user;
+  };
+
+  const loadRecentCalculations = async (limit = 10) => {
+    const user = await getAuthenticatedGoogleUser();
+    const { data, error } = await supabase!
+      .from('calculation_history')
+      .select('id,title,category,result_value,result_unit,formula,created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(Math.min(20, Math.max(1, limit)));
+    if (error) throw new Error('Não foi possível consultar o histórico de cálculos.');
+    return data ?? [];
+  };
+
+  const loadUpcomingDeadlines = async (limit = 10) => {
+    const user = await getAuthenticatedGoogleUser();
+    const { data, error } = await supabase!
+      .from('deadlines')
+      .select('id,title,description,due_date,due_time,priority,status,category,project_name')
+      .eq('user_id', user.id)
+      .neq('status', 'concluido')
+      .order('due_date', { ascending: true })
+      .limit(Math.min(20, Math.max(1, limit)));
+    if (error) throw new Error('Não foi possível consultar os prazos da conta.');
+    return data ?? [];
+  };
+
+  const searchLibraryItems = async (query: string) => {
+    if (!supabase || query.trim().length < 2) throw new Error('Informe ao menos dois caracteres para pesquisar na biblioteca.');
+    const { data, error } = await supabase
+      .from('library_items')
+      .select('id,kind,code,title,summary,official_url')
+      .ilike('title', `%${query.trim().slice(0, 100)}%`)
+      .limit(8);
+    if (error) throw new Error('Não foi possível pesquisar na biblioteca técnica.');
+    return data ?? [];
+  };
+
+  const normalizeUiLabel = (value: string) =>
+    value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, ' ').trim();
+
+  const getVisibleScreenControls = () => {
+    const root = document.querySelector<HTMLElement>('main');
+    if (!root) return [];
+    const nodes = Array.from(root.querySelectorAll<HTMLElement>(
+      'input:not([type="hidden"]):not([type="password"]):not([type="file"]):not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]), a[href], [role="button"], [data-robot-guide]'
+    ));
+    return nodes
+      .filter((node) => node.getClientRects().length > 0)
+      .slice(0, 80)
+      .map((node, index) => ({
+        index,
+        label: getGuideFieldLabel(node, index),
+        role: node instanceof HTMLButtonElement ? 'button'
+          : node instanceof HTMLSelectElement ? 'select'
+            : node instanceof HTMLInputElement ? 'input'
+              : node instanceof HTMLTextAreaElement ? 'textarea'
+                : node.tagName.toLocaleLowerCase(),
+        description: node.getAttribute('data-robot-description') ?? '',
+        fieldKey: node.dataset.agentField ?? null,
+        inputType: node instanceof HTMLInputElement ? node.type : undefined,
+        placeholder: 'placeholder' in node ? String(node.getAttribute('placeholder') ?? '') : '',
+        required: 'required' in node ? Boolean((node as HTMLInputElement).required) : false,
+        min: 'min' in node ? String((node as HTMLInputElement).min ?? '') : undefined,
+        max: 'max' in node ? String((node as HTMLInputElement).max ?? '') : undefined,
+        step: 'step' in node ? String((node as HTMLInputElement).step ?? '') : undefined,
+        options: node instanceof HTMLSelectElement
+          ? Array.from(node.options).map((option) => ({ label: option.textContent?.trim() ?? '', value: option.value })).slice(0, 30)
+          : undefined,
+      }));
+  };
+
+  const fillCalculatorFields = async (fields: unknown, submit: boolean) => {
+    if (!Array.isArray(fields) || fields.length === 0 || fields.length > 20) {
+      throw new Error('Informe entre 1 e 20 pares de campo e valor.');
+    }
+    const root = document.querySelector<HTMLElement>('[data-calculator-form]');
+    if (!root || root.getClientRects().length === 0) throw new Error('Abra uma calculadora antes de preencher os campos.');
+    const controls = Array.from(root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+      'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="password"]):not([type="file"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="date"]):not([type="time"]):not([type="month"]):not([type="week"]):not([disabled]), textarea:not([disabled]), select:not([disabled])'
+    )).filter((field) => field.getClientRects().length > 0 && !(field instanceof HTMLInputElement && field.readOnly) && !(field instanceof HTMLTextAreaElement && field.readOnly));
+
+    const filled: string[] = [];
+    const errors: string[] = [];
+    for (const entry of fields) {
+      if (!entry || typeof entry !== 'object' || !('label' in entry) || !('value' in entry)) {
+        errors.push('Parâmetro de campo inválido.');
+        continue;
+      }
+      const label = (entry as { label: unknown }).label;
+      const value = (entry as { value: unknown }).value;
+      if (typeof label !== 'string' || !label.trim() || !['string', 'number', 'boolean'].includes(typeof value)) {
+        errors.push('Cada campo precisa de um rótulo e um valor textual, numérico ou booleano.');
+        continue;
+      }
+      const wanted = normalizeUiLabel(label);
+      const matches = controls.filter((field, index) => {
+        const actual = normalizeUiLabel(getGuideFieldLabel(field, index));
+        return actual === wanted || (wanted.length >= 4 && actual.includes(wanted));
+      });
+      if (matches.length !== 1) {
+        errors.push(matches.length === 0
+          ? `Campo "${label}" não encontrado na calculadora atual.`
+          : `O rótulo "${label}" corresponde a mais de um campo; especifique melhor.`);
+        continue;
+      }
+      const field = matches[0];
+      let nextValue = String(value);
+      if (field instanceof HTMLInputElement && field.type === 'checkbox') {
+        const normalized = normalizeUiLabel(nextValue);
+        if (typeof value !== 'boolean' && !['sim', 'nao', 'true', 'false', '1', '0'].includes(normalized)) {
+          errors.push(`O campo ${label} espera um valor verdadeiro/falso.`);
+          continue;
+        }
+        const checked = typeof value === 'boolean' ? value : ['sim', 'true', '1'].includes(normalized);
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set;
+        setter?.call(field, checked);
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+        filled.push(label);
+        continue;
+      }
+      if (field instanceof HTMLSelectElement) {
+        const normalized = normalizeUiLabel(nextValue);
+        const option = Array.from(field.options).find((item) =>
+          normalizeUiLabel(item.value) === normalized || normalizeUiLabel(item.textContent ?? '') === normalized
+        );
+        if (!option) {
+          errors.push(`Valor "${nextValue}" não corresponde a uma opção de ${label}.`);
+          continue;
+        }
+        nextValue = option.value;
+      } else if (field instanceof HTMLInputElement && field.type === 'number') {
+        const numeric = typeof value === 'number' ? value : Number(nextValue.replace(',', '.'));
+        if (!Number.isFinite(numeric)) {
+          errors.push(`O valor de ${label} precisa ser numérico.`);
+          continue;
+        }
+        nextValue = String(numeric);
+      }
+      const prototype = field instanceof HTMLSelectElement
+        ? HTMLSelectElement.prototype
+        : field instanceof HTMLTextAreaElement
+          ? HTMLTextAreaElement.prototype
+          : HTMLInputElement.prototype;
+      const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+      setter?.call(field, nextValue);
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+      if (!field.checkValidity()) {
+        field.reportValidity();
+        errors.push(`O valor informado para ${label} não passou na validação do campo.`);
+        continue;
+      }
+      filled.push(label);
+    }
+
+    let submitted = false;
+    if (submit && errors.length === 0) {
+      const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>('button:not([disabled])'))
+        .filter((button) => button.getClientRects().length > 0);
+      const calculateButton = buttons.find((button) =>
+        /^(calcular|dimensionar|gerar resultado)(?:\b|\s)/i.test(button.textContent?.trim() ?? '') || /^(calcular|dimensionar|gerar resultado)$/i.test(button.textContent?.trim() ?? '')
+      );
+      if (!calculateButton) throw new Error('Os campos foram preenchidos, mas não encontrei um botão de cálculo nesta tela.');
+      calculateButton.click();
+      submitted = true;
+    }
+    return { status: errors.length ? 'partial' : 'ok', filled, errors, submitted };
+  };
+
+  const fillContractFields = (fields: unknown) => {
+    if (!Array.isArray(fields) || fields.length === 0 || fields.length > 30) throw new Error('Informe entre 1 e 30 pares de campo e valor.');
+    const root = document.querySelector<HTMLElement>('[data-agent-form="contract-editor"]');
+    if (!root || root.getClientRects().length === 0) throw new Error('Abra um modelo de contrato e entre na etapa de dados para preencher os campos.');
+    const controls = Array.from(root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input:not([type="hidden"]):not([disabled]), textarea:not([disabled])')).filter((field) => field.getClientRects().length > 0 && !field.readOnly);
+    const filled: string[] = [];
+    const errors: string[] = [];
+    for (const entry of fields) {
+      if (!entry || typeof entry !== 'object' || !('label' in entry) || !('value' in entry)) { errors.push('Parâmetro de campo inválido.'); continue; }
+      const label = (entry as { label: unknown }).label;
+      const value = (entry as { value: unknown }).value;
+      if (typeof label !== 'string' || !label.trim() || !['string', 'number', 'boolean'].includes(typeof value)) { errors.push('Cada campo precisa de uma chave/rótulo e um valor textual, numérico ou booleano.'); continue; }
+      const wanted = normalizeUiLabel(label);
+      const matches = controls.filter((field, index) => {
+        const key = field.dataset.agentField ?? '';
+        return key === label || normalizeUiLabel(key) === wanted || normalizeUiLabel(getGuideFieldLabel(field, index)) === wanted;
+      });
+      if (matches.length !== 1) {
+        errors.push(matches.length === 0 ? 'Campo "' + label + '" não encontrado no formulário do contrato atual.' : 'O identificador "' + label + '" corresponde a mais de um campo; use a chave exata.');
+        continue;
+      }
+      const field = matches[0];
+      const prototype = field instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(prototype, 'value')?.set?.call(field, String(value));
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+      if (!field.checkValidity()) { field.reportValidity(); errors.push('O valor informado para ' + label + ' não passou na validação.'); continue; }
+      filled.push(field.dataset.agentField || getGuideFieldLabel(field, controls.indexOf(field)));
+    }
+    return { status: errors.length ? 'partial' : 'ok', filled, errors, saved: false, generated: false, message: 'Campos preenchidos. O documento não foi gerado nem salvo.' };
+  };
+
+  const highlightUiElement = (query: string) => {
+    const root = document.querySelector<HTMLElement>('main');
+    if (!root) throw new Error('A tela principal não está disponível.');
+    const normalizedQuery = normalizeUiLabel(query.replace(/^(botao|botão|campo|aba|secao|seção)\s+/i, ''));
+    if (normalizedQuery.length < 2) throw new Error('Informe o nome visível do elemento que deseja destacar.');
+    const candidates = Array.from(root.querySelectorAll<HTMLElement>(
+      'button, a[href], input, select, textarea, [role="button"], [data-robot-guide], h1, h2, h3, [data-robot-label]'
+    )).filter((node) => node.getClientRects().length > 0);
+    const ranked = candidates.map((node, index) => {
+      const label = getGuideFieldLabel(node, index);
+      const normalized = normalizeUiLabel(label);
+      const text = normalizeUiLabel(node.innerText ?? node.textContent ?? '');
+      const accessible = normalizeUiLabel(node.getAttribute('aria-label') ?? '');
+      const score = normalized === normalizedQuery || accessible === normalizedQuery || text === normalizedQuery
+        ? 3
+        : normalized.includes(normalizedQuery) || text.includes(normalizedQuery) || accessible.includes(normalizedQuery)
+          ? 2 : 0;
+      return { node, label, score };
+    }).filter((item) => item.score > 0).sort((a, b) => b.score - a.score);
+    if (!ranked.length) throw new Error(`Não encontrei "${query}" nesta tela. Consulte get_current_screen_controls para ver os rótulos disponíveis.`);
+    if (ranked.length > 1 && ranked[0].score === ranked[1].score && ranked[0].label !== ranked[1].label) {
+      throw new Error(`Encontrei mais de um elemento correspondente a "${query}". Use o rótulo completo.`);
+    }
+    const target = ranked[0].node;
+    guideFieldsRef.current.forEach((field) => field.classList.remove('robot-guide-highlight'));
+    tourTargetsRef.current.forEach((field) => field.classList.remove('robot-guide-highlight'));
+    guideFieldsRef.current = [];
+    tourTargetsRef.current = [target];
+    tourIndexRef.current = 0;
+    isTouringControlsRef.current = true;
+    setIsFormGuiding(false);
+    isFormGuidingRef.current = false;
+    setIsTouringControls(true);
+    setIsVoiceMode(true);
+    onGuidingChange?.(true);
+    updateGuideTarget(target);
+    return { status: 'ok', highlighted: ranked[0].label, message: 'Robô posicionado acima do elemento e destaque visual aplicado.' };
+  };
+
   const executeLiveToolCalls = async (
     calls: Array<{ id: string; name: string; args?: Record<string, unknown> }>,
     socket: WebSocket
   ) => {
+    livePendingToolCallsRef.current += 1;
     setConnectionStatus('working');
+    console.info('[Gemini Live] Tool call received.', { calls: calls.map((call) => call.name) });
+    try {
     const functionResponses = await Promise.all(calls.map(async (call) => {
       const args = call.args ?? {};
       try {
         let result: Record<string, unknown>;
-        if (call.name === 'get_user_favorites') {
+        if (call.name === 'get_current_screen_controls') {
+          const controls = getVisibleScreenControls();
+          const calculator = document.querySelector<HTMLElement>('[data-calculator-form]');
+          const activeForm = document.querySelector<HTMLElement>('[data-agent-form]');
+          const screenTitle = document.querySelector<HTMLElement>('main h1, main h2')?.textContent?.trim() ?? '';
+          result = { status: 'ok', route: window.location.pathname, screenTitle, calculatorId: calculator?.dataset.calculatorId ?? null, activeForm: activeForm?.dataset.agentForm ?? null, activeFormId: activeForm?.dataset.agentFormId ?? null, count: controls.length, controls };
+        } else if (call.name === 'open_calculator') {
+          const calculatorId = args.calculatorId;
+          if (typeof calculatorId !== 'string' || !/^[a-z0-9_]{1,80}$/i.test(calculatorId)) {
+            throw new Error('Informe um identificador válido de calculadora.');
+          }
+          if (!onNavigateToModule) throw new Error('A navegação para calculadoras não está disponível.');
+          onNavigateToModule('calculadoras', calculatorId);
+          let calculatorRoot: HTMLElement | null = null;
+          for (let attempt = 0; attempt < 30; attempt += 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 100));
+            calculatorRoot = Array.from(document.querySelectorAll<HTMLElement>('[data-calculator-form]'))
+              .find((node) => node.dataset.calculatorId === calculatorId && node.getClientRects().length > 0) ?? null;
+            if (calculatorRoot) break;
+          }
+          if (!calculatorRoot) throw new Error('A calculadora solicitada não foi encontrada no catálogo atual.');
+          result = { status: 'ok', calculatorId, message: 'Calculadora aberta. Consulte os campos disponíveis antes de preenchê-los.' };
+        } else if (call.name === 'fill_calculator_fields') {
+          const calculatorId = args.calculatorId;
+          if (typeof calculatorId === 'string' && calculatorId.trim()) {
+            if (!/^[a-z0-9_]{1,80}$/i.test(calculatorId)) throw new Error('Informe um identificador válido de calculadora.');
+            if (!onNavigateToModule) throw new Error('A navegação para calculadoras não está disponível.');
+            onNavigateToModule('calculadoras', calculatorId);
+          } else if (!window.location.pathname.startsWith('/calculadoras')) {
+            if (!onNavigateToModule) throw new Error('A navegação para calculadoras não está disponível.');
+            onNavigateToModule('calculadoras');
+          }
+          let calculatorRoot: HTMLElement | null = null;
+          for (let attempt = 0; attempt < 30; attempt += 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 100));
+            calculatorRoot = document.querySelector<HTMLElement>('[data-calculator-form]');
+            if (calculatorRoot?.getClientRects().length && (!calculatorId || calculatorRoot.dataset.calculatorId === calculatorId)) break;
+            calculatorRoot = null;
+          }
+          if (!calculatorRoot) throw new Error('A calculadora ainda não abriu ou o ID não corresponde à calculadora exibida.');
+          const fillResult = await fillCalculatorFields(args.fields, args.submit === true);
+          result = fillResult;
+        } else if (call.name === 'open_contract_template') {
+          const modelId = args.modelId;
+          if (typeof modelId !== 'string' || !contractModels.some((model) => model.id === modelId)) throw new Error('O modelo solicitado não existe no catálogo de contratos. Use search_contract_templates para consultar os IDs disponíveis.');
+          if (!onNavigateToModule) throw new Error('A navegação para contratos não está disponível.');
+          onNavigateToModule('contratos', modelId);
+          let contractForm: HTMLElement | null = null;
+          for (let attempt = 0; attempt < 30; attempt += 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 100));
+            contractForm = document.querySelector<HTMLElement>('[data-agent-form="contract-editor"]');
+            if (contractForm?.dataset.agentFormId === modelId && contractForm.getClientRects().length) break;
+            contractForm = null;
+          }
+          if (!contractForm) throw new Error('O modelo foi selecionado, mas o formulário ainda não ficou disponível. Consulte a tela e tente novamente.');
+          const model = contractModels.find((item) => item.id === modelId)!;
+          result = { status: 'ok', modelId, title: model.title, requiredFields: model.fields.filter((field) => field.required).map((field) => ({ key: field.key, label: field.label })), message: 'Modelo aberto. Consulte os controles antes de preencher.' };
+        } else if (call.name === 'fill_contract_fields') {
+          if (!window.location.pathname.startsWith('/contratos')) {
+            if (!onNavigateToModule) throw new Error('A navegação para contratos não está disponível.');
+            onNavigateToModule('contratos');
+          }
+          let contractForm: HTMLElement | null = null;
+          for (let attempt = 0; attempt < 30; attempt += 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 100));
+            contractForm = document.querySelector<HTMLElement>('[data-agent-form="contract-editor"]');
+            if (contractForm?.getClientRects().length) break;
+            contractForm = null;
+          }
+          if (!contractForm) throw new Error('O formulário de dados do contrato não está aberto. Selecione um modelo e tente novamente.');
+          result = fillContractFields(args.fields);
+        } else if (call.name === 'search_contract_templates') {
+          const query = args.query;
+          if (typeof query !== 'string' || query.trim().length < 2) throw new Error('Informe ao menos dois caracteres para pesquisar modelos de contrato.');
+          const normalized = normalizeUiLabel(query);
+          const matches = contractModels.filter((model) => normalizeUiLabel(model.title + ' ' + model.description + ' ' + model.regime + ' ' + model.category).includes(normalized)).slice(0, 8);
+          result = { status: matches.length ? 'ok' : 'no_results', count: matches.length, templates: matches.map((model) => ({ id: model.id, title: model.title, category: model.category, regime: model.regime, description: model.description, requiredFields: model.fields.filter((field) => field.required).map((field) => ({ key: field.key, label: field.label })) })) };
+
+        } else if (call.name === 'get_canvas_overview') {
+          let api = getCanvasAgent?.() ?? null;
+          if (!api) {
+            if (!onNavigateToModule) throw new Error('A navegação para o Canvas não está disponível.');
+            onNavigateToModule('projetos');
+            for (let attempt = 0; attempt < 40; attempt += 1) {
+              await new Promise((resolve) => window.setTimeout(resolve, 100));
+              api = getCanvasAgent?.() ?? null;
+              if (api) break;
+            }
+          }
+          if (!api) throw new Error('O Canvas ainda não disponibilizou o projeto ativo. Aguarde a abertura do editor e tente novamente.');
+          result = api.getOverview();
+        } else if (call.name === 'select_canvas_level') {
+          const id = args.id;
+          if (typeof id !== 'string') throw new Error('Informe o ID exato do pavimento retornado por get_canvas_overview.');
+          let api = getCanvasAgent?.() ?? null;
+          if (!api) {
+            if (!onNavigateToModule) throw new Error('A navegação para o Canvas não está disponível.');
+            onNavigateToModule('projetos');
+            for (let attempt = 0; attempt < 40; attempt += 1) { await new Promise((resolve) => window.setTimeout(resolve, 100)); api = getCanvasAgent?.() ?? null; if (api) break; }
+          }
+          if (!api) throw new Error('O Canvas não está pronto para trocar de pavimento.');
+          result = api.selectLevel(id);
+        } else if (call.name === 'select_canvas_element') {
+          const kind = args.kind, id = args.id;
+          if (typeof kind !== 'string' || !['wall', 'opening', 'electrical', 'hydraulic', 'furniture'].includes(kind) || typeof id !== 'string') throw new Error('Informe o tipo e o ID exato do elemento retornado por get_canvas_overview.');
+          let api = getCanvasAgent?.() ?? null;
+          if (!api) {
+            if (!onNavigateToModule) throw new Error('A navegação para o Canvas não está disponível.');
+            onNavigateToModule('projetos');
+            for (let attempt = 0; attempt < 40; attempt += 1) { await new Promise((resolve) => window.setTimeout(resolve, 100)); api = getCanvasAgent?.() ?? null; if (api) break; }
+          }
+          if (!api) throw new Error('O Canvas não está pronto para selecionar elementos.');
+          result = api.selectElement(kind as CanvasAgentKind, id);
+          try { highlightUiElement('Planta 2D'); } catch { /* The object selection remains highlighted on the canvas. */ }
+        } else if (call.name === 'add_canvas_element') {
+          let api = getCanvasAgent?.() ?? null;
+          if (!api) {
+            if (!onNavigateToModule) throw new Error('A navegação para o Canvas não está disponível.');
+            onNavigateToModule('projetos');
+            for (let attempt = 0; attempt < 40; attempt += 1) { await new Promise((resolve) => window.setTimeout(resolve, 100)); api = getCanvasAgent?.() ?? null; if (api) break; }
+          }
+          if (!api) throw new Error('O Canvas não está pronto para adicionar elementos.');
+          result = api.addElement(args);
+        } else if (call.name === 'move_canvas_element') {
+          const kind = args.kind, id = args.id, x = args.x, y = args.y;
+          if (typeof kind !== 'string' || !['wall', 'opening', 'electrical', 'hydraulic', 'furniture'].includes(kind) || typeof id !== 'string' || typeof x !== 'number' || typeof y !== 'number') throw new Error('Informe kind, ID, x e y numéricos do elemento.');
+          const api = getCanvasAgent?.();
+          if (!api) throw new Error('Abra o módulo Projetos e aguarde o Canvas carregar antes de mover um elemento.');
+          result = api.moveElement(kind as CanvasAgentKind, id, x, y);
+        } else if (call.name === 'delete_canvas_element') {
+          const kind = args.kind, id = args.id, confirmed = args.confirmed;
+          if (typeof kind !== 'string' || !['wall', 'opening', 'electrical', 'hydraulic', 'furniture'].includes(kind) || typeof id !== 'string' || typeof confirmed !== 'boolean') throw new Error('Informe kind, ID e confirmed booleano.');
+          const api = getCanvasAgent?.();
+          if (!api) throw new Error('Abra o módulo Projetos e aguarde o Canvas carregar antes de excluir um elemento.');
+          result = api.deleteElement(kind as CanvasAgentKind, id, confirmed);
+        } else if (call.name === 'get_project_overview') {
+          if (!getProjectOverview) throw new Error('O resumo dos projetos não está disponível nesta sessão.');
+          const projects = getProjectOverview();
+          result = { status: projects.length ? 'ok' : 'no_results', count: projects.length, projects: projects.slice(0, 20) };
+        } else if (call.name === 'highlight_ui_element') {
+          const target = args.target;
+          if (typeof target !== 'string') throw new Error('Informe o nome visível do elemento que deseja destacar.');
+          result = highlightUiElement(target);
+        } else if (call.name === 'clear_ui_highlight') {
+          cancelFormGuide();
+          result = { status: 'ok', message: 'Destaque removido e robô recolhido.' };
+        } else if (call.name === 'get_recent_calculations') {
+          const requestedLimit = typeof args.limit === 'number' ? args.limit : 10;
+          const rows = await loadRecentCalculations(requestedLimit);
+          result = {
+            status: rows.length > 0 ? 'ok' : 'no_results',
+            retryable: false,
+            count: rows.length,
+            calculations: rows.map((row) => ({
+              id: row.id,
+              title: row.title,
+              category: row.category,
+              result: row.result_value,
+              unit: row.result_unit ?? '',
+              formula: row.formula ?? '',
+              createdAt: row.created_at,
+            })),
+          };
+        } else if (call.name === 'get_upcoming_deadlines') {
+          const requestedLimit = typeof args.limit === 'number' ? args.limit : 10;
+          const rows = await loadUpcomingDeadlines(requestedLimit);
+          result = {
+            status: rows.length > 0 ? 'ok' : 'no_results',
+            retryable: false,
+            count: rows.length,
+            deadlines: rows,
+          };
+        } else if (call.name === 'search_library') {
+          const query = args.query;
+          if (typeof query !== 'string' || query.trim().length < 2) throw new Error('Informe um termo com pelo menos dois caracteres.');
+          const rows = await searchLibraryItems(query);
+          result = {
+            status: rows.length > 0 ? 'ok' : 'no_results',
+            retryable: false,
+            count: rows.length,
+            items: rows,
+          };
+        } else if (call.name === 'get_user_favorites') {
           const requestedLimit = typeof args.limit === 'number' ? args.limit : 30;
           const rows = await loadCurrentUserFavorites(requestedLimit);
           result = {
@@ -146,12 +586,13 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           };
         } else if (call.name === 'navigate_to_section') {
           const section = args.section;
+          if (typeof section !== 'string') throw new Error('A seção solicitada é inválida.');
+          const normalizedSection = section === 'fav' ? 'favoritos' : section === 'home' ? 'inicio' : section;
           const mainSections = ['inicio', 'biblioteca', 'favoritos', 'mais'];
           const moduleSections = ['calculadoras', 'manuais', 'projetos', 'ia', 'estetica', 'legislacao', 'contratos'];
-          if (typeof section !== 'string') throw new Error('A seção solicitada é inválida.');
-          if (mainSections.includes(section)) {
+          if (mainSections.includes(normalizedSection)) {
             if (!onNavigateToSection) throw new Error('A navegação principal não está disponível.');
-            onNavigateToSection(section as 'inicio' | 'biblioteca' | 'favoritos' | 'mais');
+            onNavigateToSection(normalizedSection as 'inicio' | 'biblioteca' | 'favoritos' | 'mais');
           } else if (moduleSections.includes(section)) {
             if (!onNavigateToModule) throw new Error('A navegação dos módulos não está disponível.');
             onNavigateToModule(section as ModuleId);
@@ -186,8 +627,12 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     }));
 
     if (socket.readyState === WebSocket.OPEN && liveSessionRef.current === socket) {
+      console.info('[Gemini Live] Returning tool responses.', { count: functionResponses.length, names: functionResponses.map((item) => item.name) });
       socket.send(JSON.stringify({ toolResponse: { functionResponses } }));
       setConnectionStatus('thinking');
+    }
+    } finally {
+      livePendingToolCallsRef.current = Math.max(0, livePendingToolCallsRef.current - 1);
     }
   };
 
@@ -213,6 +658,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     livePlaybackTimeRef.current = 0;
     liveOutputCompleteRef.current = false;
     liveInteractionInProgressRef.current = false;
+    livePendingToolCallsRef.current = 0;
     setIsListening(false);
     setIsGenerating(false);
     setConnectionStatus('idle');
@@ -379,11 +825,168 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         outputAudioTranscription: {},
         systemInstruction: {
           parts: [{
-            text: 'Você é o Assistente Técnico do OBra ENGEP. Detecte automaticamente o idioma falado pelo usuário e responda sempre nesse mesmo idioma; não force português, não mude para espanhol ou outro idioma sem que o usuário o use e acompanhe imediatamente qualquer mudança de idioma. Use rigor técnico e linguagem de campo. Cite normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC. Você dispõe de ferramentas reais para consultar os favoritos da conta e navegar pelas seções do aplicativo. Quando perguntarem pelos favoritos, execute get_user_favorites antes de responder; quando pedirem para abrir um item, use open_favorite; quando pedirem para ir a uma seção, use navigate_to_section. Nunca diga que consultou, abriu ou navegou sem executar a ferramenta e receber sucesso. Não repita uma ferramenta após erro ou ausência de resultados e não faça mais de duas chamadas consecutivas sem informar o usuário.',
+            text: 'Você é o Assistente Técnico do OBra ENGEP. Detecte automaticamente o idioma falado pelo usuário e responda sempre nesse mesmo idioma; não force português, não mude para espanhol ou outro idioma sem que o usuário o use e acompanhe imediatamente qualquer mudança de idioma. Use rigor técnico e linguagem de campo. Cite normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC. Você é o agente operacional por voz do OBra ENGEP. Além de conversar, pode inspecionar a tela, abrir calculadoras, preencher campos e destacar elementos da interface com o robô flutuante. Para consultar favoritos use get_user_favorites; cálculos recentes use get_recent_calculations; prazos use get_upcoming_deadlines; biblioteca use search_library. Para navegação use navigate_to_section ou open_favorite. Para trabalhar com calculadoras: primeiro use open_calculator quando precisar selecionar uma calculadora; use get_current_screen_controls para descobrir os rótulos visíveis dos campos; use fill_calculator_fields com pares label/value exatos; só envie submit=true quando o usuário tiver pedido para calcular. Para contratos: use search_contract_templates para localizar um modelo; depois use open_contract_template com o ID retornado para abrir o formulário correspondente; use get_current_screen_controls para conferir os rótulos e chaves e fill_contract_fields para preencher somente os valores informados. Essa ferramenta nunca gera nem salva o documento; aguarde pedido explícito e use a ação apropriada da interface. Para projetos, use get_project_overview antes de responder sobre os projetos salvos e não invente detalhes da planta. Para editar plantas, use get_canvas_overview para identificar o projeto, pavimentos e IDs reais; use select_canvas_level para trocar o pavimento em edição e select_canvas_element para selecionar/destacar um objeto; add_canvas_element e move_canvas_element somente após pedido explícito do usuário; para rotas e tubulações, informe os dois pontos inicial/final. Coordenadas são pixels do Canvas, portanto confirme referências/posições com o usuário quando não estiverem claras. Antes de excluir qualquer objeto, explique o impacto e peça confirmação explícita; só então chame delete_canvas_element com confirmed=true. Não exclua paredes por voz, pois podem sustentar junções, aberturas e cômodos. Após cada alteração, confirme somente o resultado retornado pela ferramenta. Não invente valores ausentes: pergunte ao usuário antes de preencher um campo que dependa de informação não fornecida. Para apontar um controle, use highlight_ui_element com o texto visível/aria-label e explique o que ele faz; o robô se posicionará acima do alvo e o destacará. Use clear_ui_highlight quando terminar. Nunca diga que preencheu, calculou, abriu ou destacou sem receber sucesso da ferramenta. O preenchimento altera somente os campos indicados; não salva, envia, exclui ou confirma operações externas sem autorização explícita. Não repita uma ferramenta após erro ou ausência de resultados e não faça mais de duas chamadas consecutivas sem informar o usuário.',
           }],
         },
         tools: [{
           functionDeclarations: [
+            {
+              name: 'get_current_screen_controls',
+              description: 'Inspeciona os campos e controles visíveis da tela atual. Use antes de preencher calculadoras ou destacar um controle quando não souber o rótulo exato.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: {} },
+            },
+            {
+              name: 'open_calculator',
+              description: 'Abre uma calculadora específica no módulo de calculadoras. Use IDs como potencia_corrente, lei_ohm, dimensionamento_cabos, reservatorio, vazao_pressao, perda_carga, diametro_tubo, concreto_materiais, calculadora_telhado, alvenaria_blocos e calculadora_combustivel.',
+              behavior: 'NON_BLOCKING',
+              parameters: {
+                type: 'OBJECT',
+                properties: { calculatorId: { type: 'STRING', description: 'ID da calculadora solicitada.' } },
+                required: ['calculatorId'],
+              },
+            },
+            {
+              name: 'fill_calculator_fields',
+              description: 'Preenche campos visíveis da calculadora aberta usando os rótulos reais da interface. Informe pares label/value. Não invente valores. submit deve ser true somente quando o usuário pedir para executar o cálculo.',
+              behavior: 'NON_BLOCKING',
+              parameters: {
+                type: 'OBJECT',
+                properties: {
+                  calculatorId: { type: 'STRING', description: 'ID opcional da calculadora a abrir antes de preencher.' },
+                  fields: {
+                    type: 'ARRAY',
+                    items: {
+                      type: 'OBJECT',
+                      properties: {
+                        label: { type: 'STRING', description: 'Rótulo visível exato do campo.' },
+                        value: { type: 'STRING', description: 'Valor do campo em texto. Envie números como texto decimal e caixas de seleção como true ou false.' },
+                      },
+                      required: ['label', 'value'],
+                    },
+                  },
+                  submit: { type: 'BOOLEAN', description: 'Executar o cálculo após preencher. Use true somente quando solicitado.' },
+                },
+                required: ['fields'],
+              },
+            },
+            {
+              name: 'open_contract_template',
+              description: 'Abre um modelo específico do catálogo de contratos pelo ID retornado por search_contract_templates e leva diretamente ao formulário de dados.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { modelId: { type: 'STRING', description: 'ID exato do modelo retornado pela pesquisa.' } }, required: ['modelId'] },
+            },
+            {
+              name: 'fill_contract_fields',
+              description: 'Preenche os campos visíveis do formulário de um modelo de contrato selecionado. Aceita a chave exata do campo (por exemplo, contratante, objeto, valor) ou o rótulo visível. Nunca gera nem salva o documento.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { fields: { type: 'ARRAY', items: { type: 'OBJECT', properties: { label: { type: 'STRING' }, value: { type: 'STRING' } }, required: ['label', 'value'] } } }, required: ['fields'] },
+            },
+            {
+              name: 'search_contract_templates',
+              description: 'Pesquisa o catálogo real de modelos de contratos disponíveis no OBra ENGEP e retorna IDs, regimes e campos obrigatórios.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { query: { type: 'STRING', description: 'Tipo de contrato, atividade, regime ou termo de pesquisa.' } }, required: ['query'] },
+            },
+
+            {
+              name: 'get_canvas_overview',
+              description: 'Abre o módulo Projetos se necessário e consulta o projeto e pavimento ativos do Canvas, incluindo elementos com IDs, tipos, coordenadas e contagens.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: {} },
+            },
+            {
+              name: 'select_canvas_level',
+              description: 'Troca o pavimento em edição pelo ID exato retornado por get_canvas_overview, preservando os dados dos demais pisos.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { id: { type: 'STRING' } }, required: ['id'] },
+            },
+            {
+              name: 'select_canvas_element',
+              description: 'Seleciona e destaca um elemento existente no Canvas 2D pelo tipo e ID exato retornado por get_canvas_overview. O painel de propriedades fica disponível para inspeção.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { kind: { type: 'STRING', enum: ['wall', 'opening', 'electrical', 'hydraulic', 'furniture'] }, id: { type: 'STRING' } }, required: ['kind', 'id'] },
+            },
+            {
+              name: 'add_canvas_element',
+              description: 'Adiciona um elemento real ao pavimento ativo. Para parede use kind=wall e x1,y1,x2,y2; para abertura use kind=opening, type door/window, wallId, x,y; para pontos elétricos/hidráulicos informe kind, type, x,y; para rotas elétricas wire/conduit ou tubulações water_pipe/sewage_pipe/vent_pipe/rain_pipe informe também x2,y2; para mobiliário informe kind=furniture, catalogId, x,y. Use somente quando o usuário pedir explicitamente a alteração.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: {
+                kind: { type: 'STRING', enum: ['wall', 'opening', 'electrical', 'hydraulic', 'furniture'] },
+                type: { type: 'STRING' }, catalogId: { type: 'STRING' }, wallId: { type: 'STRING' },
+                x: { type: 'NUMBER' }, y: { type: 'NUMBER' }, x1: { type: 'NUMBER' }, y1: { type: 'NUMBER' },
+                x2: { type: 'NUMBER' }, y2: { type: 'NUMBER' }, width: { type: 'NUMBER' }, thickness: { type: 'NUMBER' },
+                diameterMm: { type: 'NUMBER' }, circuit: { type: 'STRING' }, label: { type: 'STRING' },
+              }, required: ['kind'] },
+            },
+            {
+              name: 'move_canvas_element',
+              description: 'Move um elemento existente para as coordenadas x,y em pixels da planta. Aberturas permanecem anexadas à parede; rotas elétricas/hidráulicas preservam seu comprimento. Paredes inteiras não podem ser movidas por voz devido às junções e cômodos conectados.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: {
+                kind: { type: 'STRING', enum: ['wall', 'opening', 'electrical', 'hydraulic', 'furniture'] },
+                id: { type: 'STRING' }, x: { type: 'NUMBER' }, y: { type: 'NUMBER' },
+              }, required: ['kind', 'id', 'x', 'y'] },
+            },
+            {
+              name: 'delete_canvas_element',
+              description: 'Exclui uma abertura, componente elétrico/hidráulico ou móvel do pavimento ativo. Exige confirmed=true somente depois de o usuário confirmar explicitamente a exclusão. Paredes não podem ser excluídas por voz para preservar a topologia.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: {
+                kind: { type: 'STRING', enum: ['wall', 'opening', 'electrical', 'hydraulic', 'furniture'] },
+                id: { type: 'STRING' }, confirmed: { type: 'BOOLEAN' },
+              }, required: ['kind', 'id', 'confirmed'] },
+            },
+            {
+              name: 'get_project_overview',
+              description: 'Consulta os projetos reais já carregados na área de projetos, retornando nome, tipo, etapa, atualização e contagem resumida dos elementos da planta.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: {} },
+            },
+            {
+              name: 'highlight_ui_element',
+              description: 'Move o robô flutuante para cima de um botão, campo, aba ou seção visível e aplica destaque visual no elemento. Use o rótulo visível ou aria-label.',
+              behavior: 'NON_BLOCKING',
+              parameters: {
+                type: 'OBJECT',
+                properties: { target: { type: 'STRING', description: 'Texto visível ou rótulo acessível do elemento a destacar.' } },
+                required: ['target'],
+              },
+            },
+            {
+              name: 'clear_ui_highlight',
+              description: 'Remove o destaque visual e encerra a orientação flutuante do robô.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: {} },
+            },
+            {
+              name: 'get_recent_calculations',
+              description: 'Consulta os cálculos mais recentes salvos no histórico da conta autenticada. Use quando o usuário perguntar sobre seus cálculos recentes.',
+              behavior: 'NON_BLOCKING',
+              parameters: {
+                type: 'OBJECT',
+                properties: { limit: { type: 'INTEGER', description: 'Quantidade máxima de resultados, entre 1 e 20.' } },
+              },
+            },
+            {
+              name: 'get_upcoming_deadlines',
+              description: 'Consulta prazos e tarefas ainda não concluídos da conta autenticada.',
+              behavior: 'NON_BLOCKING',
+              parameters: {
+                type: 'OBJECT',
+                properties: { limit: { type: 'INTEGER', description: 'Quantidade máxima de resultados, entre 1 e 20.' } },
+              },
+            },
+            {
+              name: 'search_library',
+              description: 'Pesquisa títulos da biblioteca técnica do OBra ENGEP, incluindo normas, NRs, legislação e manuais.',
+              behavior: 'NON_BLOCKING',
+              parameters: {
+                type: 'OBJECT',
+                properties: { query: { type: 'STRING', description: 'Termo técnico ou título a pesquisar.' } },
+                required: ['query'],
+              },
+            },
             {
               name: 'get_user_favorites',
               description: 'Consulta os favoritos reais da conta Google autenticada. Use antes de responder perguntas sobre quais itens estão salvos.',
@@ -404,7 +1007,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
                 properties: {
                   section: {
                     type: 'STRING',
-                    enum: ['inicio', 'biblioteca', 'favoritos', 'mais', 'calculadoras', 'manuais', 'projetos', 'ia', 'estetica', 'legislacao', 'contratos'],
+                    enum: ['inicio', 'home', 'biblioteca', 'favoritos', 'fav', 'mais', 'calculadoras', 'manuais', 'projetos', 'ia', 'estetica', 'legislacao', 'contratos'],
                     description: 'Identificador da seção de destino.',
                   },
                 },
@@ -508,7 +1111,8 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             }
 
             const content = message.serverContent;
-            if (!content) return;
+            const interactionStatus = message.interactionStatus ?? content?.interactionStatus;
+            if (content) {
             if (content.inputTranscription?.text) {
               liveOutputCompleteRef.current = false;
               appendLiveTranscript('user', content.inputTranscription.text);
@@ -540,7 +1144,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
               setConnectionStatus('listening');
             } else if (content.turnComplete) {
               liveOutputCompleteRef.current = true;
-              if (content.interactionStatus !== 'IN_PROGRESS') {
+              if (interactionStatus !== 'IN_PROGRESS') {
                 liveInteractionInProgressRef.current = false;
                 liveTurnRef.current = null;
               }
@@ -549,12 +1153,14 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
               }
             }
 
-            // Extended Thinking can emit turnComplete for intermediate speech.
-            // Keep the session in the thinking state until interactionStatus is IDLE.
-            if (content.interactionStatus === 'IN_PROGRESS') {
+            }
+
+            // Extended Thinking emits interactionStatus at the top level. A turnComplete
+            // event is not necessarily the end of background reasoning or tool execution.
+            if (interactionStatus === 'IN_PROGRESS') {
               liveInteractionInProgressRef.current = true;
               if (livePlaybackSourcesRef.current.length === 0) setConnectionStatus('thinking');
-            } else if (content.interactionStatus === 'IDLE') {
+            } else if (interactionStatus === 'IDLE') {
               liveInteractionInProgressRef.current = false;
               liveTurnRef.current = null;
               if (livePlaybackSourcesRef.current.length === 0) setConnectionStatus('listening');
@@ -618,7 +1224,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       const muteOutput = inputAudioContext.createGain();
       muteOutput.gain.value = 0;
       processor.onaudioprocess = (event) => {
-        if (liveShouldStopRef.current || liveSessionRef.current !== socket) return;
+        if (liveShouldStopRef.current || liveSessionRef.current !== socket || livePendingToolCallsRef.current > 0) return;
         const input = event.inputBuffer.getChannelData(0);
         const pcm = resampleAudio(input, inputAudioContext.sampleRate, 16000);
         if (socket!.readyState === WebSocket.OPEN) {

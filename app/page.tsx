@@ -1,5 +1,1 @@
-import ObraAppClient from './obra-app';
-
-export default function HomePage() {
-  return <ObraAppClient />;
-}
+export { default } from './route-page';

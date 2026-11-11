@@ -4,6 +4,8 @@
  */
 
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { pathForLibrarySection, pathForModule, pathForTab, resolveAppRoute } from './utils/appRoutes';
 import type { Session } from '@supabase/supabase-js';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { TopHeader } from './components/TopHeader';
@@ -66,6 +68,7 @@ import {
   writeStored,
 } from './services/persistence';
 import { ensureUuid } from './utils/uuid';
+import type { CanvasAgentApi } from './views/FloorPlanEditorView';
 
 export default function App() {
   return (
@@ -79,10 +82,13 @@ export default function App() {
 
 function AppShell() {
   const { theme, fontScale, setTheme, setFontScale } = useTheme();
-  const [currentTab, setCurrentTab] = useState<MainTab>('inicio');
-  const [activeModuleView, setActiveModuleView] = useState<ModuleId | null>(null);
-  const [librarySubTab, setLibrarySubTab] = useState<'nrs' | 'abnt' | 'legislacao' | 'estetica' | 'manuais'>('nrs');
-  const [librarySubItemId, setLibrarySubItemId] = useState<string | undefined>(undefined);
+  const pathname = usePathname();
+  const router = useRouter();
+  const initialRoute = resolveAppRoute(pathname);
+  const [currentTab, setCurrentTab] = useState<MainTab>(initialRoute.tab);
+  const [activeModuleView, setActiveModuleView] = useState<ModuleId | null>(initialRoute.module);
+  const [librarySubTab, setLibrarySubTab] = useState<'nrs' | 'abnt' | 'legislacao' | 'estetica' | 'manuais'>(initialRoute.librarySubTab);
+  const [librarySubItemId, setLibrarySubItemId] = useState<string | undefined>(initialRoute.itemId);
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
@@ -125,6 +131,7 @@ function AppShell() {
     readStored(STORAGE_KEYS.nrChecks, {})
   );
   const [projects, setProjects] = useState<FloorPlanProject[]>([]);
+  const canvasAgentApiRef = useRef<CanvasAgentApi | null>(null);
 
   const [syncState, setSyncState] = useState<SyncState>({
     status: isSupabaseConfigured ? 'connecting' : 'disabled',
@@ -136,6 +143,17 @@ function AppShell() {
   const [authenticatedUser, setAuthenticatedUser] = useState<{ id: string; email?: string; name?: string; avatarUrl?: string } | null>(null);
   const [authResolved, setAuthResolved] = useState(false);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const route = resolveAppRoute(pathname);
+    setCurrentTab(route.tab);
+    setActiveModuleView(route.module);
+    setLibrarySubTab(route.librarySubTab);
+    setLibrarySubItemId(route.itemId);
+    if (route.module === 'ia' && (route.itemId === 'ventilacao' || route.itemId === 'patologias')) {
+      setAiInitialTab(route.itemId);
+    }
+  }, [pathname]);
 
   useEffect(() => {
     if (!supabase) {
@@ -496,6 +514,7 @@ function AppShell() {
   };
 
   const handleNavigateModule = (moduleId: ModuleId, subItem?: string) => {
+    router.push(pathForModule(moduleId, subItem));
     if (moduleId === 'contratos') {
       setActiveModuleView('contratos');
       setCurrentTab('inicio');
@@ -513,46 +532,36 @@ function AppShell() {
       setActiveModuleView(null);
       setCurrentTab('biblioteca');
       setLibrarySubTab('nrs');
-      if (subItem) setLibrarySubItemId(subItem);
+      setLibrarySubItemId(subItem);
     } else if (moduleId === 'estetica') {
       setActiveModuleView(null);
       setCurrentTab('biblioteca');
       setLibrarySubTab('estetica');
-      if (subItem) setLibrarySubItemId(subItem);
+      setLibrarySubItemId(subItem);
     } else if (moduleId === 'legislacao') {
       setActiveModuleView(null);
       setCurrentTab('biblioteca');
       setLibrarySubTab('legislacao');
-      if (subItem) setLibrarySubItemId(subItem);
+      setLibrarySubItemId(subItem);
     }
   };
 
   const handleSelectSearchResult = (category: string, itemId: string) => {
     if (category === 'calculadoras') {
-      setActiveModuleView('calculadoras');
-      setCurrentTab('inicio');
-    } else if (category === 'nrs') {
-      setActiveModuleView(null);
-      setCurrentTab('biblioteca');
-      setLibrarySubTab('nrs');
-      setLibrarySubItemId(itemId);
+      handleNavigateModule('calculadoras');
+    } else if (category === 'nrs' || category === 'manuais') {
+      router.push(pathForLibrarySection('nrs', itemId));
     } else if (category === 'abnt') {
-      setActiveModuleView(null);
-      setCurrentTab('biblioteca');
-      setLibrarySubTab('abnt');
+      router.push(pathForLibrarySection('abnt', itemId));
     } else if (category === 'legislacao') {
-      setActiveModuleView(null);
-      setCurrentTab('biblioteca');
-      setLibrarySubTab('legislacao');
+      router.push(pathForLibrarySection('legislacao', itemId));
     } else if (category.startsWith('estetica')) {
-      setActiveModuleView(null);
-      setCurrentTab('biblioteca');
-      setLibrarySubTab('estetica');
-      setLibrarySubItemId(itemId);
+      router.push(pathForLibrarySection('estetica', itemId));
     }
   };
 
   const handleTabChange = (tab: MainTab) => {
+    router.push(pathForTab(tab));
     setCurrentTab(tab);
     setActiveModuleView(null);
     setLibrarySubItemId(undefined);
@@ -567,7 +576,7 @@ function AppShell() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: window.location.origin + window.location.pathname,
         queryParams: { prompt: 'select_account' },
       },
     });
@@ -650,10 +659,7 @@ function AppShell() {
         onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)}
         agentState={isVoiceModalOpen ? agentState : 'sleeping'}
         isAgentGuiding={isAgentGuiding}
-        onBackToHome={isNonHomeView ? () => {
-          setActiveModuleView(null);
-          setCurrentTab('inicio');
-        } : undefined}
+        onBackToHome={isNonHomeView ? () => handleTabChange('inicio') : undefined}
       />}
 
       {isHomeView && (
@@ -713,9 +719,9 @@ function AppShell() {
       )}
       <main className={activeModuleView === 'projetos' ? 'flex-1 min-h-0 w-full max-w-none p-0 m-0' : 'flex-1 max-w-4xl w-full mx-auto px-4 pt-2'}>
         {activeModuleView === 'contratos' ? (
-          <ContractsView userId={authenticatedUser?.id ?? null} onBack={() => setActiveModuleView(null)} />
+          <ContractsView userId={authenticatedUser?.id ?? null} initialModelId={librarySubItemId} onBack={() => handleTabChange('inicio')} />
         ) : activeModuleView === 'calculadoras' ? (
-          <CalculatorsView onSaveToHistory={handleSaveCalculation} initialCategory="eletrica" onToggleFavorite={handleAddFavorite} isFavorite={isFavorite} />
+          <CalculatorsView initialToolId={librarySubItemId} onSaveToHistory={handleSaveCalculation} initialCategory="eletrica" onToggleFavorite={handleAddFavorite} isFavorite={isFavorite} />
         ) : activeModuleView === 'projetos' ? (
           <FloorPlanEditorView
             key={sessionUserId ?? 'anonymous'}
@@ -725,6 +731,7 @@ function AppShell() {
             projects={projects}
             onSaveProject={handleSaveProject}
             onDeleteProject={handleDeleteProject}
+            onRegisterAgentApi={(api) => { canvasAgentApiRef.current = api; }}
           />
         ) : activeModuleView === 'ia' ? (
           <AIStudiesView key={aiInitialTab} initialTab={aiInitialTab} />
@@ -735,7 +742,7 @@ function AppShell() {
             onOpenSearch={() => setIsSearchOpen(true)}
             onOpenCalendarModal={() => setIsCalendarModalOpen(true)}
             onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)}
-            onOpenCalculatorWithData={() => setActiveModuleView('calculadoras')}
+            onOpenCalculatorWithData={() => handleNavigateModule('calculadoras')}
             latestCalculation={latest}
             favoritesCount={favorites.length}
             deadlines={deadlines}
@@ -744,6 +751,8 @@ function AppShell() {
           <LibraryView
             initialTab={librarySubTab}
             initialItemId={librarySubItemId}
+            onSectionChange={(section) => router.push(pathForLibrarySection(section))}
+            onItemChange={(section, itemId) => router.push(pathForLibrarySection(section, itemId))}
             onAddFavorite={handleAddFavorite}
             isFavorite={isFavorite}
             products={products}
@@ -769,10 +778,7 @@ function AppShell() {
             onDeleteNote={handleDeleteNote}
             onClearHistory={handleClearHistory}
             onDeleteHistoryItem={handleDeleteHistoryItem}
-            onReopenCalculation={() => {
-              setActiveModuleView('calculadoras');
-              setCurrentTab('inicio');
-            }}
+            onReopenCalculation={() => handleNavigateModule('calculadoras')}
             onOpenOnboarding={() => setIsOnboardingOpen(true)}
             onOpenCalendarModal={() => setIsCalendarModalOpen(true)}
             syncState={syncState}
@@ -809,6 +815,17 @@ function AppShell() {
         onGuidingChange={setIsAgentGuiding}
         onNavigateToSection={handleTabChange}
         onNavigateToModule={handleNavigateModule}
+        getCanvasAgent={() => canvasAgentApiRef.current}
+        getProjectOverview={() => projects.map((project) => ({
+          id: project.id,
+          name: project.name,
+          type: project.type,
+          stage: project.stage,
+          updatedAt: project.updatedAt,
+          walls: project.walls.length,
+          rooms: project.rooms?.length ?? 0,
+          openings: project.openings.length,
+        }))}
       />
 
       <OnboardingModal

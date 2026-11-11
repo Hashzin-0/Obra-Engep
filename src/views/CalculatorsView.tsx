@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ZapIcon as Zap, DropletsIcon as Droplets, Building2Icon as Building2, ArrowLeftRightIcon as ArrowLeftRight, ShieldAlertIcon as ShieldAlert, InfoIcon as Info, ChevronRightIcon as ChevronRight, ArrowLeftIcon as ArrowLeft, BookmarkIcon as Bookmark, CheckIcon as Check, GaugeIcon as Gauge, LayersIcon as Layers, ShieldCheckIcon as ShieldCheck, DiscIcon as Disc, BoxIcon as Box, CpuIcon as Cpu, Maximize2Icon as Maximize2, SparklesIcon as Sparkles } from '@animateicons/react/lucide';
 import { Fuel, Sliders, Grid, Home, Scale, AlertTriangle } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
@@ -33,6 +33,7 @@ import { CalculationHistoryItem, FavoriteItem } from '../types';
 
 interface CalculatorsViewProps {
   initialCategory?: string;
+  initialToolId?: string;
   onSaveToHistory: (item: CalculationHistoryItem) => void;
   onToggleFavorite: (item: FavoriteItem) => void;
   isFavorite: (id: string) => boolean;
@@ -270,6 +271,7 @@ function safeCalculation<T>(callback: () => T): T | null {
 
 export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
   initialCategory = 'eletrica',
+  initialToolId,
   onSaveToHistory,
   onToggleFavorite,
   isFavorite,
@@ -286,7 +288,14 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
   );
 
   // Selected tool inside category (defaults to 'potencia_corrente' for immediate utility)
-  const [selectedToolId, setSelectedToolId] = useState<string | null>('potencia_corrente');
+  const [selectedToolId, setSelectedToolId] = useState<string | null>(initialToolId || 'potencia_corrente');
+  useEffect(() => {
+    if (initialToolId && TOOLS_DIRECTORY.some((tool) => tool.id === initialToolId)) {
+      setSelectedToolId(initialToolId);
+      const tool = TOOLS_DIRECTORY.find((item) => item.id === initialToolId);
+      if (tool) setActiveCategory(tool.category);
+    }
+  }, [initialToolId]);
 
 
   // Electrical Tab State (Potência, Corrente, Tensão, Cabo)
@@ -395,7 +404,7 @@ export const CalculatorsView: React.FC<CalculatorsViewProps> = ({
   const currentTool = TOOLS_DIRECTORY.find((t) => t.id === selectedToolId);
 
   return (
-    <div className="space-y-5 pb-24">
+    <div className="space-y-5 pb-24" data-calculator-form={currentTool ? "true" : undefined} data-calculator-id={currentTool?.id}>
       {/* Top Category Filter Pills (Exact order from Board 3: Elétrica, Hidráulica, Estrutural, Outras) */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
         {[

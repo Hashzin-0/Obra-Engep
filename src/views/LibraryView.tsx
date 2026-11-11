@@ -38,6 +38,8 @@ interface LibraryViewProps {
   onSaveProduct: (product: AutomotiveProductItem) => void;
   onDeleteProduct: (id: string) => void;
   onSaveNote: (note: NotebookNote) => void;
+  onSectionChange?: (section: LibrarySection) => void;
+  onItemChange?: (section: LibrarySection, itemId: string) => void;
 }
 
 type LibrarySection = 'nrs' | 'abnt' | 'legislacao' | 'estetica' | 'manuais';
@@ -69,6 +71,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   onSaveProduct,
   onDeleteProduct,
   onSaveNote,
+  onSectionChange,
+  onItemChange,
 }) => {
   const [activeSection, setActiveSection] = useState<LibrarySection>(initialTab);
   const [selectedNRId, setSelectedNRId] = useState<string>(initialItemId || REFERENCE_NRS[0].id);
@@ -85,6 +89,15 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   const [referenceLegislation, setReferenceLegislation] = useState(REFERENCE_LEGISLATION);
   const [serviceManuals, setServiceManuals] = useState(SERVICE_MANUALS);
   const [dirtCatalog, setDirtCatalog] = useState(DIRT_CATALOG);
+
+  useEffect(() => setActiveSection(initialTab), [initialTab]);
+
+  useEffect(() => {
+    if (!initialItemId) return;
+    setSelectedNRId(initialItemId);
+    setSelectedProductId(initialItemId);
+    setSelectedManualId(initialItemId);
+  }, [initialItemId]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -144,7 +157,10 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         ].map(({ id, label, icon: Icon }) => (
           <button
             key={id}
-            onClick={() => setActiveSection(id)}
+            onClick={() => {
+              setActiveSection(id);
+              onSectionChange?.(id);
+            }}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition min-h-[44px] ${
               activeSection === id
                 ? 'bg-[#1F66D6] text-white shadow-xs'
@@ -169,7 +185,10 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             {referenceNrs.map((nr) => (
               <button
                 key={nr.id}
-                onClick={() => setSelectedNRId(nr.id)}
+                onClick={() => {
+                  setSelectedNRId(nr.id);
+                  onItemChange?.('nrs', nr.id);
+                }}
                 className={`p-2.5 rounded-xl border text-left transition ${
                   nr.id === selectedNRId
                     ? 'border-[#3DD68C] bg-[#12301F]/40 text-white'
@@ -438,7 +457,10 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                     {products.map((prod) => (
                       <button
                         key={prod.id}
-                        onClick={() => setSelectedProductId(prod.id)}
+                        onClick={() => {
+                          setSelectedProductId(prod.id);
+                          onItemChange?.('estetica', prod.id);
+                        }}
                         className={`p-2.5 rounded-xl border text-left transition ${
                           prod.id === currentProduct?.id
                             ? 'border-[#06B6D4] bg-[#06B6D4]/15 text-white'
@@ -638,7 +660,10 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
             {serviceManuals.map((manual) => (
               <button
                 key={manual.id}
-                onClick={() => setSelectedManualId(manual.id)}
+                onClick={() => {
+                  setSelectedManualId(manual.id);
+                  onItemChange?.('manuais', manual.id);
+                }}
                 className={`p-3 rounded-xl border text-left transition ${
                   manual.id === currentManual.id
                     ? 'border-[#3DD68C] bg-[#12301F]/40 text-white'
