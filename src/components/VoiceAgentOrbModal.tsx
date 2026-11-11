@@ -673,7 +673,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           route: typeof window !== 'undefined' ? window.location.pathname : 'unknown',
           errorName: error instanceof Error ? error.name : 'unknown',
           errorMessage: message,
-          canvasApiAvailable: call.name.startsWith('canvas_') || call.name === 'get_canvas_overview' ? Boolean(getCanvasAgent?.()) : undefined,
+          canvasApiAvailable: call.name.includes('canvas_') || call.name === 'get_canvas_overview' ? Boolean(getCanvasAgent?.()) : undefined,
         });
         return {
           id: call.id,
