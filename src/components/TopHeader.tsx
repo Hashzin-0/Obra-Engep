@@ -48,7 +48,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ onOpenVoiceAssistant, onBa
               title="Assistente OBra ENGEP"
               className="liquid-glass-action relative group p-1 rounded-xl min-h-[48px] min-w-[48px] flex items-center justify-center"
             >
-              {!isAgentGuiding && <RobotHeadAvatar state={agentState} size={42} label="Assistente OBra ENGEP" />}
+              <RobotHeadAvatar state={agentState} size={42} label={isAgentGuiding ? 'Assistente orientando a interface' : 'Assistente OBra ENGEP'} />
             </button>
           )}
           {voiceAssistantOpen && !isVoiceMode && onStartVoiceMode && (
