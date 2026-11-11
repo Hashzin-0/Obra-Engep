@@ -23,7 +23,6 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { getSupabaseAccessToken, supabase } from '../lib/supabase';
-import { RobotHeadAvatar } from './RobotHeadAvatar';
 import type { ModuleId } from '../types';
 import type { CanvasAgentApi, CanvasAgentKind } from '../views/FloorPlanEditorView';
 import { contractModels } from '../data/contractsCatalog';
@@ -91,7 +90,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const [guideFieldIndex, setGuideFieldIndex] = useState(0);
   const guideFieldIndexRef = useRef(0);
   const isFormGuidingRef = useRef(false);
-  const [guideTargetRect, setGuideTargetRect] = useState<{ top: number; left: number } | null>(null);
   const guideFieldsRef = useRef<Array<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>>([]);
 
   const speechRecognitionRef = useRef<any>(null);
@@ -1358,30 +1356,9 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     tourTargetsRef.current.forEach((target) => target.classList.remove('robot-guide-highlight'));
     tourTargetsRef.current = [];
     onGuidingChange?.(false);
-    setGuideTargetRect(null);
     setConnectionStatus('idle');
     setIsVoiceMode(false);
   }, [isOpen, onGuidingChange]);
-
-  useEffect(() => {
-    if (!isOpen || (!isFormGuiding && !isTouringControls)) return;
-    const updatePosition = () => {
-      const target = isTouringControls
-        ? tourTargetsRef.current[tourIndexRef.current]
-        : guideFieldsRef.current[guideFieldIndexRef.current];
-      if (!target) return;
-      const rect = target.getBoundingClientRect();
-      setGuideTargetRect({ top: Math.max(12, rect.top - 82), left: Math.min(Math.max(12, rect.left), Math.max(12, window.innerWidth - 280)) });
-    };
-    window.addEventListener('scroll', updatePosition, true);
-    window.addEventListener('resize', updatePosition);
-    return () => {
-      window.removeEventListener('scroll', updatePosition, true);
-      window.removeEventListener('resize', updatePosition);
-    };
-  }, [isOpen, isFormGuiding, isTouringControls, guideFieldIndex]);
-
-  if (!isOpen) return null;
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard?.writeText(text);
@@ -1555,11 +1532,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     field.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
     field.focus({ preventScroll: true });
     field.classList.add('robot-guide-highlight');
-    const rect = field.getBoundingClientRect();
-    setGuideTargetRect({
-      top: Math.max(12, rect.top - 82),
-      left: Math.min(Math.max(12, rect.left), Math.max(12, window.innerWidth - 280)),
-    });
   };
 
   const speakGuidePrompt = (field: HTMLElement, index: number) => {
@@ -1610,8 +1582,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     onGuidingChange?.(true);
     const origin = document.querySelector<HTMLElement>('[data-robot-agent-trigger]');
     if (origin) {
-      const rect = origin.getBoundingClientRect();
-      setGuideTargetRect({ top: Math.max(12, rect.top - 82), left: Math.min(Math.max(12, rect.left), Math.max(12, window.innerWidth - 280)) });
       window.requestAnimationFrame(() => updateGuideTarget(fields[0]));
     } else updateGuideTarget(fields[0]);
     speakGuidePrompt(fields[0], 0);
@@ -1694,8 +1664,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     onGuidingChange?.(true);
     const origin = document.querySelector<HTMLElement>('[data-robot-agent-trigger]');
     if (origin) {
-      const rect = origin.getBoundingClientRect();
-      setGuideTargetRect({ top: Math.max(12, rect.top - 82), left: Math.min(Math.max(12, rect.left), Math.max(12, window.innerWidth - 280)) });
       window.requestAnimationFrame(() => updateGuideTarget(targets[0]));
     } else updateGuideTarget(targets[0]);
     speakControlTourStep(targets[0], 0);
@@ -1823,21 +1791,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       return;
     }
     void startGeminiLiveCapture();
-  };
-
-  const toggleVoiceMode = () => {
-    setIsVoiceMode(true);
-    if (liveSessionRef.current) {
-      stopGeminiLive();
-      return;
-    }
-    if (isListening && speechRecognitionRef.current) {
-      try { speechRecognitionRef.current.stop(); } catch {}
-      setIsListening(false);
-      setConnectionStatus('idle');
-      return;
-    }
-    startVoiceCapture();
   };
 
   const toggleMicrophoneMute = () => {
