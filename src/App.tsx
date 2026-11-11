@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { pathForLibrarySection, pathForModule, pathForTab, resolveAppRoute } from './utils/appRoutes';
 import type { Session } from '@supabase/supabase-js';
@@ -132,6 +132,10 @@ function AppShell() {
   );
   const [projects, setProjects] = useState<FloorPlanProject[]>([]);
   const canvasAgentApiRef = useRef<CanvasAgentApi | null>(null);
+  const registerCanvasAgentApi = useCallback((api: CanvasAgentApi | null) => {
+    canvasAgentApiRef.current = api;
+    console.info(api ? '[Canvas Agent] API received by AppShell.' : '[Canvas Agent] API cleared by AppShell.');
+  }, []);
 
   const [syncState, setSyncState] = useState<SyncState>({
     status: isSupabaseConfigured ? 'connecting' : 'disabled',
@@ -731,7 +735,7 @@ function AppShell() {
             projects={projects}
             onSaveProject={handleSaveProject}
             onDeleteProject={handleDeleteProject}
-            onRegisterAgentApi={(api) => { canvasAgentApiRef.current = api; }}
+            onRegisterAgentApi={registerCanvasAgentApi}
           />
         ) : activeModuleView === 'ia' ? (
           <AIStudiesView key={aiInitialTab} initialTab={aiInitialTab} />
