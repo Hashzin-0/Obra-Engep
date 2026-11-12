@@ -1127,3 +1127,158 @@ button.liquid-glass-action[aria-current="page"],
 main:has(.advanced-electrical-calculator) {
   background: var(--clay-surface) !important;
 }
+
+
+/* Canvas floating-panel collision fix.
+   Keep each independent control in a dedicated region instead of sharing the
+   same absolute anchor. The mobile layout reserves separate vertical lanes. */
+.floor-plan-workspace--immersive > .project-selection-panel {
+  left: 14px;
+  right: auto;
+  bottom: 94px;
+  max-width: min(440px, calc(50vw - 22px));
+  --liquid-glass-width: min(440px, calc(50vw - 22px));
+}
+.floor-plan-workspace--immersive > .project-settings-panel {
+  right: 14px;
+  left: auto;
+  bottom: 94px;
+  max-width: min(360px, calc(50vw - 22px));
+  --liquid-glass-width: min(360px, calc(50vw - 22px));
+}
+.floor-plan-workspace--immersive > .project-wall-options {
+  right: 14px;
+  left: auto;
+  bottom: 190px;
+  max-width: min(360px, calc(50vw - 22px));
+  --liquid-glass-width: min(360px, calc(50vw - 22px));
+}
+.floor-plan-workspace--immersive > .project-furniture-panel {
+  top: 150px;
+  right: 14px;
+  left: auto;
+  max-width: min(380px, calc(100vw - 28px));
+  max-height: min(46dvh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.floor-plan-workspace--immersive .project-inspector-panel {
+  top: 150px;
+  left: 50%;
+  max-width: min(520px, calc(100vw - 28px));
+  max-height: min(28dvh, 240px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 640px) {
+  .floor-plan-workspace--immersive > .project-header {
+    top: max(8px, env(safe-area-inset-top));
+    left: 8px;
+    right: 8px;
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    --liquid-glass-width: calc(100vw - 16px);
+  }
+  .floor-plan-workspace--immersive > .project-level-switcher {
+    top: calc(max(8px, env(safe-area-inset-top)) + 184px) !important;
+    left: 8px;
+    right: 8px;
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: 22dvh;
+    overflow-y: auto;
+    --liquid-glass-width: calc(100vw - 16px);
+  }
+  .floor-plan-workspace--immersive > .project-layer-switcher {
+    top: calc(max(8px, env(safe-area-inset-top)) + 290px) !important;
+    bottom: auto !important;
+    left: 8px;
+    right: 8px;
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    transform: none !important;
+    --liquid-glass-width: calc(100vw - 16px);
+  }
+  .floor-plan-workspace--immersive > .project-layer-switcher > div:last-child {
+    flex-direction: row !important;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  .floor-plan-workspace--immersive .project-canvas-stage > .liquid-glass-surface.absolute.top-3 {
+    top: calc(max(8px, env(safe-area-inset-top)) + 350px) !important;
+    left: 8px !important;
+    right: auto !important;
+    transform: none !important;
+  }
+  .floor-plan-workspace--immersive .project-canvas-stage > .liquid-glass-surface.absolute.right-3 {
+    top: calc(max(8px, env(safe-area-inset-top)) + 350px) !important;
+    right: 8px !important;
+  }
+  .floor-plan-workspace--immersive .project-canvas-stage > .liquid-glass-surface.absolute.bottom-3 {
+    display: none !important;
+  }
+  .floor-plan-workspace--immersive > .project-selection-panel {
+    top: auto;
+    left: 8px;
+    right: 8px;
+    bottom: 210px;
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: 18dvh;
+    overflow-y: auto;
+    --liquid-glass-width: calc(100vw - 16px);
+  }
+  .floor-plan-workspace--immersive > .project-settings-panel {
+    top: auto;
+    left: 8px;
+    right: 8px;
+    bottom: 142px;
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: 16dvh;
+    overflow-y: auto;
+    --liquid-glass-width: calc(100vw - 16px);
+  }
+  .floor-plan-workspace--immersive > .project-wall-options {
+    top: auto;
+    left: 8px;
+    right: 8px;
+    bottom: 142px;
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: 16dvh;
+    overflow-y: auto;
+    --liquid-glass-width: calc(100vw - 16px);
+  }
+  .floor-plan-workspace--immersive > .project-furniture-panel {
+    top: calc(max(8px, env(safe-area-inset-top)) + 350px);
+    left: 8px;
+    right: 8px;
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: 28dvh;
+    overflow-y: auto;
+    --liquid-glass-width: calc(100vw - 16px);
+  }
+  .floor-plan-workspace--immersive .project-inspector-panel {
+    top: calc(max(8px, env(safe-area-inset-top)) + 350px);
+    left: 8px;
+    right: 8px;
+    transform: none;
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: 20dvh;
+    overflow-y: auto;
+  }
+  .floor-plan-workspace--immersive > .project-tool-dock {
+    left: 8px;
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    transform: none;
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    --liquid-glass-width: calc(100vw - 16px);
+  }
+}
