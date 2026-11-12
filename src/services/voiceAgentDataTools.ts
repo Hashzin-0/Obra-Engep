@@ -1,6 +1,6 @@
 import { getSupabaseSession, supabase } from '../lib/supabase';
 
-type DataRow = Record<string, unknown>;
+type DataRow = Record<string, any>;
 
 function database() {
   if (!supabase) throw new Error('O acesso aos dados está indisponível.');
