@@ -37,7 +37,7 @@ import {
   BellIcon as Bell,
   CalendarCheckIcon as CalendarCheck,
 } from '@animateicons/react/lucide';
-import { Sofa } from 'lucide-react';
+import { Sofa, Mic, MicOff, MessageSquare } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { FloorPlanProject, FloorPlanLevel, FloorPlanRoom, FloorMaterial, WallSegment, OpeningItem, ElectricalItem, HydraulicItem, ProjectDeadline } from '../types';
 import { createEmptyProject } from '../data/referenceData';
@@ -65,6 +65,12 @@ interface FloorPlanEditorViewProps {
   onRegisterAgentApi?: (api: CanvasAgentApi | null) => void;
   onOpenCalendarModal?: () => void;
   onOpenVoiceAssistant?: () => void;
+  voiceAssistantOpen?: boolean;
+  isVoiceMode?: boolean;
+  isMicrophoneMuted?: boolean;
+  onStartVoiceMode?: () => void;
+  onToggleMicrophoneMute?: () => void;
+  onExitVoiceMode?: () => void;
   deadlines?: ProjectDeadline[];
   projects?: FloorPlanProject[];
   onSaveProject?: (project: FloorPlanProject) => void;
@@ -87,6 +93,12 @@ const captureActiveLevel = (project: FloorPlanProject, activeLevelId: string): F
 export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
   onOpenCalendarModal,
   onOpenVoiceAssistant,
+  voiceAssistantOpen = false,
+  isVoiceMode = false,
+  isMicrophoneMuted = false,
+  onStartVoiceMode,
+  onToggleMicrophoneMute,
+  onExitVoiceMode,
   deadlines = [],
   projects = [],
   onSaveProject,
@@ -1314,11 +1326,28 @@ export const FloorPlanEditorView: React.FC<FloorPlanEditorViewProps> = ({
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
-          {onOpenVoiceAssistant && (
-            <button type="button" onClick={onOpenVoiceAssistant} aria-label="Abrir assistente OBra ENGEP" data-robot-agent-trigger="canvas" title="Assistente OBra ENGEP" className="p-1.5 rounded-xl border border-[#2A3A55] text-[#9FB0C8] flex items-center justify-center">
-              <RobotHeadAvatar size={38} />
-            </button>
-          )}
+          <div className="flex items-center gap-1">
+            {onOpenVoiceAssistant && (
+              <button type="button" onClick={onOpenVoiceAssistant} aria-label="Abrir assistente de texto" data-robot-agent-trigger="canvas" title="Assistente OBra ENGEP" className="p-1.5 rounded-xl border border-[#2A3A55] text-[#9FB0C8] flex items-center justify-center">
+                <RobotHeadAvatar size={38} />
+              </button>
+            )}
+            {voiceAssistantOpen && !isVoiceMode && onStartVoiceMode && (
+              <button type="button" onClick={onStartVoiceMode} aria-label="Iniciar conversa por voz" title="Iniciar conversa por voz" className="p-2 rounded-xl border border-[#5B9BFF]/30 text-[#5B9BFF]">
+                <Mic className="w-4 h-4" />
+              </button>
+            )}
+            {voiceAssistantOpen && isVoiceMode && (
+              <>
+                <button type="button" onClick={onToggleMicrophoneMute} aria-label={isMicrophoneMuted ? 'Reativar microfone' : 'Silenciar microfone'} title={isMicrophoneMuted ? 'Reativar microfone' : 'Silenciar microfone'} className={`p-2 rounded-xl border ${isMicrophoneMuted ? 'border-red-400/50 text-red-400 bg-red-500/10' : 'border-[#5B9BFF]/30 text-[#5B9BFF]'}`}>
+                  {isMicrophoneMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                </button>
+                <button type="button" onClick={onExitVoiceMode} aria-label="Voltar ao chat de texto" title="Voltar ao chat de texto" className="p-2 rounded-xl border border-[#5B9BFF]/30 text-[#5B9BFF]">
+                  <MessageSquare className="w-4 h-4" />
+                </button>
+              </>
+            )}
+          </div>
           <button
             onClick={handleExportPNG}
             aria-label="Exportar imagem da planta"

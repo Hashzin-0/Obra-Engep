@@ -17,13 +17,9 @@ import {
   Loader2,
   Copy,
   Check,
-  Mic,
-  MicOff,
-  MessageSquare,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { getSupabaseAccessToken, supabase } from '../lib/supabase';
-import { RobotHeadAvatar } from './RobotHeadAvatar';
 import type { ModuleId } from '../types';
 import type { CanvasAgentApi, CanvasAgentKind } from '../views/FloorPlanEditorView';
 import { contractModels } from '../data/contractsCatalog';
@@ -64,9 +60,10 @@ interface VoiceAgentOrbModalProps {
   onNavigateToModule?: (moduleId: ModuleId, itemId?: string) => void;
   getProjectOverview?: () => Array<{ id: string; name: string; type: string; stage: string; updatedAt: string; walls: number; rooms: number; openings: number }>;
   getCanvasAgent?: () => CanvasAgentApi | null;
+  onVoiceUiChange?: (controls: { isVoiceMode: boolean; isMicrophoneMuted: boolean; startVoiceMode: () => void; toggleMicrophoneMute: () => void; exitVoiceMode: () => void }) => void;
 }
 
-export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, onClose, onStatusChange, onGuidingChange, onNavigateToSection, onNavigateToModule, getProjectOverview, getCanvasAgent }) => {
+export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, onClose, onStatusChange, onGuidingChange, onNavigateToSection, onNavigateToModule, getProjectOverview, getCanvasAgent, onVoiceUiChange }) => {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
@@ -87,10 +84,8 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const isTouringControlsRef = useRef(false);
   const tourTargetsRef = useRef<HTMLElement[]>([]);
   const tourIndexRef = useRef(0);
-  const [guideFieldIndex, setGuideFieldIndex] = useState(0);
   const guideFieldIndexRef = useRef(0);
   const isFormGuidingRef = useRef(false);
-  const [guideTargetRect, setGuideTargetRect] = useState<{ top: number; left: number } | null>(null);
   const guideFieldsRef = useRef<Array<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>>([]);
 
   const speechRecognitionRef = useRef<any>(null);
@@ -178,14 +173,14 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, ' ').trim();
 
   const getVisibleScreenControls = () => {
-    const root = document.querySelector<HTMLElement>('main');
+    const root = document.body;
     if (!root) return [];
     const nodes = Array.from(root.querySelectorAll<HTMLElement>(
       'input:not([type="hidden"]):not([type="password"]):not([type="file"]):not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]), a[href], [role="button"], [data-robot-guide]'
     ));
     return nodes
       .filter((node) => node.getClientRects().length > 0)
-      .slice(0, 80)
+      .slice(0, 160)
       .map((node, index) => ({
         index,
         label: getGuideFieldLabel(node, index),
@@ -340,8 +335,8 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   };
 
   const highlightUiElement = (query: string) => {
-    const root = document.querySelector<HTMLElement>('main');
-    if (!root) throw new Error('A tela principal não está disponível.');
+    const root = document.body;
+    if (!root) throw new Error('A interface do aplicativo não está disponível.');
     const normalizedQuery = normalizeUiLabel(query.replace(/^(botao|botão|campo|aba|secao|seção)\s+/i, ''));
     if (normalizedQuery.length < 2) throw new Error('Informe o nome visível do elemento que deseja destacar.');
     const candidates = Array.from(root.querySelectorAll<HTMLElement>(
@@ -372,10 +367,9 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     setIsFormGuiding(false);
     isFormGuidingRef.current = false;
     setIsTouringControls(true);
-    setIsVoiceMode(true);
     onGuidingChange?.(true);
     updateGuideTarget(target);
-    return { status: 'ok', highlighted: ranked[0].label, message: 'Robô posicionado acima do elemento e destaque visual aplicado.' };
+    return { status: 'ok', highlighted: ranked[0].label, message: 'Elemento destacado e trazido à área visível; o robô permanece no cabeçalho.' };
   };
 
   const resolveCanvasAgent = async (toolName: string): Promise<CanvasAgentApi> => {
@@ -443,10 +437,12 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     const functionResponses = await Promise.all(calls.map(async (call) => {
       const args = call.args ?? {};
       let stage = 'dispatch';
+      console.info('[Gemini Live][Tool] Execution started.', { tool: call.name, callId: call.id, route: window.location.pathname });
       try {
         let result: Record<string, unknown>;
         if (call.name === 'get_current_screen_controls') {
           const controls = getVisibleScreenControls();
+          console.info('[Gemini Live][UI] Visible controls inspected.', { route: window.location.pathname, count: controls.length, labels: controls.map((control) => control.label).slice(0, 80), accountControlFound: controls.some((control) => normalizeUiLabel(control.label).includes('conta')) });
           const calculator = document.querySelector<HTMLElement>('[data-calculator-form]');
           const activeForm = document.querySelector<HTMLElement>('[data-agent-form]');
           const screenTitle = document.querySelector<HTMLElement>('main h1, main h2')?.textContent?.trim() ?? '';
@@ -664,6 +660,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         } else {
           throw new Error('Ferramenta não reconhecida.');
         }
+        console.info('[Gemini Live][Tool] Execution completed.', { tool: call.name, callId: call.id, status: result.status ?? 'ok', route: window.location.pathname });
         return { id: call.id, name: call.name, response: result };
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Falha ao executar a ferramenta.';
@@ -684,9 +681,15 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     }));
 
     if (socket.readyState === WebSocket.OPEN && liveSessionRef.current === socket) {
-      console.info('[Gemini Live] Returning tool responses.', { count: functionResponses.length, names: functionResponses.map((item) => item.name) });
+      console.info('[Gemini Live][Tool] Returning tool responses to model.', { count: functionResponses.length, names: functionResponses.map((item) => item.name) });
       socket.send(JSON.stringify({ toolResponse: { functionResponses } }));
       setConnectionStatus('thinking');
+    } else {
+      console.error('[Gemini Live][Tool] Could not return tool responses because the session is no longer open.', {
+        readyState: socket.readyState,
+        isCurrentSession: liveSessionRef.current === socket,
+        tools: functionResponses.map((item) => item.name),
+      });
     }
     } finally {
       livePendingToolCallsRef.current = Math.max(0, livePendingToolCallsRef.current - 1);
@@ -886,14 +889,14 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         outputAudioTranscription: {},
         systemInstruction: {
           parts: [{
-            text: 'Você é o Assistente Técnico do OBra ENGEP. Detecte automaticamente o idioma falado pelo usuário e responda sempre nesse mesmo idioma; não force português, não mude para espanhol ou outro idioma sem que o usuário o use e acompanhe imediatamente qualquer mudança de idioma. Use rigor técnico e linguagem de campo. Cite normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC. Você é o agente operacional por voz do OBra ENGEP. Além de conversar, pode inspecionar a tela, abrir calculadoras, preencher campos e destacar elementos da interface com o robô flutuante. Para consultar favoritos use get_user_favorites; cálculos recentes use get_recent_calculations; prazos use get_upcoming_deadlines; biblioteca use search_library. Para navegação use navigate_to_section ou open_favorite. Para trabalhar com calculadoras: primeiro use open_calculator quando precisar selecionar uma calculadora; use get_current_screen_controls para descobrir os rótulos visíveis dos campos; use fill_calculator_fields com pares label/value exatos; só envie submit=true quando o usuário tiver pedido para calcular. Para contratos: use search_contract_templates para localizar um modelo; depois use open_contract_template com o ID retornado para abrir o formulário correspondente; use get_current_screen_controls para conferir os rótulos e chaves e fill_contract_fields para preencher somente os valores informados. Essa ferramenta nunca gera nem salva o documento; aguarde pedido explícito e use a ação apropriada da interface. Para projetos, use get_project_overview antes de responder sobre os projetos salvos e não invente detalhes da planta. Para editar plantas, use get_canvas_overview para identificar o projeto, pavimentos e IDs reais; use select_canvas_level para trocar o pavimento em edição e select_canvas_element para selecionar/destacar um objeto; add_canvas_element e move_canvas_element somente após pedido explícito do usuário; para rotas e tubulações, informe os dois pontos inicial/final. Coordenadas são pixels do Canvas, portanto confirme referências/posições com o usuário quando não estiverem claras. Antes de excluir qualquer objeto, explique o impacto e peça confirmação explícita; só então chame delete_canvas_element com confirmed=true. Não exclua paredes por voz, pois podem sustentar junções, aberturas e cômodos. Após cada alteração, confirme somente o resultado retornado pela ferramenta. Não invente valores ausentes: pergunte ao usuário antes de preencher um campo que dependa de informação não fornecida. Para apontar um controle, use highlight_ui_element com o texto visível/aria-label e explique o que ele faz; o robô se posicionará acima do alvo e o destacará. Use clear_ui_highlight quando terminar. Nunca diga que preencheu, calculou, abriu ou destacou sem receber sucesso da ferramenta. O preenchimento altera somente os campos indicados; não salva, envia, exclui ou confirma operações externas sem autorização explícita. Não repita uma ferramenta após erro ou ausência de resultados e não faça mais de duas chamadas consecutivas sem informar o usuário.',
+            text: 'Você é o Assistente Técnico do OBra ENGEP. Detecte automaticamente o idioma falado pelo usuário e responda sempre nesse mesmo idioma; não force português, não mude para espanhol ou outro idioma sem que o usuário o use e acompanhe imediatamente qualquer mudança de idioma. Use rigor técnico e linguagem de campo. Cite normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC. Você é o agente operacional por voz do OBra ENGEP. Além de conversar, pode inspecionar toda a interface visível, incluindo cabeçalho, navegação superior e conteúdo principal, abrir calculadoras, preencher campos e destacar controles. Quando o usuário perguntar onde fica um botão, aba ou controle, chame get_current_screen_controls antes de responder e use highlight_ui_element quando isso ajudar a localizá-lo; nunca diga que vai verificar sem executar a ferramenta. O robô permanece exclusivamente no cabeçalho. Para consultar favoritos use get_user_favorites; cálculos recentes use get_recent_calculations; prazos use get_upcoming_deadlines; biblioteca use search_library. Para navegação use navigate_to_section ou open_favorite. Para trabalhar com calculadoras: primeiro use open_calculator quando precisar selecionar uma calculadora; use get_current_screen_controls para descobrir os rótulos visíveis dos campos; use fill_calculator_fields com pares label/value exatos; só envie submit=true quando o usuário tiver pedido para calcular. Para contratos: use search_contract_templates para localizar um modelo; depois use open_contract_template com o ID retornado para abrir o formulário correspondente; use get_current_screen_controls para conferir os rótulos e chaves e fill_contract_fields para preencher somente os valores informados. Essa ferramenta nunca gera nem salva o documento; aguarde pedido explícito e use a ação apropriada da interface. Para projetos, use get_project_overview antes de responder sobre os projetos salvos e não invente detalhes da planta. Para editar plantas, use get_canvas_overview para identificar o projeto, pavimentos e IDs reais; use select_canvas_level para trocar o pavimento em edição e select_canvas_element para selecionar/destacar um objeto; add_canvas_element e move_canvas_element somente após pedido explícito do usuário; para rotas e tubulações, informe os dois pontos inicial/final. Coordenadas são pixels do Canvas, portanto confirme referências/posições com o usuário quando não estiverem claras. Antes de excluir qualquer objeto, explique o impacto e peça confirmação explícita; só então chame delete_canvas_element com confirmed=true. Não exclua paredes por voz, pois podem sustentar junções, aberturas e cômodos. Após cada alteração, confirme somente o resultado retornado pela ferramenta. Não invente valores ausentes: pergunte ao usuário antes de preencher um campo que dependa de informação não fornecida. Para apontar um controle, use highlight_ui_element com o texto visível/aria-label e explique o que ele faz; o controle será destacado e trazido à área visível, enquanto o robô permanece no cabeçalho. Use clear_ui_highlight quando terminar. Nunca diga que preencheu, calculou, abriu ou destacou sem receber sucesso da ferramenta. O preenchimento altera somente os campos indicados; não salva, envia, exclui ou confirma operações externas sem autorização explícita. Não repita uma ferramenta após erro ou ausência de resultados e não faça mais de duas chamadas consecutivas sem informar o usuário.',
           }],
         },
         tools: [{
           functionDeclarations: [
             {
               name: 'get_current_screen_controls',
-              description: 'Inspeciona os campos e controles visíveis da tela atual. Use antes de preencher calculadoras ou destacar um controle quando não souber o rótulo exato.',
+              description: 'Inspeciona os controles e campos visíveis em toda a interface atual, incluindo cabeçalho, navegação superior, botões e conteúdo principal. Use quando o usuário perguntar onde fica um botão/controle ou antes de destacar um elemento cujo rótulo exato não conhece.',
               behavior: 'NON_BLOCKING',
               parameters: { type: 'OBJECT', properties: {} },
             },
@@ -1006,7 +1009,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             },
             {
               name: 'highlight_ui_element',
-              description: 'Move o robô flutuante para cima de um botão, campo, aba ou seção visível e aplica destaque visual no elemento. Use o rótulo visível ou aria-label.',
+              description: 'Localiza um botão, campo, aba ou seção visível pelo rótulo e aplica destaque visual no próprio elemento. O robô permanece no cabeçalho; use o texto visível ou aria-label.',
               behavior: 'NON_BLOCKING',
               parameters: {
                 type: 'OBJECT',
@@ -1139,6 +1142,15 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             }
 
             const message = JSON.parse(rawData);
+            console.info('[Gemini Live][WS] Server message received.', {
+              keys: Object.keys(message),
+              toolCalls: Array.isArray(message.toolCall?.functionCalls) ? message.toolCall.functionCalls.map((call: { name?: string }) => call.name ?? 'unknown') : [],
+              hasServerContent: Boolean(message.serverContent),
+              hasInputTranscription: Boolean(message.serverContent?.inputTranscription?.text),
+              hasOutputTranscription: Boolean(message.serverContent?.outputTranscription?.text),
+              turnComplete: Boolean(message.serverContent?.turnComplete),
+              interrupted: Boolean(message.serverContent?.interrupted),
+            });
             if (message.error) {
               const detail = message.error.message || message.error.code || 'Erro não especificado pelo Gemini Live.';
               console.error('[Gemini Live] Server rejected the session:', detail);
@@ -1345,30 +1357,9 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     tourTargetsRef.current.forEach((target) => target.classList.remove('robot-guide-highlight'));
     tourTargetsRef.current = [];
     onGuidingChange?.(false);
-    setGuideTargetRect(null);
     setConnectionStatus('idle');
     setIsVoiceMode(false);
   }, [isOpen, onGuidingChange]);
-
-  useEffect(() => {
-    if (!isOpen || (!isFormGuiding && !isTouringControls)) return;
-    const updatePosition = () => {
-      const target = isTouringControls
-        ? tourTargetsRef.current[tourIndexRef.current]
-        : guideFieldsRef.current[guideFieldIndexRef.current];
-      if (!target) return;
-      const rect = target.getBoundingClientRect();
-      setGuideTargetRect({ top: Math.max(12, rect.top - 82), left: Math.min(Math.max(12, rect.left), Math.max(12, window.innerWidth - 280)) });
-    };
-    window.addEventListener('scroll', updatePosition, true);
-    window.addEventListener('resize', updatePosition);
-    return () => {
-      window.removeEventListener('scroll', updatePosition, true);
-      window.removeEventListener('resize', updatePosition);
-    };
-  }, [isOpen, isFormGuiding, isTouringControls, guideFieldIndex]);
-
-  if (!isOpen) return null;
 
   const handleCopy = (id: string, text: string) => {
     navigator.clipboard?.writeText(text);
@@ -1542,11 +1533,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     field.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
     field.focus({ preventScroll: true });
     field.classList.add('robot-guide-highlight');
-    const rect = field.getBoundingClientRect();
-    setGuideTargetRect({
-      top: Math.max(12, rect.top - 82),
-      left: Math.min(Math.max(12, rect.left), Math.max(12, window.innerWidth - 280)),
-    });
   };
 
   const speakGuidePrompt = (field: HTMLElement, index: number) => {
@@ -1590,15 +1576,12 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     setIsVoiceMode(true);
     guideFieldsRef.current.forEach((field) => field.classList.remove('robot-guide-highlight'));
     guideFieldsRef.current = fields;
-    setGuideFieldIndex(0);
     guideFieldIndexRef.current = 0;
     isFormGuidingRef.current = true;
     setIsFormGuiding(true);
     onGuidingChange?.(true);
     const origin = document.querySelector<HTMLElement>('[data-robot-agent-trigger]');
     if (origin) {
-      const rect = origin.getBoundingClientRect();
-      setGuideTargetRect({ top: Math.max(12, rect.top - 82), left: Math.min(Math.max(12, rect.left), Math.max(12, window.innerWidth - 280)) });
       window.requestAnimationFrame(() => updateGuideTarget(fields[0]));
     } else updateGuideTarget(fields[0]);
     speakGuidePrompt(fields[0], 0);
@@ -1607,7 +1590,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const cancelFormGuide = () => {
     guideFieldsRef.current.forEach((field) => field.classList.remove('robot-guide-highlight'));
     guideFieldsRef.current = [];
-    setGuideTargetRect(null);
     isFormGuidingRef.current = false;
     setIsFormGuiding(false);
     isTouringControlsRef.current = false;
@@ -1647,8 +1629,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
       setIsTouringControls(false);
       tourTargetsRef.current.forEach((target) => target.classList.remove('robot-guide-highlight'));
       tourTargetsRef.current = [];
-      setGuideTargetRect(null);
-      onGuidingChange?.(false);
+        onGuidingChange?.(false);
       setConnectionStatus('happy');
       window.setTimeout(() => setConnectionStatus('idle'), 1800);
       return;
@@ -1681,8 +1662,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     onGuidingChange?.(true);
     const origin = document.querySelector<HTMLElement>('[data-robot-agent-trigger]');
     if (origin) {
-      const rect = origin.getBoundingClientRect();
-      setGuideTargetRect({ top: Math.max(12, rect.top - 82), left: Math.min(Math.max(12, rect.left), Math.max(12, window.innerWidth - 280)) });
       window.requestAnimationFrame(() => updateGuideTarget(targets[0]));
     } else updateGuideTarget(targets[0]);
     speakControlTourStep(targets[0], 0);
@@ -1734,7 +1713,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     const nextField = guideFieldsRef.current[nextIndex];
     if (nextField) {
       guideFieldIndexRef.current = nextIndex;
-      setGuideFieldIndex(nextIndex);
       updateGuideTarget(nextField);
       speakGuidePrompt(nextField, nextIndex);
       return;
@@ -1812,21 +1790,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     void startGeminiLiveCapture();
   };
 
-  const toggleVoiceMode = () => {
-    setIsVoiceMode(true);
-    if (liveSessionRef.current) {
-      stopGeminiLive();
-      return;
-    }
-    if (isListening && speechRecognitionRef.current) {
-      try { speechRecognitionRef.current.stop(); } catch {}
-      setIsListening(false);
-      setConnectionStatus('idle');
-      return;
-    }
-    startVoiceCapture();
-  };
-
   const toggleMicrophoneMute = () => {
     const nextMuted = !isMicrophoneMutedRef.current;
     isMicrophoneMutedRef.current = nextMuted;
@@ -1842,12 +1805,33 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
     setConnectionStatus('idle');
   };
 
+  const startVoiceMode = () => {
+    if (isVoiceMode) return;
+    setIsVoiceMode(true);
+    startVoiceCapture();
+  };
+
+  const voiceActionsRef = useRef({ startVoiceMode, toggleMicrophoneMute, exitVoiceMode });
+  voiceActionsRef.current = { startVoiceMode, toggleMicrophoneMute, exitVoiceMode };
+
+  useEffect(() => {
+    onVoiceUiChange?.({
+      isVoiceMode,
+      isMicrophoneMuted,
+      startVoiceMode: () => voiceActionsRef.current.startVoiceMode(),
+      toggleMicrophoneMute: () => voiceActionsRef.current.toggleMicrophoneMute(),
+      exitVoiceMode: () => voiceActionsRef.current.exitVoiceMode(),
+    });
+  }, [isVoiceMode, isMicrophoneMuted, onVoiceUiChange]);
+
   const sampleVoicePrompts = [
     'Qual cabo e disjuntor para chuveiro 7500W?',
     'Exigências da NR-35 para ancoragem em altura',
     'Qual a diluição de APC para sujeira pesada?',
     'Como calcular queda de tensão NBR 5410?',
   ];
+
+  if (!isOpen || isVoiceMode) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-end p-3 sm:p-4 bg-transparent pointer-events-none">
@@ -1861,21 +1845,12 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         {/* Header bar */}
         <div className="p-3 border-b border-[#2A3A55]/60 flex items-center justify-between gap-3 bg-gradient-to-r from-[#17243A] via-[#101827] to-[#17243A]">
           <div className="flex items-center gap-3">
-            {(!isFormGuiding && !isTouringControls) || isVoiceMode ? <RobotHeadAvatar state={isListening ? 'listening' : connectionStatus} size={42} /> : null}
             {!isVoiceMode && <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-sm text-white leading-tight">Assistente OBra ENGEP</h3>
                 <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-[#1F66D6] text-white font-bold">Aguardando</span>
               </div>
               <p className="text-[11px] text-[#9FB0C8]">Mesmo agente, agora com orientação visual</p>
-            </div>}
-            {isVoiceMode && <div className="flex items-center gap-1.5" aria-label="Controles do modo de voz">
-              <button type="button" onClick={toggleMicrophoneMute} aria-label={isMicrophoneMuted ? 'Reativar microfone' : 'Silenciar microfone'} title={isMicrophoneMuted ? 'Reativar microfone' : 'Silenciar microfone'} className={`p-2 rounded-xl border transition ${isMicrophoneMuted ? 'border-red-400/50 bg-red-500/15 text-red-300' : 'border-[#5B9BFF]/40 bg-[#1F66D6]/15 text-[#9FC4FF]'}`}>
-                {isMicrophoneMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-              </button>
-              <button type="button" onClick={exitVoiceMode} aria-label="Voltar ao chat de texto" title="Voltar ao chat de texto" className="p-2 rounded-xl border border-[#5B9BFF]/40 bg-[#1F66D6]/15 text-[#9FC4FF] transition hover:bg-[#1F66D6]/30">
-                <MessageSquare className="w-4 h-4" />
-              </button>
             </div>}
           </div>
           <div className="flex items-center gap-1.5">
@@ -1897,34 +1872,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
             </button>
           </div>
         </div>
-
-        {/* Robot companion follows the active form field without intercepting page gestures. */}
-        {guideTargetRect && (isFormGuiding || isTouringControls) && (
-          <div className="fixed z-[70] pointer-events-none flex items-end gap-2 robot-guide-companion" style={{ top: guideTargetRect.top, left: guideTargetRect.left }}>
-            <RobotHeadAvatar state={isListening ? 'listening' : connectionStatus === 'speaking' ? 'speaking' : 'working'} size={76} />
-            <div className="max-w-[190px] rounded-2xl border border-[#8da6b7]/50 bg-[#101827]/95 px-3 py-2 text-[11px] text-white shadow-xl">
-              {isTouringControls ? `Controle ${tourIndexRef.current + 1} de ${tourTargetsRef.current.length}` : `Campo ${guideFieldIndex + 1} de ${guideFieldsRef.current.length}`}
-              <div className="text-[#c7d7df]">{isTouringControls && tourTargetsRef.current[tourIndexRef.current] ? getGuideFieldLabel(tourTargetsRef.current[tourIndexRef.current], tourIndexRef.current) : guideFieldsRef.current[guideFieldIndex] ? getGuideFieldLabel(guideFieldsRef.current[guideFieldIndex], guideFieldIndex) : 'Preparando próximo campo'}</div>
-            </div>
-          </div>
-        )}
-
-        {/* Central Robot Head: tap to open a bidirectional Gemini Live WebSocket session. */}
-        {!isVoiceMode && !isFormGuiding && !isTouringControls && <div className="py-4 px-4 bg-gradient-to-b from-[#17243A]/50 to-transparent flex flex-col items-center justify-center border-b border-[#2A3A55]/40 relative">
-          <button
-            onClick={toggleVoiceMode}
-            aria-label={isListening ? 'Parar captura de voz' : 'Falar com o assistente'}
-            className="rounded-2xl min-w-[112px] min-h-[112px] flex items-center justify-center focus-visible:outline-offset-4"
-          >
-            <RobotHeadAvatar state={isListening ? 'listening' : connectionStatus} size={104} />
-          </button>
-          <div className="mt-2 text-center space-y-1">
-            <div className="text-xs font-semibold text-[#c7d7df]">
-              {isListening ? 'Ouvindo você…' : connectionStatus === 'thinking' ? 'Analisando sua solicitação…' : connectionStatus === 'speaking' ? 'Falando com você…' : isFormGuiding ? 'Preenchimento guiado ativo' : isTouringControls ? 'Orientação da tela ativa' : 'Toque no robô para conversar'}
-            </div>
-            <p className="text-[10px] text-[#9FB0C8]">O estado do robô acompanha o estado real da conversa.</p>
-          </div>
-        </div>}
 
         {/* Quick Voice Prompts and contextual page guidance */}
         {!isVoiceMode && <div className="px-3 py-2 bg-[#17243A]/40 border-b border-[#2A3A55]/30 flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs">
