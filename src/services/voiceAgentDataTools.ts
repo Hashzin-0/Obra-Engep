@@ -122,7 +122,7 @@ export async function loadVoiceAgentProjects(limitValue: unknown = 20): Promise<
 export async function searchVoiceAgentNotes(queryValue: unknown, limitValue: unknown = 10): Promise<DataRow[]> {
   const [db, userId] = [database(), await authenticatedOwnerId()];
   let request = db.from('notes')
-    .select('id,title,content,category,tags,created_at,updated_at')
+    .select('id,title,category,tags,created_at,updated_at')
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
     .limit(normalizeToolLimit(limitValue, 10, 20));
@@ -224,7 +224,7 @@ export async function deleteVoiceAgentProduct(idValue: unknown, confirmed: unkno
 export async function loadVoiceAgentChecklists(limitValue: unknown = 20): Promise<DataRow[]> {
   const [db, userId] = [database(), await authenticatedOwnerId()];
   const { data, error } = await db.from('checklists')
-    .select('id,norm_id,items,created_at,updated_at')
+    .select('id,norm_id,created_at,updated_at')
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
     .limit(normalizeToolLimit(limitValue, 20, 30));
@@ -245,7 +245,7 @@ export async function saveVoiceAgentChecklist(input: { id?: unknown; normId: unk
     : db.from('checklists').upsert(payload, { onConflict: 'user_id,norm_id' });
   const { data, error } = await query.select('id,norm_id,items,created_at,updated_at').single();
   if (error || !data) throw new Error('Não foi possível salvar o checklist.');
-  return data as DataRow;
+  return { id: data.id, norm_id: data.norm_id, item_count: Array.isArray(data.items) ? data.items.length : 0, updated_at: data.updated_at } as DataRow;
 }
 
 export async function deleteVoiceAgentChecklist(idValue: unknown, confirmed: unknown): Promise<void> {
@@ -258,12 +258,12 @@ export async function deleteVoiceAgentChecklist(idValue: unknown, confirmed: unk
 export async function loadVoiceAgentContracts(limitValue: unknown = 10): Promise<DataRow[]> {
   const [db, userId] = [database(), await authenticatedOwnerId()];
   const { data, error } = await db.from('legal_contracts')
-    .select('id,model_id,title,content,fields,created_at,updated_at')
+    .select('id,model_id,title,fields,created_at,updated_at')
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
     .limit(normalizeToolLimit(limitValue, 10, 15));
   if (error) throw new Error('Não foi possível consultar os contratos salvos.');
-  return (data ?? []).map((row) => ({ ...row, content: typeof row.content === 'string' ? row.content.slice(0, 12000) : '' })) as DataRow[];
+  return (data ?? []) as DataRow[];
 }
 
 export async function saveVoiceAgentContract(input: { id?: unknown; modelId: unknown; title: unknown; content: unknown; fields?: unknown }): Promise<DataRow> {
@@ -309,7 +309,7 @@ export async function saveVoiceAgentDeadline(input: Record<string, unknown>): Pr
     timezone: 'America/Sao_Paulo',
     updated_at: new Date().toISOString(),
   };
-  if (input.due_time !== undefined) payload.due_time = optionalText(input.due_time, 8) ?? null;
+  if (input.due_time !== undefined) { const time = optionalText(input.due_time, 8) ?? null; if (time !== null && !/^([01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d)?$/.test(time)) throw new Error('Informe o horário no formato HH:MM ou HH:MM:SS.'); payload.due_time = time; }
   if (input.project_id !== undefined && input.project_id !== null) payload.project_id = requiredId(input.project_id);
   if (input.reminder_minutes_before !== undefined) {
     const minutes = Number(input.reminder_minutes_before);
@@ -372,7 +372,15 @@ export async function updateVoiceAgentSettings(input: Record<string, unknown>): 
     if (typeof input.notifications_enabled !== 'boolean') throw new Error('notifications_enabled deve ser verdadeiro ou falso.');
     payload.notifications_enabled = input.notifications_enabled;
   }
-  if (input.default_project_id !== undefined) payload.default_project_id = input.default_project_id === null ? null : requiredId(input.default_project_id);
+  if (input.default_project_id !== undefined) {
+    if (input.default_project_id === null) payload.default_project_id = null;
+    else {
+      const projectId = requiredId(input.default_project_id);
+      const { data: project, error: projectError } = await db.from('projects').select('id').eq('id', projectId).eq('user_id', userId).maybeSingle();
+      if (projectError || !project) throw new Error('O projeto padrão precisa pertencer à conta autenticada.');
+      payload.default_project_id = projectId;
+    }
+  }
   if (Object.keys(payload).length === 2) throw new Error('Informe ao menos uma preferência para atualizar.');
   const { data, error } = await db.from('app_settings').upsert(payload, { onConflict: 'user_id' }).select('theme,font_scale,notifications_enabled,default_project_id,updated_at').single();
   if (error || !data) throw new Error('Não foi possível atualizar as preferências.');
@@ -386,6 +394,8 @@ export async function addVoiceAgentFavorite(input: Record<string, unknown>): Pro
   const { data: existing, error: lookupError } = await db.from('favorites').select('id,item_id,title').eq('user_id', userId).eq('item_id', itemId).maybeSingle();
   if (lookupError) throw new Error('Não foi possível verificar os favoritos existentes.');
   if (existing) return existing as DataRow;
+  const metadata = input.metadata && typeof input.metadata === 'object' && !Array.isArray(input.metadata) ? input.metadata : {};
+  if (JSON.stringify(metadata).length > 20000) throw new Error('Os metadados do favorito excedem o limite permitido.');
   const payload = {
     user_id: userId,
     item_type: requiredText(input.item_type, 'O tipo do item', 80),
@@ -393,7 +403,7 @@ export async function addVoiceAgentFavorite(input: Record<string, unknown>): Pro
     title: requiredText(input.title, 'O título do favorito', 240),
     subtitle: optionalText(input.subtitle, 300) ?? '',
     module_id: requiredText(input.module_id, 'O módulo do favorito', 80),
-    metadata: input.metadata && typeof input.metadata === 'object' && !Array.isArray(input.metadata) ? input.metadata : {},
+    metadata,
   };
   const { data, error } = await db.from('favorites').insert(payload).select('id,item_type,item_id,title,subtitle,module_id,created_at').single();
   if (error || !data) throw new Error('Não foi possível adicionar o favorito.');
@@ -416,4 +426,32 @@ export async function submitVoiceAgentFeedback(messageValue: unknown, pageValue?
     .select('id,message,page,status,created_at').single();
   if (error || !data) throw new Error('Não foi possível registrar o feedback.');
   return data as DataRow;
+}
+
+
+export async function loadVoiceAgentNote(idValue: unknown): Promise<DataRow> {
+  const userId = await authenticatedOwnerId();
+  const { data, error } = await database().from('notes')
+    .select('id,title,content,category,tags,created_at,updated_at')
+    .eq('id', requiredId(idValue)).eq('user_id', userId).maybeSingle();
+  if (error || !data) throw new Error('A nota não foi encontrada na conta autenticada.');
+  return { ...data, content: String(data.content ?? '').slice(0, 12000) } as DataRow;
+}
+
+export async function loadVoiceAgentChecklist(idValue: unknown): Promise<DataRow> {
+  const userId = await authenticatedOwnerId();
+  const { data, error } = await database().from('checklists')
+    .select('id,norm_id,items,created_at,updated_at')
+    .eq('id', requiredId(idValue)).eq('user_id', userId).maybeSingle();
+  if (error || !data) throw new Error('O checklist não foi encontrado na conta autenticada.');
+  return { ...data, items: Array.isArray(data.items) ? data.items.slice(0, 200) : [] } as DataRow;
+}
+
+export async function loadVoiceAgentContract(idValue: unknown): Promise<DataRow> {
+  const userId = await authenticatedOwnerId();
+  const { data, error } = await database().from('legal_contracts')
+    .select('id,model_id,title,content,fields,created_at,updated_at')
+    .eq('id', requiredId(idValue)).eq('user_id', userId).maybeSingle();
+  if (error || !data) throw new Error('O contrato não foi encontrado na conta autenticada.');
+  return { ...data, content: String(data.content ?? '').slice(0, 16000) } as DataRow;
 }
