@@ -19,7 +19,13 @@ import {
   Check,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
-import { getSupabaseAccessToken, supabase } from '../lib/supabase';
+import { getSupabaseAccessToken } from '../lib/supabase';
+import {
+  loadVoiceAgentFavorites,
+  loadVoiceAgentRecentCalculations,
+  loadVoiceAgentUpcomingDeadlines,
+  searchVoiceAgentLibrary,
+} from '../services/voiceAgentDataTools';
 import type { ModuleId } from '../types';
 import type { CanvasAgentApi, CanvasAgentKind } from '../views/FloorPlanEditorView';
 import { contractModels } from '../data/contractsCatalog';
@@ -105,69 +111,6 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
   const lastInputLanguageRef = useRef(
     typeof navigator !== 'undefined' ? navigator.language || 'pt-BR' : 'pt-BR'
   );
-
-  const loadCurrentUserFavorites = async (limit = 30) => {
-    if (!supabase) throw new Error('O acesso aos favoritos está indisponível.');
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    const user = userData.user;
-    if (userError || !user || user.is_anonymous || user.app_metadata?.provider !== 'google') {
-      throw new Error('Entre com sua conta Google para consultar seus favoritos.');
-    }
-    const { data, error } = await supabase
-      .from('favorites')
-      .select('item_type,item_id,title,subtitle,module_id,metadata,created_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(Math.min(30, Math.max(1, limit)));
-    if (error) throw new Error('Não foi possível carregar os favoritos da sua conta.');
-    return data ?? [];
-  };
-
-  const getAuthenticatedGoogleUser = async () => {
-    if (!supabase) throw new Error('O acesso aos dados da conta está indisponível.');
-    const { data, error } = await supabase.auth.getUser();
-    const user = data.user;
-    if (error || !user || user.is_anonymous || user.app_metadata?.provider !== 'google') {
-      throw new Error('Entre com sua conta Google para consultar estes dados.');
-    }
-    return user;
-  };
-
-  const loadRecentCalculations = async (limit = 10) => {
-    const user = await getAuthenticatedGoogleUser();
-    const { data, error } = await supabase!
-      .from('calculation_history')
-      .select('id,title,category,result_value,result_unit,formula,created_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(Math.min(20, Math.max(1, limit)));
-    if (error) throw new Error('Não foi possível consultar o histórico de cálculos.');
-    return data ?? [];
-  };
-
-  const loadUpcomingDeadlines = async (limit = 10) => {
-    const user = await getAuthenticatedGoogleUser();
-    const { data, error } = await supabase!
-      .from('deadlines')
-      .select('id,title,description,due_date,due_time,priority,status,category,project_name')
-      .eq('user_id', user.id)
-      .neq('status', 'concluido')
-      .order('due_date', { ascending: true })
-      .limit(Math.min(20, Math.max(1, limit)));
-    if (error) throw new Error('Não foi possível consultar os prazos da conta.');
-    return data ?? [];
-  };
-
-  const searchLibraryItems = async (query: string) => {
-    if (!supabase || query.trim().length < 2) throw new Error('Informe ao menos dois caracteres para pesquisar na biblioteca.');
-    const { data, error } = await supabase
-      .from('library_items')
-      .select('id,kind,code,title,summary,official_url')
-      .ilike('title', `%${query.trim().slice(0, 100)}%`)
-      .limit(8);
-    if (error) throw new Error('Não foi possível pesquisar na biblioteca técnica.');
-    return data ?? [];
-  };
 
   const normalizeUiLabel = (value: string) =>
     value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, ' ').trim();
@@ -577,7 +520,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           result = { status: 'ok', message: 'Destaque removido e robô recolhido.' };
         } else if (call.name === 'get_recent_calculations') {
           const requestedLimit = typeof args.limit === 'number' ? args.limit : 10;
-          const rows = await loadRecentCalculations(requestedLimit);
+          const rows = await loadVoiceAgentRecentCalculations(requestedLimit);
           result = {
             status: rows.length > 0 ? 'ok' : 'no_results',
             retryable: false,
@@ -594,7 +537,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           };
         } else if (call.name === 'get_upcoming_deadlines') {
           const requestedLimit = typeof args.limit === 'number' ? args.limit : 10;
-          const rows = await loadUpcomingDeadlines(requestedLimit);
+          const rows = await loadVoiceAgentUpcomingDeadlines(requestedLimit);
           result = {
             status: rows.length > 0 ? 'ok' : 'no_results',
             retryable: false,
@@ -604,7 +547,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         } else if (call.name === 'search_library') {
           const query = args.query;
           if (typeof query !== 'string' || query.trim().length < 2) throw new Error('Informe um termo com pelo menos dois caracteres.');
-          const rows = await searchLibraryItems(query);
+          const rows = await searchVoiceAgentLibrary(query);
           result = {
             status: rows.length > 0 ? 'ok' : 'no_results',
             retryable: false,
@@ -613,7 +556,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           };
         } else if (call.name === 'get_user_favorites') {
           const requestedLimit = typeof args.limit === 'number' ? args.limit : 30;
-          const rows = await loadCurrentUserFavorites(requestedLimit);
+          const rows = await loadVoiceAgentFavorites(requestedLimit);
           result = {
             status: rows.length > 0 ? 'ok' : 'no_results',
             retryable: false,
@@ -647,7 +590,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         } else if (call.name === 'open_favorite') {
           const itemId = args.itemId;
           if (typeof itemId !== 'string' || !itemId.trim()) throw new Error('Informe o identificador do favorito.');
-          const rows = await loadCurrentUserFavorites(30);
+          const rows = await loadVoiceAgentFavorites(30);
           const favorite = rows.find((row) => row.item_id === itemId);
           if (!favorite) throw new Error('Esse item não está nos seus favoritos.');
           const moduleId = favorite.module_id;
