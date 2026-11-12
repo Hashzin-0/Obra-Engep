@@ -1564,3 +1564,78 @@ main:has(.advanced-electrical-calculator) {
   max-width: min(440px, calc(100vw - 32px)) !important;
   flex: none !important;
 }
+
+
+/* App-wide olive palette. The page background stays olive in both theme modes. */
+:root,
+:root.light {
+  --page: #4b5320;
+  --surface: #42491f;
+  --surface-raised: #58612a;
+  --surface-inset: #363d19;
+  --ink: #f1f2df;
+  --muted: #d0d4b1;
+  --line: #737d3d;
+}
+:root.dark {
+  --page: #343b18;
+  --surface: #3d451b;
+  --surface-raised: #4b5522;
+  --surface-inset: #292f13;
+  --ink: #f1f2df;
+  --muted: #c4cba0;
+  --line: #657033;
+}
+html, body, #root {
+  background-color: var(--page) !important;
+  color: var(--ink);
+}
+.app-navigation-panel {
+  color: var(--ink);
+  background: var(--surface) !important;
+  background-image: none !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+}
+.app-navigation-action {
+  color: var(--ink) !important;
+  background: var(--surface-raised) !important;
+  background-image: none !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+.app-navigation-action[aria-current="page"] {
+  background: #697735 !important;
+  border-color: #87964b !important;
+  color: #fff !important;
+}
+/* Optical material is reserved exclusively for the top header. */
+.liquid-glass-surface:not(.liquid-glass-bar) {
+  background: var(--surface) !important;
+  background-image: none !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+.liquid-glass-action:not(.liquid-glass-bar *) {
+  color: var(--ink) !important;
+  background: var(--surface-raised) !important;
+  background-image: none !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+.liquid-glass-bar {
+  isolation: isolate;
+}
+.liquid-glass-bar .liquid-glass-action {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
