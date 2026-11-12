@@ -1554,3 +1554,13 @@ main:has(.advanced-electrical-calculator) {
     display: none !important;
   }
 }
+
+/* Stage overlays must size to their contents, not inherit the full-canvas
+   sizing rule intended for the 3D viewport. */
+.floor-plan-workspace--immersive .project-canvas-stage > .canvas-panel.absolute {
+  width: max-content !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-width: min(440px, calc(100vw - 32px)) !important;
+  flex: none !important;
+}
