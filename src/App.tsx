@@ -9,8 +9,6 @@ import { pathForLibrarySection, pathForModule, pathForTab, resolveAppRoute } fro
 import type { Session } from '@supabase/supabase-js';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { TopHeader } from './components/TopHeader';
-import { LiquidGlassScene } from 'simple-liquid-glass/backdrop';
-import { LiquidGlassSurface } from './components/LiquidGlassSurface';
 import { HouseIcon as Home, BookOpenIcon as BookOpen, StarIcon as Star, SearchIcon as Search, MoonIcon as Moon, SunIcon as Sun, LaptopIcon as Laptop, UserRoundIcon as UserRound, LogInIcon as LogIn } from '@animateicons/react/lucide';
 import { MoreHorizontal, CalendarDays } from 'lucide-react';
 import { OfflineIndicator } from './components/OfflineIndicator';
@@ -630,7 +628,7 @@ function AppShell() {
 
   if (!authenticatedUser) {
     return (
-      <LiquidGlassScene className="min-h-screen flex flex-col selection:bg-[#1F66D6] selection:text-white">
+      <div className="min-h-screen flex flex-col selection:bg-[#1F66D6] selection:text-white">
         <main className="relative flex-1 flex items-center justify-center overflow-hidden px-5 py-12">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
             <div className="absolute -top-32 -right-24 h-96 w-96 rounded-full bg-[#5B9BFF]/15 blur-3xl" />
@@ -667,12 +665,12 @@ function AppShell() {
           </section>
         </main>
         <footer className="relative z-10 px-5 pb-6 text-center text-[10px] text-slate-400 dark:text-slate-600">OBra ENGEP · Ambiente técnico integrado</footer>
-      </LiquidGlassScene>
+      </div>
     );
   }
 
   return (
-    <LiquidGlassScene className={`min-h-screen flex flex-col transition-colors selection:bg-[#1F66D6] selection:text-white ${activeModuleView === 'projetos' ? 'h-dvh overflow-hidden' : ''}`}>
+    <div className={`min-h-screen flex flex-col transition-colors selection:bg-[#1F66D6] selection:text-white ${activeModuleView === 'projetos' ? 'h-dvh overflow-hidden' : ''}`}>
       {activeModuleView !== 'projetos' && <TopHeader
         onOpenVoiceAssistant={() => setIsVoiceModalOpen(true)}
         agentState={isVoiceModalOpen ? agentState : 'sleeping'}
@@ -691,7 +689,7 @@ function AppShell() {
         aria-label="Navegação e ações rápidas"
         className={`max-w-4xl w-full mx-auto px-4 pt-3 pb-1`}
       >
-        <LiquidGlassSurface className="liquid-glass-nav w-full border p-2" radius={20} glassColor="rgba(255,255,255,0.055)" borderColor="rgba(255,255,255,0.22)" style={{ width: "100%" }}>
+        <div className="app-navigation-panel w-full border p-2">
           <nav aria-label="Abas principais" className="grid grid-cols-4 gap-1">
             {([
               { id: 'inicio' as MainTab, label: 'Início', Icon: Home },
@@ -703,7 +701,7 @@ function AppShell() {
               return (
                 <button key={id} type="button" onClick={() => handleTabChange(id)}
                   aria-current={active ? 'page' : undefined}
-                  className="liquid-glass-action min-h-10 rounded-xl px-2 py-2 flex items-center justify-center gap-1.5 text-xs font-semibold transition">
+                  className="app-navigation-action min-h-10 rounded-xl px-2 py-2 flex items-center justify-center gap-1.5 text-xs font-semibold transition">
                   <Icon className="w-4 h-4 shrink-0" />
                   <span>{label}</span>
                   {id === 'favoritos' && favorites.length > 0 && <span className="text-[10px] rounded-full px-1.5 bg-[#F5B93A] text-[#101827]">{favorites.length > 9 ? '9+' : favorites.length}</span>}
@@ -714,31 +712,31 @@ function AppShell() {
           <div className="mt-2 pt-2 border-t border-[#6B7F9E]/20 flex flex-wrap items-center justify-between gap-1">
             <div className="flex items-center gap-1">
               <button type="button" onClick={() => setIsSearchOpen(true)} aria-label="Buscar" title="Buscar"
-                className="liquid-glass-action h-9 w-9 rounded-xl flex items-center justify-center text-[#5B9BFF]"><Search className="w-4 h-4" /></button>
+                className="app-navigation-action h-9 w-9 rounded-xl flex items-center justify-center text-[#5B9BFF]"><Search className="w-4 h-4" /></button>
               <button type="button" onClick={() => setIsCalendarModalOpen(true)} aria-label="Cronograma e prazos" title="Cronograma e prazos"
-                className="liquid-glass-action relative h-9 w-9 rounded-xl flex items-center justify-center text-[#F5B93A]"><CalendarDays className="w-4 h-4" />
+                className="app-navigation-action relative h-9 w-9 rounded-xl flex items-center justify-center text-[#F5B93A]"><CalendarDays className="w-4 h-4" />
                 {deadlines.some((deadline) => deadline.status !== 'concluido') && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#FF6B6B]" />}
               </button>
               <button type="button" onClick={() => setTheme(theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark')}
                 aria-label={`Alternar tema: ${theme}`} title={`Tema: ${theme}`}
-                className="liquid-glass-action h-9 w-9 rounded-xl flex items-center justify-center text-[#9FB0C8]">
+                className="app-navigation-action h-9 w-9 rounded-xl flex items-center justify-center text-[#9FB0C8]">
                 {theme === 'dark' ? <Moon className="w-4 h-4" /> : theme === 'light' ? <Sun className="w-4 h-4" /> : <Laptop className="w-4 h-4" />}
               </button>
             </div>
             {authenticatedUser ? (
               <button type="button" onClick={handleSignOut} title={authenticatedUser.name || authenticatedUser.email || 'Conta Google'} aria-label="Conta Google — sair"
-                className="liquid-glass-action min-h-9 rounded-xl px-2 flex items-center gap-2 border">
+                className="app-navigation-action min-h-9 rounded-xl px-2 flex items-center gap-2 border">
                 {authenticatedUser.avatarUrl ? <img src={authenticatedUser.avatarUrl} alt="" referrerPolicy="no-referrer" className="w-6 h-6 rounded-full object-cover" /> : <UserRound className="w-4 h-4" />}
                 <span className="text-xs font-semibold">Conta</span>
               </button>
             ) : (
               <button type="button" onClick={handleGoogleSignIn}
-                className="liquid-glass-action min-h-9 rounded-xl px-3 flex items-center gap-2 border text-xs font-semibold">
+                className="app-navigation-action min-h-9 rounded-xl px-3 flex items-center gap-2 border text-xs font-semibold">
                 <LogIn className="w-4 h-4" /><span>Entrar com Google</span>
               </button>
             )}
           </div>
-        </LiquidGlassSurface>
+        </div>
       </section>
       )}
       <main className={activeModuleView === 'projetos' ? 'flex-1 min-h-0 w-full max-w-none p-0 m-0' : 'flex-1 max-w-4xl w-full mx-auto px-4 pt-2'}>
@@ -864,7 +862,7 @@ function AppShell() {
         isOpen={isOnboardingOpen}
         onComplete={() => setIsOnboardingOpen(false)}
       />
-    </LiquidGlassScene>
+    </div>
   );
 }
 
