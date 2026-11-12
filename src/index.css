@@ -1639,3 +1639,9 @@ html, body, #root {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
+
+/* No backdrop blur/refraction outside the persistent top header. */
+body :not(.liquid-glass-bar):not(.liquid-glass-bar *) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
