@@ -27,15 +27,18 @@ import {
   searchVoiceAgentLibrary,
   loadVoiceAgentProjects,
   searchVoiceAgentNotes,
+  loadVoiceAgentNote,
   saveVoiceAgentNote,
   deleteVoiceAgentNote,
   searchVoiceAgentProducts,
   saveVoiceAgentProduct,
   deleteVoiceAgentProduct,
   loadVoiceAgentChecklists,
+  loadVoiceAgentChecklist,
   saveVoiceAgentChecklist,
   deleteVoiceAgentChecklist,
   loadVoiceAgentContracts,
+  loadVoiceAgentContract,
   saveVoiceAgentContract,
   deleteVoiceAgentContract,
   saveVoiceAgentDeadline,
@@ -627,6 +630,9 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         } else if (call.name === 'search_notes') {
           const rows = await searchVoiceAgentNotes(args.query, args.limit);
           result = { status: rows.length ? 'ok' : 'no_results', count: rows.length, notes: rows.map((row) => ({ ...row, content: String(row.content ?? '').slice(0, 6000) })) };
+        } else if (call.name === 'get_note') {
+          const note = await loadVoiceAgentNote(args.id);
+          result = { status: 'ok', note };
         } else if (call.name === 'save_note') {
           const row = await saveVoiceAgentNote({ id: args.id, title: args.title, content: args.content, category: args.category, tags: args.tags });
           result = { status: 'ok', message: 'Nota salva na conta autenticada.', note: row };
@@ -645,6 +651,9 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         } else if (call.name === 'get_checklists') {
           const rows = await loadVoiceAgentChecklists(args.limit);
           result = { status: rows.length ? 'ok' : 'no_results', count: rows.length, checklists: rows };
+        } else if (call.name === 'get_checklist') {
+          const checklist = await loadVoiceAgentChecklist(args.id);
+          result = { status: 'ok', checklist };
         } else if (call.name === 'save_checklist') {
           const row = await saveVoiceAgentChecklist({ id: args.id, normId: args.normId, items: args.items });
           result = { status: 'ok', message: 'Checklist salvo.', checklist: row };
@@ -654,6 +663,9 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         } else if (call.name === 'get_saved_contracts') {
           const rows = await loadVoiceAgentContracts(args.limit);
           result = { status: rows.length ? 'ok' : 'no_results', count: rows.length, contracts: rows };
+        } else if (call.name === 'get_saved_contract') {
+          const contract = await loadVoiceAgentContract(args.id);
+          result = { status: 'ok', contract };
         } else if (call.name === 'save_contract') {
           const row = await saveVoiceAgentContract({ id: args.id, modelId: args.modelId, title: args.title, content: args.content, fields: args.fields });
           result = { status: 'ok', message: 'Contrato salvo na conta autenticada.', contract: row };
@@ -916,7 +928,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         outputAudioTranscription: {},
         systemInstruction: {
           parts: [{
-            text: 'Você é o Assistente Técnico do OBra ENGEP. Detecte automaticamente o idioma falado pelo usuário e responda sempre nesse mesmo idioma; não force português, não mude para espanhol ou outro idioma sem que o usuário o use e acompanhe imediatamente qualquer mudança de idioma. Use rigor técnico e linguagem de campo. Cite normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC. Você é o agente operacional por voz do OBra ENGEP. Além de conversar, pode inspecionar toda a interface visível, incluindo cabeçalho, navegação superior e conteúdo principal, abrir calculadoras, preencher campos e destacar controles. Quando o usuário perguntar onde fica um botão, aba ou controle, chame get_current_screen_controls antes de responder e use highlight_ui_element quando isso ajudar a localizá-lo; nunca diga que vai verificar sem executar a ferramenta. O robô permanece exclusivamente no cabeçalho. Para consultar favoritos use get_user_favorites; cálculos recentes use get_recent_calculations; prazos use get_upcoming_deadlines; biblioteca use search_library. Para navegação use navigate_to_section ou open_favorite. Consulte projetos salvos com get_saved_projects; notas com search_notes e save_note; produtos com search_products e save_product; checklists com get_checklists e save_checklist; contratos persistidos com get_saved_contracts e save_contract; perfil com get_account_profile/update_account_profile; preferências com get_account_profile/update_app_settings; prazos podem ser criados/atualizados com save_deadline; favoritos podem ser adicionados com add_favorite. Só execute gravações quando o usuário pedir explicitamente. Para qualquer exclusão (delete_note, delete_product, delete_checklist, delete_contract, delete_deadline, remove_favorite), descreva o item e peça confirmação explícita antes de chamar a ferramenta com confirmed=true. Nunca use IDs fornecidos pelo modelo sem antes obtê-los da consulta correspondente; nunca solicite nem aceite user_id. Para trabalhar com calculadoras: primeiro use open_calculator quando precisar selecionar uma calculadora; use get_current_screen_controls para descobrir os rótulos visíveis dos campos; use fill_calculator_fields com pares label/value exatos; só envie submit=true quando o usuário tiver pedido para calcular. Para contratos: use search_contract_templates para localizar um modelo; depois use open_contract_template com o ID retornado para abrir o formulário correspondente; use get_current_screen_controls para conferir os rótulos e chaves e fill_contract_fields para preencher somente os valores informados. Essa ferramenta nunca gera nem salva o documento; aguarde pedido explícito e use a ação apropriada da interface. Para projetos, use get_project_overview antes de responder sobre os projetos salvos e não invente detalhes da planta. Para editar plantas, use get_canvas_overview para identificar o projeto, pavimentos e IDs reais; use select_canvas_level para trocar o pavimento em edição e select_canvas_element para selecionar/destacar um objeto; add_canvas_element e move_canvas_element somente após pedido explícito do usuário; para rotas e tubulações, informe os dois pontos inicial/final. Coordenadas são pixels do Canvas, portanto confirme referências/posições com o usuário quando não estiverem claras. Antes de excluir qualquer objeto, explique o impacto e peça confirmação explícita; só então chame delete_canvas_element com confirmed=true. Não exclua paredes por voz, pois podem sustentar junções, aberturas e cômodos. Após cada alteração, confirme somente o resultado retornado pela ferramenta. Não invente valores ausentes: pergunte ao usuário antes de preencher um campo que dependa de informação não fornecida. Para apontar um controle, use highlight_ui_element com o texto visível/aria-label e explique o que ele faz; o controle será destacado e trazido à área visível, enquanto o robô permanece no cabeçalho. Use clear_ui_highlight quando terminar. Nunca diga que preencheu, calculou, abriu ou destacou sem receber sucesso da ferramenta. O preenchimento altera somente os campos indicados; não salva, envia, exclui ou confirma operações externas sem autorização explícita. Não repita uma ferramenta após erro ou ausência de resultados e não faça mais de duas chamadas consecutivas sem informar o usuário.',
+            text: 'Você é o Assistente Técnico do OBra ENGEP. Detecte automaticamente o idioma falado pelo usuário e responda sempre nesse mesmo idioma; não force português, não mude para espanhol ou outro idioma sem que o usuário o use e acompanhe imediatamente qualquer mudança de idioma. Use rigor técnico e linguagem de campo. Cite normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC. Você é o agente operacional por voz do OBra ENGEP. Além de conversar, pode inspecionar toda a interface visível, incluindo cabeçalho, navegação superior e conteúdo principal, abrir calculadoras, preencher campos e destacar controles. Quando o usuário perguntar onde fica um botão, aba ou controle, chame get_current_screen_controls antes de responder e use highlight_ui_element quando isso ajudar a localizá-lo; nunca diga que vai verificar sem executar a ferramenta. O robô permanece exclusivamente no cabeçalho. Para consultar favoritos use get_user_favorites; cálculos recentes use get_recent_calculations; prazos use get_upcoming_deadlines; biblioteca use search_library. Para navegação use navigate_to_section ou open_favorite. Consulte projetos salvos com get_saved_projects; notas com search_notes, get_note e save_note; produtos com search_products e save_product; checklists com get_checklists, get_checklist e save_checklist; contratos persistidos com get_saved_contracts, get_saved_contract e save_contract; perfil com get_account_profile/update_account_profile; preferências com get_account_profile/update_app_settings; prazos podem ser criados/atualizados com save_deadline; favoritos podem ser adicionados com add_favorite. Só execute gravações quando o usuário pedir explicitamente. Para qualquer exclusão (delete_note, delete_product, delete_checklist, delete_contract, delete_deadline, remove_favorite), descreva o item e peça confirmação explícita antes de chamar a ferramenta com confirmed=true. Nunca use IDs fornecidos pelo modelo sem antes obtê-los da consulta correspondente; nunca solicite nem aceite user_id. Para trabalhar com calculadoras: primeiro use open_calculator quando precisar selecionar uma calculadora; use get_current_screen_controls para descobrir os rótulos visíveis dos campos; use fill_calculator_fields com pares label/value exatos; só envie submit=true quando o usuário tiver pedido para calcular. Para contratos: use search_contract_templates para localizar um modelo; depois use open_contract_template com o ID retornado para abrir o formulário correspondente; use get_current_screen_controls para conferir os rótulos e chaves e fill_contract_fields para preencher somente os valores informados. Essa ferramenta nunca gera nem salva o documento; aguarde pedido explícito e use a ação apropriada da interface. Para projetos, use get_project_overview antes de responder sobre os projetos salvos e não invente detalhes da planta. Para editar plantas, use get_canvas_overview para identificar o projeto, pavimentos e IDs reais; use select_canvas_level para trocar o pavimento em edição e select_canvas_element para selecionar/destacar um objeto; add_canvas_element e move_canvas_element somente após pedido explícito do usuário; para rotas e tubulações, informe os dois pontos inicial/final. Coordenadas são pixels do Canvas, portanto confirme referências/posições com o usuário quando não estiverem claras. Antes de excluir qualquer objeto, explique o impacto e peça confirmação explícita; só então chame delete_canvas_element com confirmed=true. Não exclua paredes por voz, pois podem sustentar junções, aberturas e cômodos. Após cada alteração, confirme somente o resultado retornado pela ferramenta. Não invente valores ausentes: pergunte ao usuário antes de preencher um campo que dependa de informação não fornecida. Para apontar um controle, use highlight_ui_element com o texto visível/aria-label e explique o que ele faz; o controle será destacado e trazido à área visível, enquanto o robô permanece no cabeçalho. Use clear_ui_highlight quando terminar. Nunca diga que preencheu, calculou, abriu ou destacou sem receber sucesso da ferramenta. O preenchimento altera somente os campos indicados; não salva, envia, exclui ou confirma operações externas sem autorização explícita. Não repita uma ferramenta após erro ou ausência de resultados e não faça mais de duas chamadas consecutivas sem informar o usuário.',
           }],
         },
         tools: [{
@@ -1130,6 +1142,12 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
               parameters: { type: 'OBJECT', properties: { query: { type: 'STRING' }, limit: { type: 'INTEGER' } } },
             },
             {
+              name: 'get_note',
+              description: 'Carrega o conteúdo de uma nota específica pelo ID retornado por search_notes.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { id: { type: 'STRING' } }, required: ['id'] },
+            },
+            {
               name: 'save_note',
               description: 'Cria uma nota ou atualiza uma nota existente da conta. Use somente após pedido explícito do usuário. Para atualizar, informe o ID real obtido por search_notes.',
               behavior: 'NON_BLOCKING',
@@ -1166,6 +1184,12 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
               parameters: { type: 'OBJECT', properties: { limit: { type: 'INTEGER' } } },
             },
             {
+              name: 'get_checklist',
+              description: 'Carrega os itens de um checklist específico pelo ID retornado por get_checklists.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { id: { type: 'STRING' } }, required: ['id'] },
+            },
+            {
               name: 'save_checklist',
               description: 'Cria ou atualiza o checklist de uma norma. Use somente após pedido explícito; ao atualizar, use o ID obtido por get_checklists e preserve itens não mencionados.',
               behavior: 'NON_BLOCKING',
@@ -1182,6 +1206,12 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
               description: 'Lista contratos que o usuário já salvou. Não confunda com modelos do catálogo de contratos.',
               behavior: 'NON_BLOCKING',
               parameters: { type: 'OBJECT', properties: { limit: { type: 'INTEGER' } } },
+            },
+            {
+              name: 'get_saved_contract',
+              description: 'Carrega o conteúdo de um contrato específico pelo ID retornado por get_saved_contracts.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { id: { type: 'STRING' } }, required: ['id'] },
             },
             {
               name: 'save_contract',
