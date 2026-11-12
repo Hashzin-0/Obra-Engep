@@ -25,6 +25,27 @@ import {
   loadVoiceAgentRecentCalculations,
   loadVoiceAgentUpcomingDeadlines,
   searchVoiceAgentLibrary,
+  loadVoiceAgentProjects,
+  searchVoiceAgentNotes,
+  saveVoiceAgentNote,
+  deleteVoiceAgentNote,
+  searchVoiceAgentProducts,
+  saveVoiceAgentProduct,
+  deleteVoiceAgentProduct,
+  loadVoiceAgentChecklists,
+  saveVoiceAgentChecklist,
+  deleteVoiceAgentChecklist,
+  loadVoiceAgentContracts,
+  saveVoiceAgentContract,
+  deleteVoiceAgentContract,
+  saveVoiceAgentDeadline,
+  deleteVoiceAgentDeadline,
+  loadVoiceAgentAccount,
+  updateVoiceAgentProfile,
+  updateVoiceAgentSettings,
+  addVoiceAgentFavorite,
+  removeVoiceAgentFavorite,
+  submitVoiceAgentFeedback,
 } from '../services/voiceAgentDataTools';
 import type { ModuleId } from '../types';
 import type { CanvasAgentApi, CanvasAgentKind } from '../views/FloorPlanEditorView';
@@ -600,6 +621,69 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
           if (!onNavigateToModule) throw new Error('A abertura de módulos não está disponível.');
           onNavigateToModule(moduleId as ModuleId, favorite.item_id);
           result = { status: 'ok', retryable: false, message: 'Favorito aberto com sucesso.', title: favorite.title, module: moduleId, itemId: favorite.item_id };
+        } else if (call.name === 'get_saved_projects') {
+          const rows = await loadVoiceAgentProjects(args.limit);
+          result = { status: rows.length ? 'ok' : 'no_results', count: rows.length, projects: rows };
+        } else if (call.name === 'search_notes') {
+          const rows = await searchVoiceAgentNotes(args.query, args.limit);
+          result = { status: rows.length ? 'ok' : 'no_results', count: rows.length, notes: rows.map((row) => ({ ...row, content: String(row.content ?? '').slice(0, 6000) })) };
+        } else if (call.name === 'save_note') {
+          const row = await saveVoiceAgentNote({ id: args.id, title: args.title, content: args.content, category: args.category, tags: args.tags });
+          result = { status: 'ok', message: 'Nota salva na conta autenticada.', note: row };
+        } else if (call.name === 'delete_note') {
+          await deleteVoiceAgentNote(args.id, args.confirmed);
+          result = { status: 'ok', message: 'Nota excluída.' };
+        } else if (call.name === 'search_products') {
+          const rows = await searchVoiceAgentProducts(args.query, args.limit);
+          result = { status: rows.length ? 'ok' : 'no_results', count: rows.length, products: rows };
+        } else if (call.name === 'save_product') {
+          const row = await saveVoiceAgentProduct(args);
+          result = { status: 'ok', message: 'Produto salvo na conta autenticada.', product: row };
+        } else if (call.name === 'delete_product') {
+          await deleteVoiceAgentProduct(args.id, args.confirmed);
+          result = { status: 'ok', message: 'Produto excluído.' };
+        } else if (call.name === 'get_checklists') {
+          const rows = await loadVoiceAgentChecklists(args.limit);
+          result = { status: rows.length ? 'ok' : 'no_results', count: rows.length, checklists: rows };
+        } else if (call.name === 'save_checklist') {
+          const row = await saveVoiceAgentChecklist({ id: args.id, normId: args.normId, items: args.items });
+          result = { status: 'ok', message: 'Checklist salvo.', checklist: row };
+        } else if (call.name === 'delete_checklist') {
+          await deleteVoiceAgentChecklist(args.id, args.confirmed);
+          result = { status: 'ok', message: 'Checklist excluído.' };
+        } else if (call.name === 'get_saved_contracts') {
+          const rows = await loadVoiceAgentContracts(args.limit);
+          result = { status: rows.length ? 'ok' : 'no_results', count: rows.length, contracts: rows };
+        } else if (call.name === 'save_contract') {
+          const row = await saveVoiceAgentContract({ id: args.id, modelId: args.modelId, title: args.title, content: args.content, fields: args.fields });
+          result = { status: 'ok', message: 'Contrato salvo na conta autenticada.', contract: row };
+        } else if (call.name === 'delete_contract') {
+          await deleteVoiceAgentContract(args.id, args.confirmed);
+          result = { status: 'ok', message: 'Contrato excluído.' };
+        } else if (call.name === 'save_deadline') {
+          const row = await saveVoiceAgentDeadline(args);
+          result = { status: 'ok', message: 'Prazo salvo na conta autenticada.', deadline: row };
+        } else if (call.name === 'delete_deadline') {
+          await deleteVoiceAgentDeadline(args.id, args.confirmed);
+          result = { status: 'ok', message: 'Prazo excluído.' };
+        } else if (call.name === 'get_account_profile') {
+          const account = await loadVoiceAgentAccount();
+          result = { status: 'ok', ...account };
+        } else if (call.name === 'update_account_profile') {
+          const profile = await updateVoiceAgentProfile(args);
+          result = { status: 'ok', message: 'Perfil atualizado.', profile };
+        } else if (call.name === 'update_app_settings') {
+          const settings = await updateVoiceAgentSettings(args);
+          result = { status: 'ok', message: 'Preferências atualizadas.', settings };
+        } else if (call.name === 'add_favorite') {
+          const favorite = await addVoiceAgentFavorite(args);
+          result = { status: 'ok', message: 'Item adicionado aos favoritos.', favorite };
+        } else if (call.name === 'remove_favorite') {
+          await removeVoiceAgentFavorite(args.itemId, args.confirmed);
+          result = { status: 'ok', message: 'Item removido dos favoritos.' };
+        } else if (call.name === 'send_feedback') {
+          const feedback = await submitVoiceAgentFeedback(args.message, args.page);
+          result = { status: 'ok', message: 'Feedback registrado.', feedback };
         } else {
           throw new Error('Ferramenta não reconhecida.');
         }
@@ -832,7 +916,7 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
         outputAudioTranscription: {},
         systemInstruction: {
           parts: [{
-            text: 'Você é o Assistente Técnico do OBra ENGEP. Detecte automaticamente o idioma falado pelo usuário e responda sempre nesse mesmo idioma; não force português, não mude para espanhol ou outro idioma sem que o usuário o use e acompanhe imediatamente qualquer mudança de idioma. Use rigor técnico e linguagem de campo. Cite normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC. Você é o agente operacional por voz do OBra ENGEP. Além de conversar, pode inspecionar toda a interface visível, incluindo cabeçalho, navegação superior e conteúdo principal, abrir calculadoras, preencher campos e destacar controles. Quando o usuário perguntar onde fica um botão, aba ou controle, chame get_current_screen_controls antes de responder e use highlight_ui_element quando isso ajudar a localizá-lo; nunca diga que vai verificar sem executar a ferramenta. O robô permanece exclusivamente no cabeçalho. Para consultar favoritos use get_user_favorites; cálculos recentes use get_recent_calculations; prazos use get_upcoming_deadlines; biblioteca use search_library. Para navegação use navigate_to_section ou open_favorite. Para trabalhar com calculadoras: primeiro use open_calculator quando precisar selecionar uma calculadora; use get_current_screen_controls para descobrir os rótulos visíveis dos campos; use fill_calculator_fields com pares label/value exatos; só envie submit=true quando o usuário tiver pedido para calcular. Para contratos: use search_contract_templates para localizar um modelo; depois use open_contract_template com o ID retornado para abrir o formulário correspondente; use get_current_screen_controls para conferir os rótulos e chaves e fill_contract_fields para preencher somente os valores informados. Essa ferramenta nunca gera nem salva o documento; aguarde pedido explícito e use a ação apropriada da interface. Para projetos, use get_project_overview antes de responder sobre os projetos salvos e não invente detalhes da planta. Para editar plantas, use get_canvas_overview para identificar o projeto, pavimentos e IDs reais; use select_canvas_level para trocar o pavimento em edição e select_canvas_element para selecionar/destacar um objeto; add_canvas_element e move_canvas_element somente após pedido explícito do usuário; para rotas e tubulações, informe os dois pontos inicial/final. Coordenadas são pixels do Canvas, portanto confirme referências/posições com o usuário quando não estiverem claras. Antes de excluir qualquer objeto, explique o impacto e peça confirmação explícita; só então chame delete_canvas_element com confirmed=true. Não exclua paredes por voz, pois podem sustentar junções, aberturas e cômodos. Após cada alteração, confirme somente o resultado retornado pela ferramenta. Não invente valores ausentes: pergunte ao usuário antes de preencher um campo que dependa de informação não fornecida. Para apontar um controle, use highlight_ui_element com o texto visível/aria-label e explique o que ele faz; o controle será destacado e trazido à área visível, enquanto o robô permanece no cabeçalho. Use clear_ui_highlight quando terminar. Nunca diga que preencheu, calculou, abriu ou destacou sem receber sucesso da ferramenta. O preenchimento altera somente os campos indicados; não salva, envia, exclui ou confirma operações externas sem autorização explícita. Não repita uma ferramenta após erro ou ausência de resultados e não faça mais de duas chamadas consecutivas sem informar o usuário.',
+            text: 'Você é o Assistente Técnico do OBra ENGEP. Detecte automaticamente o idioma falado pelo usuário e responda sempre nesse mesmo idioma; não force português, não mude para espanhol ou outro idioma sem que o usuário o use e acompanhe imediatamente qualquer mudança de idioma. Use rigor técnico e linguagem de campo. Cite normas aplicáveis sem reproduzir textos protegidos, explique premissas e limitações e não invente valores normativos. Em situações de risco, priorize desenergização, LOTO, AR/PT e EPI/EPC. Você é o agente operacional por voz do OBra ENGEP. Além de conversar, pode inspecionar toda a interface visível, incluindo cabeçalho, navegação superior e conteúdo principal, abrir calculadoras, preencher campos e destacar controles. Quando o usuário perguntar onde fica um botão, aba ou controle, chame get_current_screen_controls antes de responder e use highlight_ui_element quando isso ajudar a localizá-lo; nunca diga que vai verificar sem executar a ferramenta. O robô permanece exclusivamente no cabeçalho. Para consultar favoritos use get_user_favorites; cálculos recentes use get_recent_calculations; prazos use get_upcoming_deadlines; biblioteca use search_library. Para navegação use navigate_to_section ou open_favorite. Consulte projetos salvos com get_saved_projects; notas com search_notes e save_note; produtos com search_products e save_product; checklists com get_checklists e save_checklist; contratos persistidos com get_saved_contracts e save_contract; perfil com get_account_profile/update_account_profile; preferências com get_account_profile/update_app_settings; prazos podem ser criados/atualizados com save_deadline; favoritos podem ser adicionados com add_favorite. Só execute gravações quando o usuário pedir explicitamente. Para qualquer exclusão (delete_note, delete_product, delete_checklist, delete_contract, delete_deadline, remove_favorite), descreva o item e peça confirmação explícita antes de chamar a ferramenta com confirmed=true. Nunca use IDs fornecidos pelo modelo sem antes obtê-los da consulta correspondente; nunca solicite nem aceite user_id. Para trabalhar com calculadoras: primeiro use open_calculator quando precisar selecionar uma calculadora; use get_current_screen_controls para descobrir os rótulos visíveis dos campos; use fill_calculator_fields com pares label/value exatos; só envie submit=true quando o usuário tiver pedido para calcular. Para contratos: use search_contract_templates para localizar um modelo; depois use open_contract_template com o ID retornado para abrir o formulário correspondente; use get_current_screen_controls para conferir os rótulos e chaves e fill_contract_fields para preencher somente os valores informados. Essa ferramenta nunca gera nem salva o documento; aguarde pedido explícito e use a ação apropriada da interface. Para projetos, use get_project_overview antes de responder sobre os projetos salvos e não invente detalhes da planta. Para editar plantas, use get_canvas_overview para identificar o projeto, pavimentos e IDs reais; use select_canvas_level para trocar o pavimento em edição e select_canvas_element para selecionar/destacar um objeto; add_canvas_element e move_canvas_element somente após pedido explícito do usuário; para rotas e tubulações, informe os dois pontos inicial/final. Coordenadas são pixels do Canvas, portanto confirme referências/posições com o usuário quando não estiverem claras. Antes de excluir qualquer objeto, explique o impacto e peça confirmação explícita; só então chame delete_canvas_element com confirmed=true. Não exclua paredes por voz, pois podem sustentar junções, aberturas e cômodos. Após cada alteração, confirme somente o resultado retornado pela ferramenta. Não invente valores ausentes: pergunte ao usuário antes de preencher um campo que dependa de informação não fornecida. Para apontar um controle, use highlight_ui_element com o texto visível/aria-label e explique o que ele faz; o controle será destacado e trazido à área visível, enquanto o robô permanece no cabeçalho. Use clear_ui_highlight quando terminar. Nunca diga que preencheu, calculou, abriu ou destacou sem receber sucesso da ferramenta. O preenchimento altera somente os campos indicados; não salva, envia, exclui ou confirma operações externas sem autorização explícita. Não repita uma ferramenta após erro ou ausência de resultados e não faça mais de duas chamadas consecutivas sem informar o usuário.',
           }],
         },
         tools: [{
@@ -1032,6 +1116,132 @@ export const VoiceAgentOrbModal: React.FC<VoiceAgentOrbModalProps> = ({ isOpen, 
                 },
                 required: ['itemId'],
               },
+            },
+            {
+              name: 'get_saved_projects',
+              description: 'Lista projetos persistidos na conta autenticada. Para geometria e detalhes do projeto ativo, use get_canvas_overview.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { limit: { type: 'INTEGER' } } },
+            },
+            {
+              name: 'search_notes',
+              description: 'Pesquisa ou lista notas pessoais salvas na conta autenticada.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { query: { type: 'STRING' }, limit: { type: 'INTEGER' } } },
+            },
+            {
+              name: 'save_note',
+              description: 'Cria uma nota ou atualiza uma nota existente da conta. Use somente após pedido explícito do usuário. Para atualizar, informe o ID real obtido por search_notes.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { id: { type: 'STRING' }, title: { type: 'STRING' }, content: { type: 'STRING' }, category: { type: 'STRING' }, tags: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['title'] },
+            },
+            {
+              name: 'delete_note',
+              description: 'Exclui uma nota pessoal. Antes, informe qual nota será excluída e obtenha confirmação explícita; somente então use confirmed=true.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { id: { type: 'STRING' }, confirmed: { type: 'BOOLEAN' } }, required: ['id', 'confirmed'] },
+            },
+            {
+              name: 'search_products',
+              description: 'Lista ou pesquisa produtos cadastrados pelo usuário, incluindo instruções, diluições e cuidados.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { query: { type: 'STRING' }, limit: { type: 'INTEGER' } } },
+            },
+            {
+              name: 'save_product',
+              description: 'Cadastra ou atualiza um produto na conta. Use somente após pedido explícito do usuário; para atualizar, informe o ID real retornado por search_products.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { id: { type: 'STRING' }, name: { type: 'STRING' }, manufacturer: { type: 'STRING' }, ph_type: { type: 'STRING', enum: ['Neutro', 'Ácido', 'Alcalino'] }, target_surfaces: { type: 'ARRAY', items: { type: 'STRING' } }, dilution_ratio: { type: 'STRING' }, dilution_number: { type: 'NUMBER' }, action_time_minutes: { type: 'STRING' }, yield_info: { type: 'STRING' }, instructions: { type: 'STRING' }, cautions: { type: 'ARRAY', items: { type: 'STRING' } }, source_label: { type: 'STRING' }, verified_date: { type: 'STRING' } }, required: ['name'] },
+            },
+            {
+              name: 'delete_product',
+              description: 'Exclui um produto cadastrado. Informe o nome e obtenha confirmação explícita antes de usar confirmed=true.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { id: { type: 'STRING' }, confirmed: { type: 'BOOLEAN' } }, required: ['id', 'confirmed'] },
+            },
+            {
+              name: 'get_checklists',
+              description: 'Lista checklists pessoais salvos, identificados por norma ou referência.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { limit: { type: 'INTEGER' } } },
+            },
+            {
+              name: 'save_checklist',
+              description: 'Cria ou atualiza o checklist de uma norma. Use somente após pedido explícito; ao atualizar, use o ID obtido por get_checklists e preserve itens não mencionados.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { id: { type: 'STRING' }, normId: { type: 'STRING' }, items: { type: 'ARRAY', items: { type: 'OBJECT' } } }, required: ['normId', 'items'] },
+            },
+            {
+              name: 'delete_checklist',
+              description: 'Exclui um checklist pessoal. Obtenha confirmação explícita antes de usar confirmed=true.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { id: { type: 'STRING' }, confirmed: { type: 'BOOLEAN' } }, required: ['id', 'confirmed'] },
+            },
+            {
+              name: 'get_saved_contracts',
+              description: 'Lista contratos que o usuário já salvou. Não confunda com modelos do catálogo de contratos.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { limit: { type: 'INTEGER' } } },
+            },
+            {
+              name: 'save_contract',
+              description: 'Salva um contrato preenchido na conta ou atualiza um contrato existente. Só execute após pedido explícito e não invente conteúdo ou campos.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { id: { type: 'STRING' }, modelId: { type: 'STRING' }, title: { type: 'STRING' }, content: { type: 'STRING' }, fields: { type: 'OBJECT' } }, required: ['modelId', 'title', 'content'] },
+            },
+            {
+              name: 'delete_contract',
+              description: 'Exclui um contrato salvo. Informe o contrato e obtenha confirmação explícita antes de usar confirmed=true.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { id: { type: 'STRING' }, confirmed: { type: 'BOOLEAN' } }, required: ['id', 'confirmed'] },
+            },
+            {
+              name: 'save_deadline',
+              description: 'Cria ou atualiza um prazo da conta. Exige título e data AAAA-MM-DD; use os valores informados pelo usuário e não invente data ou horário.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { id: { type: 'STRING' }, title: { type: 'STRING' }, description: { type: 'STRING' }, due_date: { type: 'STRING' }, due_time: { type: 'STRING' }, priority: { type: 'STRING', enum: ['baixa', 'media', 'alta'] }, status: { type: 'STRING', enum: ['pendente', 'em_andamento', 'concluido'] }, category: { type: 'STRING', enum: ['obra', 'eletrica', 'hidraulica', 'estrutural', 'seguranca', 'estetica', 'alvara'] }, project_id: { type: 'STRING' }, project_name: { type: 'STRING' }, reminder_minutes_before: { type: 'INTEGER' } }, required: ['title', 'due_date'] },
+            },
+            {
+              name: 'delete_deadline',
+              description: 'Exclui um prazo da conta. Informe qual prazo será excluído e obtenha confirmação explícita antes de usar confirmed=true.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { id: { type: 'STRING' }, confirmed: { type: 'BOOLEAN' } }, required: ['id', 'confirmed'] },
+            },
+            {
+              name: 'get_account_profile',
+              description: 'Consulta os dados de perfil e preferências da conta autenticada, sem expor tokens ou credenciais.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: {} },
+            },
+            {
+              name: 'update_account_profile',
+              description: 'Atualiza nome de exibição, profissão ou empresa do perfil. Use somente após solicitação explícita do usuário.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { display_name: { type: 'STRING' }, profession: { type: 'STRING' }, company: { type: 'STRING' } } },
+            },
+            {
+              name: 'update_app_settings',
+              description: 'Atualiza preferências da conta. Tema: light/dark/system; escala de fonte: 0.8 a 2; notificações: booleano; projeto padrão: UUID ou null. Use somente após pedido explícito.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { theme: { type: 'STRING', enum: ['light', 'dark', 'system'] }, font_scale: { type: 'NUMBER' }, notifications_enabled: { type: 'BOOLEAN' }, default_project_id: { type: 'STRING' } } },
+            },
+            {
+              name: 'add_favorite',
+              description: 'Adiciona aos favoritos um item do aplicativo. Use somente após pedido explícito e informe os metadados reais do item.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { item_type: { type: 'STRING' }, item_id: { type: 'STRING' }, title: { type: 'STRING' }, subtitle: { type: 'STRING' }, module_id: { type: 'STRING' }, metadata: { type: 'OBJECT' } }, required: ['item_type', 'item_id', 'title', 'module_id'] },
+            },
+            {
+              name: 'remove_favorite',
+              description: 'Remove um item dos favoritos. Informe o item e obtenha confirmação explícita antes de usar confirmed=true.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { itemId: { type: 'STRING' }, confirmed: { type: 'BOOLEAN' } }, required: ['itemId', 'confirmed'] },
+            },
+            {
+              name: 'send_feedback',
+              description: 'Registra uma mensagem de feedback do usuário para a equipe do aplicativo. Só envie após pedido explícito.',
+              behavior: 'NON_BLOCKING',
+              parameters: { type: 'OBJECT', properties: { message: { type: 'STRING' }, page: { type: 'STRING' } }, required: ['message'] },
             },
           ],
         }],
