@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { escapeLikePattern, normalizeToolLimit } from './voiceAgentDataTools';
+import { escapeLikePattern, normalizeToolLimit } from '../services/voiceAgentDataTools';
 
 test('normaliza limites ausentes, inválidos e fora da faixa permitida', () => {
   assert.equal(normalizeToolLimit(undefined, 10, 20), 10);
