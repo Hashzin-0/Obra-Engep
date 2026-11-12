@@ -1282,3 +1282,275 @@ main:has(.advanced-electrical-calculator) {
     --liquid-glass-width: calc(100vw - 16px);
   }
 }
+
+
+/* Canvas: flat dark workspace. This intentionally overrides the legacy glass
+   and clay rules above, keeping the editor visually consistent on every theme. */
+.floor-plan-workspace--immersive {
+  background: #0b1220 !important;
+  color: #e5e7eb !important;
+}
+:root.dark .floor-plan-workspace--immersive {
+  background: #0b1220 !important;
+}
+.floor-plan-workspace--immersive > .canvas-panel,
+.floor-plan-workspace--immersive .project-canvas-stage > .canvas-panel {
+  box-sizing: border-box;
+  color: #e5e7eb !important;
+  background: #151f30 !important;
+  background-image: none !important;
+  border: 1px solid #334155 !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  opacity: 1;
+}
+.floor-plan-workspace--immersive .canvas-panel button,
+.floor-plan-workspace--immersive button,
+.floor-plan-workspace--immersive a[role="button"] {
+  color: #dbeafe !important;
+  background: #1e293b !important;
+  background-image: none !important;
+  border: 1px solid #475569 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+.floor-plan-workspace--immersive button[aria-pressed="true"],
+.floor-plan-workspace--immersive button[aria-current="page"] {
+  color: #fff !important;
+  background: #1d4ed8 !important;
+  border-color: #3b82f6 !important;
+  box-shadow: none !important;
+}
+.floor-plan-workspace--immersive button:disabled {
+  opacity: .4;
+}
+.floor-plan-workspace--immersive .project-header {
+  position: absolute !important;
+  z-index: 40;
+  top: 16px;
+  left: 16px;
+  width: min(460px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px !important;
+}
+.floor-plan-workspace--immersive .project-level-switcher {
+  position: absolute !important;
+  z-index: 40;
+  top: 16px;
+  left: 492px;
+  width: min(390px, calc(100vw - 508px));
+  max-width: calc(100vw - 508px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px !important;
+}
+.floor-plan-workspace--immersive .project-layer-switcher {
+  position: absolute !important;
+  z-index: 40;
+  top: 132px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: auto;
+  max-width: none;
+  padding: 8px !important;
+}
+.floor-plan-workspace--immersive .project-tool-dock {
+  position: absolute !important;
+  z-index: 45;
+  left: 50%;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  padding: 8px !important;
+}
+.floor-plan-workspace--immersive .project-tool-dock button {
+  flex: 0 0 auto;
+  min-width: 42px;
+  min-height: 42px;
+}
+.floor-plan-workspace--immersive .project-selection-panel {
+  position: absolute !important;
+  z-index: 42;
+  left: 16px;
+  bottom: 84px;
+  width: min(440px, calc(50vw - 24px));
+  max-width: min(440px, calc(50vw - 24px));
+  max-height: min(34dvh, 320px);
+  overflow: auto;
+  padding: 12px !important;
+}
+.floor-plan-workspace--immersive .project-settings-panel,
+.floor-plan-workspace--immersive .project-wall-options {
+  position: absolute !important;
+  z-index: 42;
+  right: 16px;
+  bottom: 84px;
+  width: min(380px, calc(50vw - 24px));
+  max-width: min(380px, calc(50vw - 24px));
+  max-height: min(34dvh, 320px);
+  overflow: auto;
+  padding: 12px !important;
+}
+.floor-plan-workspace--immersive .project-furniture-panel {
+  position: absolute !important;
+  z-index: 43;
+  top: 190px;
+  right: 16px;
+  width: min(380px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: min(48dvh, 440px);
+  overflow: auto;
+  padding: 12px !important;
+}
+.floor-plan-workspace--immersive .project-inspector-panel {
+  position: absolute;
+  z-index: 43;
+  top: 190px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(520px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: 28dvh;
+  overflow: auto;
+  color: #e5e7eb !important;
+  background: #151f30 !important;
+  border: 1px solid #334155 !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+.floor-plan-workspace--immersive .project-canvas-stage > .canvas-panel.absolute {
+  position: absolute !important;
+  z-index: 25;
+  padding: 8px !important;
+}
+.floor-plan-workspace--immersive .project-canvas-stage > .canvas-panel.absolute.top-3 {
+  top: 16px !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%);
+}
+.floor-plan-workspace--immersive .project-canvas-stage > .canvas-panel.absolute.right-3 {
+  top: 16px !important;
+  right: 16px !important;
+}
+.floor-plan-workspace--immersive .project-canvas-stage > .canvas-panel.absolute.bottom-3 {
+  bottom: 88px !important;
+  left: 16px !important;
+}
+.floor-plan-workspace--immersive .project-canvas-stage {
+  background: #0b1220 !important;
+}
+@media (max-width: 760px) {
+  .floor-plan-workspace--immersive .project-header {
+    top: max(8px, env(safe-area-inset-top));
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-width: none;
+    padding: 10px !important;
+  }
+  .floor-plan-workspace--immersive .project-level-switcher {
+    top: 150px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-width: none;
+    max-height: 132px;
+    overflow-y: auto;
+    padding: 10px !important;
+  }
+  .floor-plan-workspace--immersive .project-layer-switcher {
+    top: 294px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-width: none;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    padding: 6px !important;
+  }
+  .floor-plan-workspace--immersive .project-layer-switcher::-webkit-scrollbar,
+  .floor-plan-workspace--immersive .project-tool-dock::-webkit-scrollbar {
+    display: none;
+  }
+  .floor-plan-workspace--immersive .project-layer-switcher > * {
+    flex: 0 0 auto;
+  }
+  .floor-plan-workspace--immersive .project-selection-panel {
+    left: 8px;
+    right: 8px;
+    bottom: 132px;
+    width: auto;
+    max-width: none;
+    max-height: 20dvh;
+  }
+  .floor-plan-workspace--immersive .project-settings-panel,
+  .floor-plan-workspace--immersive .project-wall-options {
+    left: 8px;
+    right: 8px;
+    bottom: 132px;
+    width: auto;
+    max-width: none;
+    max-height: 20dvh;
+  }
+  .floor-plan-workspace--immersive .project-furniture-panel {
+    top: 350px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-width: none;
+    max-height: 28dvh;
+  }
+  .floor-plan-workspace--immersive .project-inspector-panel {
+    top: 350px;
+    left: 8px;
+    right: 8px;
+    transform: none;
+    width: auto;
+    max-width: none;
+    max-height: 20dvh;
+  }
+  .floor-plan-workspace--immersive .project-tool-dock {
+    left: 8px;
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    transform: none;
+    width: auto;
+    max-width: none;
+  }
+  .floor-plan-workspace--immersive .project-canvas-stage > .canvas-panel.absolute.top-3 {
+    top: 350px !important;
+  }
+  .floor-plan-workspace--immersive .project-canvas-stage > .canvas-panel.absolute.right-3 {
+    top: 350px !important;
+  }
+  .floor-plan-workspace--immersive .project-canvas-stage > .canvas-panel.absolute.bottom-3 {
+    display: none !important;
+  }
+}
